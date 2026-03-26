@@ -48,9 +48,9 @@ data class TelemetryOutboxEntity(
 
 object TelemetryOutboxStatus {
     const val PENDING = "pending"
-    const val SENDING = "sending"
+    const val IN_FLIGHT = "in_flight"
     const val RETRY_WAIT = "retry_wait"
-    const val DELIVERED = "delivered"
-    const val CONTRACT_ERROR = "contract_error"
-    const val AUTH_ERROR = "auth_error"
+    const val SENT = "sent"
+    const val FAILED_TERMINAL = "failed_terminal"
+    const val FAILED_AUTH = "failed_auth"
 }

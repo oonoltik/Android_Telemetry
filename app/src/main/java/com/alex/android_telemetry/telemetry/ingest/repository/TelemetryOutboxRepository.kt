@@ -2,7 +2,6 @@ package com.alex.android_telemetry.telemetry.ingest.repository
 
 import com.alex.android_telemetry.telemetry.ingest.storage.TelemetryOutboxDao
 import com.alex.android_telemetry.telemetry.ingest.storage.TelemetryOutboxEntity
-import com.alex.android_telemetry.telemetry.ingest.storage.TelemetryOutboxStatus
 import kotlinx.datetime.Clock
 
 class TelemetryOutboxRepository(
@@ -15,13 +14,23 @@ class TelemetryOutboxRepository(
     }
 
     suspend fun getNextPending(limit: Int): List<TelemetryOutboxEntity> =
-        dao.getNextPending(limit = limit, nowEpochMs = clock.now().toEpochMilliseconds())
+        dao.getNextPending(
+            limit = limit,
+            nowEpochMs = clock.now().toEpochMilliseconds(),
+        )
 
     suspend fun markSending(id: Long) {
-        dao.markSending(id = id, updatedAtEpochMs = clock.now().toEpochMilliseconds())
+        dao.markInFlightById(
+            id = id,
+            updatedAtEpochMs = clock.now().toEpochMilliseconds(),
+        )
     }
 
-    suspend fun markDelivered(id: Long, serverStatus: String?, duplicate: Boolean?) {
+    suspend fun markDelivered(
+        id: Long,
+        serverStatus: String?,
+        duplicate: Boolean?,
+    ) {
         val now = clock.now().toEpochMilliseconds()
         dao.markDelivered(
             id = id,
@@ -32,7 +41,13 @@ class TelemetryOutboxRepository(
         )
     }
 
-    suspend fun markRetryWait(id: Long, attemptCount: Int, httpCode: Int?, error: String?, nextRetryAtEpochMs: Long) {
+    suspend fun markRetryWait(
+        id: Long,
+        attemptCount: Int,
+        httpCode: Int?,
+        error: String?,
+        nextRetryAtEpochMs: Long,
+    ) {
         dao.markRetryWait(
             id = id,
             attemptCount = attemptCount,
@@ -43,23 +58,59 @@ class TelemetryOutboxRepository(
         )
     }
 
-    suspend fun markContractError(id: Long, httpCode: Int?, error: String?) {
-        dao.markTerminalError(
-            id = id,
-            httpCode = httpCode,
-            error = error,
-            updatedAtEpochMs = clock.now().toEpochMilliseconds(),
-            status = TelemetryOutboxStatus.CONTRACT_ERROR,
+    suspend fun reclaimStaleInFlight(staleBeforeEpochMs: Long) {
+        val now = clock.now().toEpochMilliseconds()
+        dao.reclaimStaleInFlight(
+            staleBeforeEpochMs = staleBeforeEpochMs,
+            updatedAtEpochMs = now,
         )
     }
 
-    suspend fun markAuthError(id: Long, httpCode: Int?, error: String?) {
-        dao.markTerminalError(
+    suspend fun claimNextForDelivery(limit: Int): List<TelemetryOutboxEntity> {
+        val now = clock.now().toEpochMilliseconds()
+
+        val candidates = dao.findCandidatesForDelivery(
+            nowEpochMs = now,
+            limit = limit,
+        )
+
+        if (candidates.isEmpty()) return emptyList()
+
+        val ids = candidates.map { it.id }
+
+        val updated = dao.markInFlight(
+            ids = ids,
+            updatedAtEpochMs = now,
+        )
+
+        if (updated == 0) return emptyList()
+
+        return candidates
+    }
+
+    suspend fun markTerminalFailed(
+        id: Long,
+        httpCode: Int?,
+        error: String?,
+    ) {
+        dao.markTerminalFailed(
             id = id,
             httpCode = httpCode,
             error = error,
             updatedAtEpochMs = clock.now().toEpochMilliseconds(),
-            status = TelemetryOutboxStatus.AUTH_ERROR,
+        )
+    }
+
+    suspend fun markAuthFailed(
+        id: Long,
+        httpCode: Int?,
+        error: String?,
+    ) {
+        dao.markAuthFailed(
+            id = id,
+            httpCode = httpCode,
+            error = error,
+            updatedAtEpochMs = clock.now().toEpochMilliseconds(),
         )
     }
 }

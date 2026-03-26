@@ -12,10 +12,13 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.tooling.preview.Preview
 import com.alex.android_telemetry.ui.theme.Android_TelemetryTheme
+import com.alex.android_telemetry.telemetry.delivery.TelemetryDeliveryScheduler
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        val scheduler = TelemetryDeliveryScheduler(this)
+        scheduler.scheduleImmediate()
         enableEdgeToEdge()
         setContent {
             Android_TelemetryTheme {

@@ -7,6 +7,7 @@ import androidx.room.Query
 
 @Dao
 interface TelemetryOutboxDao {
+
     @Insert(onConflict = OnConflictStrategy.IGNORE)
     suspend fun insertOrIgnore(entity: TelemetryOutboxEntity): Long
 
@@ -20,7 +21,7 @@ interface TelemetryOutboxDao {
           AND (next_retry_at_epoch_ms IS NULL OR next_retry_at_epoch_ms <= :nowEpochMs)
         ORDER BY created_at_epoch_ms ASC
         LIMIT :limit
-        """,
+        """
     )
     suspend fun getNextPending(
         limit: Int,
@@ -35,12 +36,12 @@ interface TelemetryOutboxDao {
         SET status = :status,
             updated_at_epoch_ms = :updatedAtEpochMs
         WHERE id = :id
-        """,
+        """
     )
-    suspend fun markSending(
+    suspend fun markInFlightById(
         id: Long,
-        status: String = TelemetryOutboxStatus.SENDING,
         updatedAtEpochMs: Long,
+        status: String = TelemetryOutboxStatus.IN_FLIGHT,
     )
 
     @Query(
@@ -52,7 +53,7 @@ interface TelemetryOutboxDao {
             server_status = :serverStatus,
             server_duplicate = :serverDuplicate
         WHERE id = :id
-        """,
+        """
     )
     suspend fun markDelivered(
         id: Long,
@@ -60,7 +61,7 @@ interface TelemetryOutboxDao {
         updatedAtEpochMs: Long,
         serverStatus: String?,
         serverDuplicate: Boolean?,
-        status: String = TelemetryOutboxStatus.DELIVERED,
+        status: String = TelemetryOutboxStatus.SENT,
     )
 
     @Query(
@@ -73,7 +74,7 @@ interface TelemetryOutboxDao {
             next_retry_at_epoch_ms = :nextRetryAtEpochMs,
             updated_at_epoch_ms = :updatedAtEpochMs
         WHERE id = :id
-        """,
+        """
     )
     suspend fun markRetryWait(
         id: Long,
@@ -87,19 +88,88 @@ interface TelemetryOutboxDao {
 
     @Query(
         """
+        SELECT * FROM telemetry_outbox
+        WHERE (
+            status = :pendingStatus
+            OR (status = :retryWaitStatus AND next_retry_at_epoch_ms <= :nowEpochMs)
+        )
+        ORDER BY created_at_epoch_ms ASC
+        LIMIT :limit
+        """
+    )
+    suspend fun findCandidatesForDelivery(
+        nowEpochMs: Long,
+        limit: Int,
+        pendingStatus: String = TelemetryOutboxStatus.PENDING,
+        retryWaitStatus: String = TelemetryOutboxStatus.RETRY_WAIT,
+    ): List<TelemetryOutboxEntity>
+
+    @Query(
+        """
         UPDATE telemetry_outbox
-        SET status = :status,
+        SET status = :inFlightStatus,
+            updated_at_epoch_ms = :updatedAtEpochMs
+        WHERE id IN (:ids)
+          AND status IN (:pendingStatus, :retryWaitStatus)
+        """
+    )
+    suspend fun markInFlight(
+        ids: List<Long>,
+        updatedAtEpochMs: Long,
+        inFlightStatus: String = TelemetryOutboxStatus.IN_FLIGHT,
+        pendingStatus: String = TelemetryOutboxStatus.PENDING,
+        retryWaitStatus: String = TelemetryOutboxStatus.RETRY_WAIT,
+    ): Int
+
+    @Query(
+        """
+        UPDATE telemetry_outbox
+        SET status = :pendingStatus,
+            updated_at_epoch_ms = :updatedAtEpochMs
+        WHERE status = :inFlightStatus
+          AND updated_at_epoch_ms <= :staleBeforeEpochMs
+        """
+    )
+    suspend fun reclaimStaleInFlight(
+        staleBeforeEpochMs: Long,
+        updatedAtEpochMs: Long,
+        inFlightStatus: String = TelemetryOutboxStatus.IN_FLIGHT,
+        pendingStatus: String = TelemetryOutboxStatus.PENDING,
+    ): Int
+
+    @Query(
+        """
+        UPDATE telemetry_outbox
+        SET status = :failedStatus,
             last_http_code = :httpCode,
             last_error = :error,
             updated_at_epoch_ms = :updatedAtEpochMs
         WHERE id = :id
-        """,
+        """
     )
-    suspend fun markTerminalError(
+    suspend fun markTerminalFailed(
         id: Long,
         httpCode: Int?,
         error: String?,
         updatedAtEpochMs: Long,
-        status: String,
+        failedStatus: String = TelemetryOutboxStatus.FAILED_TERMINAL,
+    )
+
+    @Query(
+        """
+        UPDATE telemetry_outbox
+        SET status = :failedStatus,
+            last_http_code = :httpCode,
+            last_error = :error,
+            updated_at_epoch_ms = :updatedAtEpochMs
+        WHERE id = :id
+        """
+    )
+    suspend fun markAuthFailed(
+        id: Long,
+        httpCode: Int?,
+        error: String?,
+        updatedAtEpochMs: Long,
+        failedStatus: String = TelemetryOutboxStatus.FAILED_AUTH,
     )
 }
