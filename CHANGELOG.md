@@ -12,3 +12,14 @@
 ## v2 - Project Stabilized
 - Добавлены project context файлы
 - Подготовка к запуску и тестированию
+## v3 - Telemetry Delivery Pipeline (WIP)
+
+- Реализован TelemetryDeliveryGraph
+- Добавлен processor для выполнения delivery цикла
+- Добавлен TelemetryDeliveryWorker (CoroutineWorker)
+- Добавлен TelemetryDeliveryScheduler
+- Подключён запуск scheduler из MainActivity
+- Добавлено debug-логирование выполнения pipeline
+
+⚠️ Эмулятор API 36.1 нестабилен (ошибки установки APK)
+→ требуется переход на стабильный API (34/35)

@@ -5,6 +5,7 @@
 - assembleDebug работает
 - full build проходит (lint не блокирует)
 - Gradle и JAVA_HOME настроены
+- - Telemetry delivery pipeline реализован (не протестирован runtime)
 
 ## Fixed Issues
 - Исправлен конфликт java.time ↔ kotlinx.datetime
@@ -23,3 +24,7 @@ Next Critical Step
 Запустить приложение на эмуляторе или устройстве
 Проверить, что нет runtime crash
 Проверить работу telemetry pipeline
+
+## Blocking Issues
+- Эмулятор API 36.1 нестабилен (невозможно установить APK)
+- Требуется переход на стабильный Android image
