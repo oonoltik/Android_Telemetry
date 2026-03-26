@@ -1,17 +1,18 @@
-package com.alex.android_telemetry.sensors.normalizer
+package com.alex.android_telemetry.telemetry.math
 
 import kotlin.math.pow
+import kotlin.math.round
 
 object NumericSanitizer {
-    fun raw(x: Double): Double = if (x.isFinite()) x else 0.0
-
-    fun rawOptional(x: Double?): Double? = x?.takeIf { it.isFinite() }
-
     fun metric(x: Double, digits: Int = 6): Double {
         if (!x.isFinite()) return 0.0
-        val scale = 10.0.pow(digits.toDouble())
-        return kotlin.math.round(x * scale) / scale
+        val factor = 10.0.pow(digits)
+        return round(x * factor) / factor
     }
 
     fun metricOptional(x: Double?, digits: Int = 6): Double? = x?.let { metric(it, digits) }
+
+    fun sanitizeDouble(x: Double, digits: Int = 6): Double = metric(x, digits)
+
+    fun sanitizeDouble(x: Double?, digits: Int = 6): Double? = metricOptional(x, digits)
 }
