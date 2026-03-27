@@ -1,30 +1,63 @@
 # Project Status
 
 ## Current State
-- BUILD SUCCESSFUL
-- assembleDebug работает
-- full build проходит (lint не блокирует)
-- Gradle и JAVA_HOME настроены
-- - Telemetry delivery pipeline реализован (не протестирован runtime)
 
-## Fixed Issues
-- Исправлен конфликт java.time ↔ kotlinx.datetime
-- Добавлен и подключён NumericSanitizer
-- Исправлены API 24/26 проблемы (Clock)
-- Исправлены lint ошибки (permissions, NetworkState)
-- Исправлена сборка проекта (compile errors устранены)
+✅ BUILD SUCCESSFUL
+✅ Telemetry pipeline fully operational
+✅ Auth integration complete
+✅ Backend delivery working
+✅ Retry & fallback working
 
-## Verified Commands
-```powershell
-java -version
-.\gradlew clean assembleDebug
-.\gradlew clean build
+---
 
-Next Critical Step
-Запустить приложение на эмуляторе или устройстве
-Проверить, что нет runtime crash
-Проверить работу telemetry pipeline
+## Verified Runtime Behavior
 
-## Blocking Issues
-- Эмулятор API 36.1 нестабилен (невозможно установить APK)
-- Требуется переход на стабильный Android image
+* Worker запускается стабильно
+* Batch корректно попадает в outbox
+* Delivery выполняется:
+
+    * claim → send → success → mark delivered
+* Auth работает:
+
+    * challenge → register → token → reuse
+* Fallback работает:
+
+    * EU timeout → RU success
+
+---
+
+## Current System Behavior
+
+```
+Android → EU endpoint (timeout ❌)
+        → RU endpoint (200 ✅)
+```
+
+---
+
+## Key Metrics (observed)
+
+* backlog: ~2000 записей
+* batch size: 20
+* успешная доставка через fallback
+
+---
+
+## Known Limitation
+
+* EU endpoint не отвечает (SocketTimeout)
+* используется RU fallback
+
+---
+
+## Status Summary
+
+📌 **Система полностью работоспособна**
+📌 Осталась только инфраструктурная проблема EU endpoint
+
+---
+
+## Next Critical Step
+
+* разобраться с EU backend
+* оптимизировать throughput

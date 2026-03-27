@@ -1,17 +1,46 @@
 # Known Issues
 
 ## Current
-- Есть lint warnings (не блокируют сборку)
-- Telemetry pipeline не протестирован на устройстве
-- Нет runtime валидации данных
-- Эмулятор API 36.1 (preview) не позволяет устанавливать APK
-- ошибка: "Can't find service: package"
-- ошибка: Installation failed UNKNOWN
 
-## Possible Risks
-- Возможны runtime ошибки при работе с сенсорами
-- Возможны проблемы при отсутствии разрешений
-- Не проверена работа в фоне
+### 1. EU Endpoint Timeout
+
+* `https://api.drivetelemetry.com` не отвечает
+* ошибка:
+
+    * `SocketTimeoutException`
+* система использует fallback (RU)
+
+👉 Не блокирует delivery
+
+---
+
+### 2. Высокий backlog
+
+* ~2000+ записей в очереди
+* обрабатывается батчами по 20
+
+👉 Нужна оптимизация throughput
+
+---
+
+## Minor
+
+* Есть lint warnings (не критично)
+* Нет метрик (success rate / latency)
+* Нет runtime validation payload
+
+---
+
+## Resolved
+
+* ❌ WorkManager infinite loop
+* ❌ auth 403 (App Attest bypass)
+* ❌ token handling
+* ❌ delivery не работал
+
+---
 
 ## Notes
-- Проект сейчас на стадии "собирается, но не полностью протестирован"
+
+📌 Все критические проблемы решены
+📌 Остались только оптимизации и инфраструктура

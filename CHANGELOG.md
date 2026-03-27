@@ -1,25 +1,65 @@
 # Changelog
 
-## v1 - Build Fixed
-- Исправлены все compile ошибки
-- Настроен JAVA_HOME
-- Исправлены проблемы с Instant (java.time → kotlinx.datetime)
-- Исправлен NumericSanitizer
-- Исправлены API level проблемы (Clock)
-- Исправлены lint блокирующие ошибки
-- Проект успешно собирается
+## v4 - Android Telemetry Pipeline Complete ✅
 
-## v2 - Project Stabilized
-- Добавлены project context файлы
-- Подготовка к запуску и тестированию
+* Реализован полный Android telemetry pipeline:
+
+    * sensors → frames → batch → outbox → delivery → backend
+* Добавлен Android auth flow:
+
+    * `/auth/challenge`
+    * `/auth/register`
+    * bearer token
+* Реализован Android stub bypass (совместим с backend strict App Attest)
+* Добавлен TelemetryAuthManager:
+
+    * caching token
+    * expiry handling
+    * mutex (single-flight)
+* Интегрирован bearer в delivery API
+* Реализован retry + backoff
+* Реализована обработка 401/403:
+
+    * invalidate token
+    * повторная регистрация
+* Добавлен fallback delivery:
+
+    * EU → RU
+* Добавлено HTTP логирование:
+
+    * request
+    * response
+    * exceptions
+* Исправлен WorkManager loop:
+
+    * REPLACE → KEEP
+    * убран агрессивный scheduler spam
+* Подтверждён end-to-end delivery:
+
+    * `runOnce(): delivered id=...`
+
+📌 Статус: **Pipeline полностью работает**
+
+---
+
 ## v3 - Telemetry Delivery Pipeline (WIP)
 
-- Реализован TelemetryDeliveryGraph
-- Добавлен processor для выполнения delivery цикла
-- Добавлен TelemetryDeliveryWorker (CoroutineWorker)
-- Добавлен TelemetryDeliveryScheduler
-- Подключён запуск scheduler из MainActivity
-- Добавлено debug-логирование выполнения pipeline
+* Реализован TelemetryDeliveryGraph
+* Добавлен processor
+* Добавлен Worker
+* Добавлен scheduler
 
-⚠️ Эмулятор API 36.1 нестабилен (ошибки установки APK)
-→ требуется переход на стабильный API (34/35)
+---
+
+## v2 - Project Stabilized
+
+* Добавлены project context файлы
+* Подготовка к запуску
+
+---
+
+## v1 - Build Fixed
+
+* Исправлены compile ошибки
+* Настроен JAVA_HOME
+* Исправлены проблемы времени и API

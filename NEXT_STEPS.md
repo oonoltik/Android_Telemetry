@@ -1,25 +1,74 @@
-
-
-```md
 # Next Steps
 
-## Immediate
+## Immediate (High Priority)
 
-- Пересоздать эмулятор (API 34 или 35)
-- Запустить приложение
-- Проверить запуск без падений
-- Убедиться, что TelemetryDeliveryWorker запускается
-- Проверить логи выполнения pipeline
-- Проверить, что scheduler реально триггерит worker
-## After that
-- Добавить логирование telemetry
-- Проверить edge cases:
-  - нет GPS
-  - потеря сети
-- Очистить warnings (не критично)
-- Проверить release сборку
+### 1. Fix EU endpoint
 
-## Later
-- Оптимизация архитектуры
-- Улучшение обработки ошибок
-- Подготовка к production
+* проверить backend
+* проверить latency
+* проверить routing / firewall
+
+---
+
+### 2. Ускорить delivery
+
+* увеличить batch size
+* добавить несколько runOnce() за worker
+* уменьшить backlog
+
+---
+
+## Short Term
+
+### 3. Добавить метрики
+
+* success rate
+* retry rate
+* latency
+
+---
+
+### 4. Улучшить retry
+
+* adaptive backoff
+* smarter retry policy
+
+---
+
+## Mid Term
+
+### 5. Параллельная отправка
+
+* несколько batch одновременно
+* ограничение concurrency
+
+---
+
+### 6. Payload validation
+
+* schema check
+* size limits
+
+---
+
+## Long Term
+
+### 7. Align с iOS pipeline
+
+* унификация логики
+* shared контракт
+
+---
+
+## Optional
+
+* отключить EU временно
+* использовать только RU endpoint
+
+---
+
+## Goal
+
+📌 Production-ready telemetry ingestion
+📌 Высокая надёжность доставки
+📌 Минимальная latency

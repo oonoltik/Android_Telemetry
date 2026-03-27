@@ -1,135 +1,109 @@
 # Android Telemetry Project
 
 ## Overview
-Android приложение для сбора телеметрии с устройства:
-- GPS (location)
-- IMU (accelerometer, gyroscope)
-- Heading / orientation
-- Network state
-- Device state
 
-Данные агрегируются в батчи и подготавливаются для отправки.
+Android приложение для сбора и отправки телеметрии:
+
+* GPS
+* IMU (accelerometer, gyroscope)
+* orientation
+* network state
+* device state
+
+Данные проходят pipeline:
+
+```
+sensors → frames → batch → outbox → delivery → backend
+```
 
 ---
 
 ## Current Status
-✅ Project builds successfully  
-✅ Gradle configured  
-✅ Lint blocking issues fixed  
-⚠️ Runtime behavior not fully verified
-⚠️ Telemetry delivery pipeline реализован, но не протестирован на устройстве
-⚠️ Возможны проблемы с эмулятором API 36.1 (preview)
 
-Подробнее смотри: `PROJECT_STATUS.md`
+✅ Pipeline полностью работает
+✅ Auth интегрирован
+✅ Delivery подтверждён (`delivered id=...`)
+⚠️ EU endpoint не отвечает (используется fallback)
+
+Подробнее: `PROJECT_STATUS.md`
+
+---
+
+## Architecture
+
+### Ingestion
+
+* sensors → frames → batch
+
+### Storage
+
+* Room (outbox)
+
+### Delivery
+
+* WorkManager
+* retry + backoff
+* fallback (EU → RU)
+
+### Auth
+
+* `/auth/challenge`
+* `/auth/register`
+* bearer token
+* Android stub bypass
 
 ---
 
 ## Quick Start
 
-### 1. Проверить Java
-```powershell
-java -version
-2. Собрать debug APK
-.\gradlew clean assembleDebug
-3. Полная проверка
-.\gradlew clean build
-4. Запустить приложение
-Через Android Studio → Run
-Или на эмуляторе / устройстве
-Project Structure
-app/
-  ├── sensors/           # источники данных (GPS, IMU и т.д.)
-  ├── telemetry/         # доменные модели и pipeline
-  │    ├── domain/
-  │    ├── ingest/
-  │    └── mapper/
-  ├── platform/          # Android-specific реализации
-  └── ui/ (если есть)
+```bash
+./gradlew clean assembleDebug
+```
 
-gradle/                  # Gradle wrapper
-Key Technical Notes
-Time Handling
+Запуск:
 
-Используется:
+* через Android Studio
+* или на устройстве
 
-kotlinx.datetime.Instant
+---
 
-❌ НЕ используется java.time (из-за minSdk 24)
+## Logs
 
-Numeric Processing
+Для диагностики:
 
-Используется:
+```bash
+adb logcat -s TelemetryDelivery
+```
 
-NumericSanitizer
+---
 
-Для:
+## Known Behavior
 
-фильтрации NaN / Infinity
-округления значений
-API Compatibility
-minSdk: 24
-избегаются API 26+ без необходимости
-заменён java.time.Clock → kotlinx.datetime.Clock
-Known Limitations
-Telemetry pipeline не проверен полностью на устройстве
-Есть не критичные warnings
-Нет полной runtime-валидации данных
+* EU endpoint может таймаутить
+* RU fallback стабильно работает
 
-Подробнее: KNOWN_ISSUES.md
+---
 
-Next Steps
-- использовать стабильный эмулятор (API 34/35)
-- проверить выполнение TelemetryDeliveryWorker
+## Development Notes
 
-Смотри: NEXT_STEPS.md
+* используется `kotlinx.datetime`
+* minSdk = 24
+* OkHttp для networking
+* WorkManager для delivery
 
-Коротко:
+---
 
-запустить приложение
-проверить сбор данных
-добавить логирование
-протестировать edge cases
-Troubleshooting
-Gradle не запускается
+## Context Files
 
-Проверь:
+* PROJECT_STATUS.md
+* NEXT_STEPS.md
+* KNOWN_ISSUES.md
+* CHANGELOG.md
 
-java -version
+---
 
-Если ошибка:
+## Goal
 
-JAVA_HOME is not set
-
-→ настроить:
-
-$env:JAVA_HOME="C:\Program Files\Android\Android Studio\jbr"
-Build падает на lint
-
-Проверь:
-
-permissions в AndroidManifest.xml
-API level (не использовать java.time)
-Useful Commands
-# сборка debug
-.\gradlew assembleDebug
-
-# полная сборка
-.\gradlew build
-
-# очистка
-.\gradlew clean
-Context Files
-
-Этот проект содержит дополнительные файлы для быстрого входа в контекст:
-
-PROJECT_STATUS.md — текущее состояние
-NEXT_STEPS.md — что делать дальше
-KNOWN_ISSUES.md — известные проблемы
-CHANGELOG.md — история изменений
-Goal
-
-Цель проекта:
-
-стабильный сбор телеметрии
-корректная обработка данных
-подготовка к отправке на backend
+📌 Надёжный telemetry pipeline
+📌 Гарантированная доставка данных
+📌 Готовность к production
