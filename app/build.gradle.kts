@@ -21,6 +21,12 @@ android {
         versionName = "1.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+
+        buildConfigField(
+            "String",
+            "ANDROID_REGISTER_KEY",
+            "\"${project.findProperty("ANDROID_REGISTER_KEY") as String? ?: ""}\""
+        )
     }
 
     buildTypes {
@@ -32,12 +38,15 @@ android {
             )
         }
     }
+
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_11
         targetCompatibility = JavaVersion.VERSION_11
     }
+
     buildFeatures {
         compose = true
+        buildConfig = true
     }
 }
 

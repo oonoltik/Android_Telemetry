@@ -1,6 +1,7 @@
 package com.alex.android_telemetry.telemetry.delivery
 
 import android.util.Log
+import com.alex.android_telemetry.telemetry.auth.TelemetryAuthManager
 import com.alex.android_telemetry.telemetry.delivery.api.TelemetryApiResult
 import com.alex.android_telemetry.telemetry.delivery.api.TelemetryDeliveryApi
 import com.alex.android_telemetry.telemetry.ingest.repository.TelemetryOutboxRepository
@@ -12,6 +13,7 @@ class TelemetryDeliveryProcessor(
     private val retryDecider: TelemetryRetryDecider,
     private val backoffCalculator: TelemetryBackoffCalculator,
     private val policy: TelemetryDeliveryPolicy,
+    private val authManager: TelemetryAuthManager,
     private val clock: Clock = Clock.System,
 ) {
     suspend fun runOnce(): DeliveryRunResult {
@@ -98,10 +100,19 @@ class TelemetryDeliveryProcessor(
                         }
 
                         is RetryDecision.FailAuth -> {
-                            repository.markAuthFailed(item.id, null, decision.reason)
+                            authManager.invalidateToken()
+                            repository.markRetryWait(
+                                id = item.id,
+                                attemptCount = attempt,
+                                httpCode = null,
+                                error = decision.reason,
+                                nextRetryAtEpochMs = now + 1_000L,
+                            )
+                            hasRetryableLeft = true
+
                             Log.d(
                                 "TelemetryDelivery",
-                                "runOnce(): auth fail id=${item.id} reason=${decision.reason}"
+                                "runOnce(): auth retry scheduled id=${item.id} reason=${decision.reason}"
                             )
                         }
                     }
@@ -149,10 +160,19 @@ class TelemetryDeliveryProcessor(
                         }
 
                         is RetryDecision.FailAuth -> {
-                            repository.markAuthFailed(item.id, result.code, decision.reason)
+                            authManager.invalidateToken()
+                            repository.markRetryWait(
+                                id = item.id,
+                                attemptCount = attempt,
+                                httpCode = result.code,
+                                error = decision.reason,
+                                nextRetryAtEpochMs = now + 1_000L,
+                            )
+                            hasRetryableLeft = true
+
                             Log.d(
                                 "TelemetryDelivery",
-                                "runOnce(): auth fail id=${item.id} code=${result.code}"
+                                "runOnce(): auth retry scheduled id=${item.id} code=${result.code}"
                             )
                         }
                     }

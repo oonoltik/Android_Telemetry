@@ -40,7 +40,7 @@ class TelemetryDeliveryScheduler(
 
         WorkManager.getInstance(context).enqueueUniqueWork(
             IMMEDIATE_WORK_NAME,
-            ExistingWorkPolicy.REPLACE,
+            ExistingWorkPolicy.KEEP,
             request,
         )
     }

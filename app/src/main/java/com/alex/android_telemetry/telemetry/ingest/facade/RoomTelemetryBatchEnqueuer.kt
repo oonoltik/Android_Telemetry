@@ -49,7 +49,7 @@ class RoomTelemetryBatchEnqueuer(
         )
 
         if (inserted) {
-            scheduler.scheduleImmediateDebug()
+//            scheduler.scheduleImmediate()
         }
     }
 }

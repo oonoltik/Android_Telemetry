@@ -14,14 +14,19 @@ class TelemetryDeliveryWorker(
         Log.d("TelemetryDelivery", "Worker started")
 
         val graph = TelemetryDeliveryGraph.from(applicationContext)
-        val result = graph.processor.runOnce()
 
-        Log.d("TelemetryDelivery", "Result: $result")
-
-        return when (result) {
-            is DeliveryRunResult.Idle -> Result.success()
-            is DeliveryRunResult.Progress -> Result.success()
-            else -> Result.retry()
+        repeat(10) {
+            when (val result = graph.processor.runOnce()) {
+                is DeliveryRunResult.Idle -> {
+                    Log.d("TelemetryDelivery", "Result: $result")
+                    return Result.success()
+                }
+                is DeliveryRunResult.Progress -> {
+                    Log.d("TelemetryDelivery", "Result: $result")
+                }
+            }
         }
+
+        return Result.success()
     }
 }

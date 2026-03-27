@@ -1,11 +1,18 @@
 package com.alex.android_telemetry.telemetry.delivery
 
 import android.content.Context
+import com.alex.android_telemetry.BuildConfig
+import com.alex.android_telemetry.telemetry.auth.TelemetryAuthApi
+import com.alex.android_telemetry.telemetry.auth.TelemetryAuthManager
+import com.alex.android_telemetry.telemetry.auth.TelemetryDeviceIdProvider
+import com.alex.android_telemetry.telemetry.auth.TelemetryKeyIdStore
+import com.alex.android_telemetry.telemetry.auth.TelemetryTokenStore
 import com.alex.android_telemetry.telemetry.delivery.api.OkHttpTelemetryDeliveryApi
 import com.alex.android_telemetry.telemetry.delivery.storage.TelemetryDatabase
 import com.alex.android_telemetry.telemetry.ingest.repository.TelemetryOutboxRepository
 import kotlinx.serialization.json.Json
 import okhttp3.OkHttpClient
+import android.util.Log
 
 class TelemetryDeliveryGraph(
     val processor: TelemetryDeliveryProcessor,
@@ -28,11 +35,36 @@ class TelemetryDeliveryGraph(
                 encodeDefaults = false
             }
 
-            val authTokenProvider: suspend () -> String? = { null }
+            val deviceIdProvider = TelemetryDeviceIdProvider(context)
+            val tokenStore = TelemetryTokenStore(context)
+            val keyIdStore = TelemetryKeyIdStore(context)
+
+            val authApi = TelemetryAuthApi(
+                baseUrl = TelemetryBackendConfig.EU_BASE_URL,
+                androidRegisterKey = BuildConfig.ANDROID_REGISTER_KEY,
+                client = okHttpClient,
+                json = json,
+            )
+            Log.d("TelemetryDelivery", "ANDROID_REGISTER_KEY empty=${BuildConfig.ANDROID_REGISTER_KEY.isBlank()}")
+            val authManager = TelemetryAuthManager(
+                authApi = authApi,
+                tokenStore = tokenStore,
+                keyIdStore = keyIdStore,
+                deviceIdProvider = deviceIdProvider,
+            )
+
+            val authTokenProvider: suspend () -> String? = {
+                authManager.getValidToken()
+            }
+
+            val onUnauthorized: suspend () -> Unit = {
+                authManager.invalidateToken()
+            }
 
             val euApi = OkHttpTelemetryDeliveryApi(
                 baseUrl = TelemetryBackendConfig.EU_BASE_URL,
                 authTokenProvider = authTokenProvider,
+                onUnauthorized = onUnauthorized,
                 client = okHttpClient,
                 json = json,
             )
@@ -40,6 +72,7 @@ class TelemetryDeliveryGraph(
             val ruApi = OkHttpTelemetryDeliveryApi(
                 baseUrl = TelemetryBackendConfig.RU_BASE_URL,
                 authTokenProvider = authTokenProvider,
+                onUnauthorized = onUnauthorized,
                 client = okHttpClient,
                 json = json,
             )
@@ -55,6 +88,7 @@ class TelemetryDeliveryGraph(
                 retryDecider = retryDecider,
                 backoffCalculator = backoff,
                 policy = policy,
+                authManager = authManager,
             )
 
             return TelemetryDeliveryGraph(processor)
