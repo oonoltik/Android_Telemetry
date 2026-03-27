@@ -1,5 +1,6 @@
 package com.alex.android_telemetry.telemetry.ingest.facade
 
+import android.util.Log
 import com.alex.android_telemetry.telemetry.delivery.TelemetryDeliveryScheduler
 import com.alex.android_telemetry.telemetry.domain.model.TelemetryBatch
 import com.alex.android_telemetry.telemetry.ingest.TelemetryBatchEnqueuer
@@ -42,8 +43,13 @@ class RoomTelemetryBatchEnqueuer(
             ),
         )
 
+        Log.d(
+            "TelemetryDelivery",
+            "enqueue(): batchId=${batch.batchId} seq=${batch.batchSeq} inserted=$inserted"
+        )
+
         if (inserted) {
-            scheduler.scheduleImmediate()
+            scheduler.scheduleImmediateDebug()
         }
     }
 }

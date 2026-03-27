@@ -1,8 +1,10 @@
 package com.alex.android_telemetry.telemetry.ingest.repository
 
+import android.util.Log
 import com.alex.android_telemetry.telemetry.ingest.storage.TelemetryOutboxDao
 import com.alex.android_telemetry.telemetry.ingest.storage.TelemetryOutboxEntity
 import kotlinx.datetime.Clock
+
 
 class TelemetryOutboxRepository(
     private val dao: TelemetryOutboxDao,
@@ -82,6 +84,8 @@ class TelemetryOutboxRepository(
             ids = ids,
             updatedAtEpochMs = now,
         )
+        Log.d("TelemetryDelivery", "claimNextForDelivery(): candidates=${candidates.size}")
+        Log.d("TelemetryDelivery", "claimNextForDelivery(): updated=$updated ids=$ids")
 
         if (updated == 0) return emptyList()
 
@@ -113,4 +117,7 @@ class TelemetryOutboxRepository(
             updatedAtEpochMs = clock.now().toEpochMilliseconds(),
         )
     }
+
+    suspend fun countReadyForDelivery(nowEpochMs: Long): Int =
+        dao.countReadyForDelivery(nowEpochMs)
 }

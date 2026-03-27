@@ -7,6 +7,6 @@ interface EventThresholdResolver {
 }
 
 data class BatchFlushPolicy(
-    val maxWindowMs: Long = 10_000,
+    val maxWindowMs: Long = 15_000,
     val maxFrames: Int = 50,
 )

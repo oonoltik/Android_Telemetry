@@ -12,6 +12,10 @@ data class ImuSample(
     val gyroX: Double? = null,
     val gyroY: Double? = null,
     val gyroZ: Double? = null,
+
+    val yaw: Double? = null,
+    val pitch: Double? = null,
+    val roll: Double? = null,
 )
 
 data class LocationFix(
@@ -129,6 +133,12 @@ data class EventThresholdSet(
     val roadCooldownS: Double = 1.2,
 )
 
+data class Attitude(
+    val yaw: Double? = null,
+    val pitch: Double? = null,
+    val roll: Double? = null,
+)
+
 data class TelemetryFrame(
     val timestamp: Instant,
     val location: LocationFix? = null,
@@ -137,6 +147,7 @@ data class TelemetryFrame(
     val deviceState: DeviceStateSnapshot? = null,
     val networkState: NetworkStateSnapshot? = null,
     val motionVector: MotionVector? = null,
+    val attitude: Attitude? = null,
 )
 
 data class TelemetryBatch(

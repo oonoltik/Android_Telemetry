@@ -274,6 +274,7 @@ class TelemetryFacade(
 ) {
     fun observeState(): StateFlow<TripRuntimeState> = orchestrator.state
 
+    suspend fun restore() = orchestrator.restore()
     suspend fun startTrip() = orchestrator.startTrip()
     suspend fun stopTrip() = orchestrator.stopTrip()
     suspend fun pauseCollection() = orchestrator.pauseCollection()

@@ -21,6 +21,7 @@ import com.alex.android_telemetry.telemetry.math.NumericSanitizer
 import kotlinx.datetime.Instant
 
 class TelemetryBatchDtoMapper {
+
     fun map(batch: TelemetryBatch): TelemetryBatchDto = TelemetryBatchDto(
         deviceId = batch.deviceId,
         driverId = batch.driverId,
@@ -55,15 +56,21 @@ class TelemetryBatchDtoMapper {
                 y = NumericSanitizer.sanitizeDouble(frame.imu?.accelY),
                 z = NumericSanitizer.sanitizeDouble(frame.imu?.accelZ),
             )
-        } else null,
+        } else {
+            null
+        },
         rotation = if (frame.imu?.gyroX != null || frame.imu?.gyroY != null || frame.imu?.gyroZ != null) {
             Axis3Dto(
                 x = NumericSanitizer.sanitizeDouble(frame.imu?.gyroX),
                 y = NumericSanitizer.sanitizeDouble(frame.imu?.gyroY),
                 z = NumericSanitizer.sanitizeDouble(frame.imu?.gyroZ),
             )
-        } else null,
-        headingDeg = NumericSanitizer.sanitizeDouble(frame.heading?.trueHeadingDeg ?: frame.heading?.magneticHeadingDeg),
+        } else {
+            null
+        },
+        headingDeg = NumericSanitizer.sanitizeDouble(
+            frame.heading?.trueHeadingDeg ?: frame.heading?.magneticHeadingDeg,
+        ),
         headingAccuracyDeg = NumericSanitizer.sanitizeDouble(frame.heading?.accuracyDeg),
         longitudinalAccelG = NumericSanitizer.sanitizeDouble(frame.motionVector?.aLongG),
         lateralAccelG = NumericSanitizer.sanitizeDouble(frame.motionVector?.aLatG),

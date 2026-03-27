@@ -172,4 +172,19 @@ interface TelemetryOutboxDao {
         updatedAtEpochMs: Long,
         failedStatus: String = TelemetryOutboxStatus.FAILED_AUTH,
     )
+
+    @Query(
+        """
+    SELECT COUNT(*) FROM telemetry_outbox
+    WHERE (
+        status = :pendingStatus
+        OR (status = :retryWaitStatus AND next_retry_at_epoch_ms <= :nowEpochMs)
+    )
+    """
+    )
+    suspend fun countReadyForDelivery(
+        nowEpochMs: Long,
+        pendingStatus: String = TelemetryOutboxStatus.PENDING,
+        retryWaitStatus: String = TelemetryOutboxStatus.RETRY_WAIT,
+    ): Int
 }

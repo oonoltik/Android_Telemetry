@@ -1,6 +1,7 @@
 package com.alex.android_telemetry.telemetry.delivery
 
 import android.content.Context
+import android.util.Log
 import androidx.work.Constraints
 import androidx.work.ExistingPeriodicWorkPolicy
 import androidx.work.ExistingWorkPolicy
@@ -14,6 +15,8 @@ class TelemetryDeliveryScheduler(
     private val context: Context,
 ) {
     fun scheduleImmediate() {
+        Log.d("TelemetryDelivery", "scheduleImmediate()")
+
         val request = OneTimeWorkRequestBuilder<TelemetryDeliveryWorker>()
             .setConstraints(
                 Constraints.Builder()
@@ -23,13 +26,28 @@ class TelemetryDeliveryScheduler(
             .build()
 
         WorkManager.getInstance(context).enqueueUniqueWork(
-            "telemetry_delivery_immediate",
+            IMMEDIATE_WORK_NAME,
             ExistingWorkPolicy.KEEP,
             request,
         )
     }
 
+    fun scheduleImmediateDebug() {
+        Log.d("TelemetryDelivery", "scheduleImmediateDebug()")
+
+        val request = OneTimeWorkRequestBuilder<TelemetryDeliveryWorker>()
+            .build()
+
+        WorkManager.getInstance(context).enqueueUniqueWork(
+            IMMEDIATE_WORK_NAME,
+            ExistingWorkPolicy.REPLACE,
+            request,
+        )
+    }
+
     fun schedulePeriodic() {
+        Log.d("TelemetryDelivery", "schedulePeriodic()")
+
         val request = PeriodicWorkRequestBuilder<TelemetryDeliveryWorker>(15, TimeUnit.MINUTES)
             .setConstraints(
                 Constraints.Builder()
@@ -39,9 +57,14 @@ class TelemetryDeliveryScheduler(
             .build()
 
         WorkManager.getInstance(context).enqueueUniquePeriodicWork(
-            "telemetry_delivery_periodic",
+            PERIODIC_WORK_NAME,
             ExistingPeriodicWorkPolicy.KEEP,
             request,
         )
+    }
+
+    companion object {
+        private const val IMMEDIATE_WORK_NAME = "telemetry_delivery_immediate"
+        private const val PERIODIC_WORK_NAME = "telemetry_delivery_periodic"
     }
 }
