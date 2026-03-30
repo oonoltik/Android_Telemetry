@@ -4,6 +4,7 @@ import android.content.Context
 import android.hardware.SensorManager
 import android.net.ConnectivityManager
 import android.os.PowerManager
+import android.os.SystemClock
 import com.alex.android_telemetry.sensors.platform.AndroidAccelerometerSource
 import com.alex.android_telemetry.sensors.platform.AndroidDeviceStateSource
 import com.alex.android_telemetry.sensors.platform.AndroidGyroscopeSource
@@ -11,25 +12,25 @@ import com.alex.android_telemetry.sensors.platform.AndroidHeadingSource
 import com.alex.android_telemetry.sensors.platform.AndroidLocationSource
 import com.alex.android_telemetry.sensors.platform.AndroidNetworkStateSource
 import com.alex.android_telemetry.sensors.platform.AndroidSensorTimestampConverter
+import com.alex.android_telemetry.telemetry.auth.TelemetryDeviceIdProvider
 import com.alex.android_telemetry.telemetry.batching.BatchIdGenerator
-import com.alex.android_telemetry.telemetry.batching.BatchSequenceStore
+import com.alex.android_telemetry.telemetry.batching.PersistentBatchSequenceStore
 import com.alex.android_telemetry.telemetry.batching.TelemetryBatchBuilder
 import com.alex.android_telemetry.telemetry.batching.TelemetryFrameAssembler
+import com.alex.android_telemetry.telemetry.delivery.TelemetryDeliveryGraph
 import com.alex.android_telemetry.telemetry.delivery.TelemetryDeliveryScheduler
-import com.alex.android_telemetry.telemetry.delivery.storage.TelemetryDatabase
-import com.alex.android_telemetry.telemetry.detectors.MotionVectorComputer
+import com.alex.android_telemetry.telemetry.domain.policy.BatchFlushPolicy
 import com.alex.android_telemetry.telemetry.ingest.facade.RoomTelemetryBatchEnqueuer
 import com.alex.android_telemetry.telemetry.ingest.mapper.TelemetryBatchDtoMapper
 import com.alex.android_telemetry.telemetry.ingest.repository.TelemetryOutboxRepository
-import com.alex.android_telemetry.telemetry.runtime.InMemoryTripRuntimeStateStore
+import com.alex.android_telemetry.telemetry.runtime.PersistentTripRuntimeStateStore
 import com.alex.android_telemetry.telemetry.runtime.StaticThresholdResolver
 import com.alex.android_telemetry.telemetry.runtime.TelemetryFacade
 import com.alex.android_telemetry.telemetry.runtime.TelemetryOrchestrator
-import com.alex.android_telemetry.telemetry.domain.policy.BatchFlushPolicy
 import com.google.android.gms.location.LocationServices
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
-import android.os.SystemClock
+import kotlinx.serialization.json.Json
 
 class TelemetryAppGraph private constructor(
     val facade: TelemetryFacade,
@@ -45,15 +46,32 @@ class TelemetryAppGraph private constructor(
             }
 
         private fun build(context: Context): TelemetryAppGraph {
-            val database = TelemetryDatabase.get(context)
+            val database = com.alex.android_telemetry.telemetry.delivery.storage.TelemetryDatabase.get(context)
             val repository = TelemetryOutboxRepository(database.telemetryOutboxDao())
             val scheduler = TelemetryDeliveryScheduler(context)
             val mapper = TelemetryBatchDtoMapper()
+
+            val appJson = Json {
+                ignoreUnknownKeys = true
+                encodeDefaults = false
+                explicitNulls = false
+            }
+
+            val deliveryGraph = TelemetryDeliveryGraph.from(context)
+            val telemetryDeviceIdProvider = TelemetryDeviceIdProvider(context)
+
+            val driverPrefs = context.getSharedPreferences("telemetry_driver", Context.MODE_PRIVATE)
+            val driverIdProvider: () -> String? = {
+                driverPrefs.getString("driver_id", "analitik7")
+                    ?.trim()
+                    ?.takeIf { it.isNotEmpty() }
+            }
 
             val enqueuer = RoomTelemetryBatchEnqueuer(
                 mapper = mapper,
                 repository = repository,
                 scheduler = scheduler,
+                json = appJson,
             )
 
             val sensorManager = context.getSystemService(Context.SENSOR_SERVICE) as SensorManager
@@ -64,11 +82,15 @@ class TelemetryAppGraph private constructor(
                 nowElapsedRealtimeNsProvider = { SystemClock.elapsedRealtimeNanos() },
             )
 
+            val batchSequenceStore = PersistentBatchSequenceStore(context)
+            val runtimeStateStore = PersistentTripRuntimeStateStore(context)
+
             val orchestrator = TelemetryOrchestrator(
                 scope = CoroutineScope(Dispatchers.Default),
-                deviceIdProvider = { "android-device-id" },
-                driverIdProvider = { "driver-123" },
-                transportModeProvider = { "car" },
+                deviceIdProvider = { telemetryDeviceIdProvider.get() },
+                driverIdProvider = driverIdProvider,
+                transportModeProvider = { "unknown" },
+                tripRepository = deliveryGraph.tripRepository,
                 accelerometerSource = AndroidAccelerometerSource(
                     sensorManager = sensorManager,
                     timestampConverter = timestampConverter,
@@ -93,17 +115,18 @@ class TelemetryAppGraph private constructor(
                 ),
                 thresholdResolver = StaticThresholdResolver(),
                 frameAssembler = TelemetryFrameAssembler(),
-                motionVectorComputer = MotionVectorComputer(),
+                motionVectorComputer = com.alex.android_telemetry.telemetry.detectors.MotionVectorComputer(),
                 batchBuilder = TelemetryBatchBuilder(
                     flushPolicy = BatchFlushPolicy(
                         maxWindowMs = 15_000,
                         maxFrames = 50,
                     ),
-                    batchSequenceStore = BatchSequenceStore(),
+                    batchSequenceStore = batchSequenceStore,
                     batchIdGenerator = BatchIdGenerator(),
                 ),
+                batchSequenceStore = batchSequenceStore,
                 batchEnqueuer = enqueuer,
-                runtimeStateStore = InMemoryTripRuntimeStateStore(),
+                runtimeStateStore = runtimeStateStore,
             )
 
             return TelemetryAppGraph(

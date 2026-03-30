@@ -120,4 +120,7 @@ class TelemetryOutboxRepository(
 
     suspend fun countReadyForDelivery(nowEpochMs: Long): Int =
         dao.countReadyForDelivery(nowEpochMs)
+
+    suspend fun countUndeliveredForSession(sessionId: String): Int =
+        dao.countUndeliveredForSession(sessionId)
 }

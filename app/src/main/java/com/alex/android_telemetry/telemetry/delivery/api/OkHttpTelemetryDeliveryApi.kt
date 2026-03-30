@@ -1,5 +1,6 @@
 package com.alex.android_telemetry.telemetry.delivery.api
 
+import android.util.Log
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.json.Json
@@ -7,10 +8,10 @@ import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import okhttp3.RequestBody.Companion.toRequestBody
-import android.util.Log
 
 class OkHttpTelemetryDeliveryApi(
     private val baseUrl: String,
+    private val route: DeliveryRoute,
     private val authTokenProvider: suspend () -> String?,
     private val onUnauthorized: suspend () -> Unit,
     private val client: OkHttpClient,
@@ -19,9 +20,7 @@ class OkHttpTelemetryDeliveryApi(
 
     override suspend fun sendBatch(payloadJson: String): TelemetryApiResult =
         withContext(Dispatchers.IO) {
-
             val token = authTokenProvider()
-
             val body = payloadJson.toRequestBody("application/json".toMediaType())
 
             val request = Request.Builder()
@@ -36,7 +35,7 @@ class OkHttpTelemetryDeliveryApi(
 
             Log.d(
                 "TelemetryDelivery",
-                "HTTP POST ${baseUrl.trimEnd('/')}/ingest tokenPresent=${!token.isNullOrBlank()}"
+                "HTTP POST ${baseUrl.trimEnd('/')}/ingest route=$route tokenPresent=${!token.isNullOrBlank()}"
             )
 
             try {
@@ -45,7 +44,7 @@ class OkHttpTelemetryDeliveryApi(
 
                     Log.d(
                         "TelemetryDelivery",
-                        "HTTP response code=${response.code} body=${responseBody?.take(300)}"
+                        "HTTP response code=${response.code} route=$route body=${responseBody?.take(300)}"
                     )
 
                     if (response.isSuccessful) {
@@ -58,6 +57,7 @@ class OkHttpTelemetryDeliveryApi(
                         return@withContext TelemetryApiResult.Success(
                             status = parsed?.status,
                             duplicate = parsed?.duplicate,
+                            route = route,
                         )
                     }
 
@@ -65,6 +65,7 @@ class OkHttpTelemetryDeliveryApi(
                         return@withContext TelemetryApiResult.Success(
                             status = "duplicate",
                             duplicate = true,
+                            route = route,
                         )
                     }
 
@@ -80,7 +81,7 @@ class OkHttpTelemetryDeliveryApi(
             } catch (t: Throwable) {
                 Log.d(
                     "TelemetryDelivery",
-                    "HTTP exception: ${t::class.java.simpleName}: ${t.message}"
+                    "HTTP exception route=$route: ${t::class.java.simpleName}: ${t.message}"
                 )
 
                 return@withContext TelemetryApiResult.NetworkError(t.message)

@@ -2,6 +2,7 @@ package com.alex.android_telemetry.telemetry.delivery
 
 import android.util.Log
 import com.alex.android_telemetry.telemetry.auth.TelemetryAuthManager
+import com.alex.android_telemetry.telemetry.delivery.api.DeliveryRoute
 import com.alex.android_telemetry.telemetry.delivery.api.TelemetryApiResult
 import com.alex.android_telemetry.telemetry.delivery.api.TelemetryDeliveryApi
 import com.alex.android_telemetry.telemetry.ingest.repository.TelemetryOutboxRepository
@@ -14,6 +15,7 @@ class TelemetryDeliveryProcessor(
     private val backoffCalculator: TelemetryBackoffCalculator,
     private val policy: TelemetryDeliveryPolicy,
     private val authManager: TelemetryAuthManager,
+    private val onBatchDelivered: suspend (sessionId: String, route: DeliveryRoute) -> Unit,
     private val clock: Clock = Clock.System,
 ) {
     suspend fun runOnce(): DeliveryRunResult {
@@ -50,11 +52,13 @@ class TelemetryDeliveryProcessor(
                         serverStatus = result.status,
                         duplicate = result.duplicate,
                     )
+
+                    onBatchDelivered(item.sessionId, result.route)
                     deliveredCount++
 
                     Log.d(
                         "TelemetryDelivery",
-                        "runOnce(): delivered id=${item.id} batchId=${item.batchId} duplicate=${result.duplicate}"
+                        "runOnce(): delivered id=${item.id} batchId=${item.batchId} duplicate=${result.duplicate} route=${result.route}"
                     )
                 }
 

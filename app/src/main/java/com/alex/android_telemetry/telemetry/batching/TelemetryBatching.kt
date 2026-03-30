@@ -1,5 +1,6 @@
 package com.alex.android_telemetry.telemetry.batching
 
+import android.content.Context
 import com.alex.android_telemetry.telemetry.domain.model.ActivitySample
 import com.alex.android_telemetry.telemetry.domain.model.DetectedTelemetryEvent
 import com.alex.android_telemetry.telemetry.domain.model.DeviceStateSnapshot
@@ -13,7 +14,6 @@ import com.alex.android_telemetry.telemetry.domain.model.TelemetryBatch
 import com.alex.android_telemetry.telemetry.domain.model.TelemetryFrame
 import com.alex.android_telemetry.telemetry.domain.model.TrackingMode
 import com.alex.android_telemetry.telemetry.domain.policy.BatchFlushPolicy
-import kotlin.time.Duration.Companion.milliseconds
 import kotlinx.datetime.Instant
 import java.util.UUID
 
@@ -37,10 +37,53 @@ class TelemetryFrameAssembler {
     )
 }
 
-class BatchSequenceStore {
-    private var seq: Int = 0
-    fun next(): Int = ++seq
-    fun reset() { seq = 0 }
+open class BatchSequenceStore {
+    protected var seq: Int = 0
+
+    open fun next(): Int {
+        seq += 1
+        return seq
+    }
+
+    open fun current(): Int = seq
+
+    open fun restore(value: Int) {
+        seq = value.coerceAtLeast(0)
+    }
+
+    open fun reset() {
+        seq = 0
+    }
+}
+
+class PersistentBatchSequenceStore(
+    context: Context,
+) : BatchSequenceStore() {
+    private val prefs = context.getSharedPreferences("telemetry_batch_seq", Context.MODE_PRIVATE)
+
+    init {
+        restore(prefs.getInt(KEY_SEQ, 0))
+    }
+
+    override fun next(): Int {
+        val value = super.next()
+        prefs.edit().putInt(KEY_SEQ, value).apply()
+        return value
+    }
+
+    override fun restore(value: Int) {
+        super.restore(value)
+        prefs.edit().putInt(KEY_SEQ, seq).apply()
+    }
+
+    override fun reset() {
+        super.reset()
+        prefs.edit().putInt(KEY_SEQ, 0).apply()
+    }
+
+    private companion object {
+        const val KEY_SEQ = "batch_seq_v1"
+    }
 }
 
 class BatchIdGenerator {
@@ -86,6 +129,7 @@ class TelemetryBatchBuilder(
         now: Instant,
     ): TelemetryBatch? {
         if (frames.isEmpty() && events.isEmpty()) return null
+
         val batch = TelemetryBatch(
             deviceId = deviceId,
             driverId = driverId,
@@ -103,6 +147,7 @@ class TelemetryBatchBuilder(
             activitySummary = activitySummary,
             tripConfig = thresholds,
         )
+
         frames.clear()
         events.clear()
         windowStartedAt = null

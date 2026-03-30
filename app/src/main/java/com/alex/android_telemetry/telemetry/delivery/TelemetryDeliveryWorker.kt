@@ -19,14 +19,17 @@ class TelemetryDeliveryWorker(
             when (val result = graph.processor.runOnce()) {
                 is DeliveryRunResult.Idle -> {
                     Log.d("TelemetryDelivery", "Result: $result")
+                    graph.tripRepository.retryPendingFinishes()
                     return Result.success()
                 }
+
                 is DeliveryRunResult.Progress -> {
                     Log.d("TelemetryDelivery", "Result: $result")
                 }
             }
         }
 
+        graph.tripRepository.retryPendingFinishes()
         return Result.success()
     }
 }

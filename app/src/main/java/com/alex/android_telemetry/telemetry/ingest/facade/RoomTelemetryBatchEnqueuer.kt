@@ -45,11 +45,11 @@ class RoomTelemetryBatchEnqueuer(
 
         Log.d(
             "TelemetryDelivery",
-            "enqueue(): batchId=${batch.batchId} seq=${batch.batchSeq} inserted=$inserted"
+            "enqueue(): sessionId=${batch.sessionId} batchId=${batch.batchId} seq=${batch.batchSeq} inserted=$inserted"
         )
 
         if (inserted) {
-//            scheduler.scheduleImmediate()
+            scheduler.scheduleImmediate()
         }
     }
 }

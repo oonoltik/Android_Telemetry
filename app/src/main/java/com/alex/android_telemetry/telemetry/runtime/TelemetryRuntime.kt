@@ -1,13 +1,13 @@
 package com.alex.android_telemetry.telemetry.runtime
 
-import kotlinx.datetime.Clock
-
+import android.util.Log
 import com.alex.android_telemetry.sensors.api.AccelerometerSource
 import com.alex.android_telemetry.sensors.api.DeviceStateSource
 import com.alex.android_telemetry.sensors.api.GyroscopeSource
 import com.alex.android_telemetry.sensors.api.HeadingSource
 import com.alex.android_telemetry.sensors.api.LocationSource
 import com.alex.android_telemetry.sensors.api.NetworkStateSource
+import com.alex.android_telemetry.telemetry.batching.BatchSequenceStore
 import com.alex.android_telemetry.telemetry.batching.TelemetryBatchBuilder
 import com.alex.android_telemetry.telemetry.batching.TelemetryFrameAssembler
 import com.alex.android_telemetry.telemetry.detectors.AccelEventDetector
@@ -16,6 +16,7 @@ import com.alex.android_telemetry.telemetry.detectors.MotionVectorComputer
 import com.alex.android_telemetry.telemetry.detectors.RoadAnomalyDetector
 import com.alex.android_telemetry.telemetry.detectors.TelemetryEventDetector
 import com.alex.android_telemetry.telemetry.detectors.TurnEventDetector
+import com.alex.android_telemetry.telemetry.domain.TripRepository
 import com.alex.android_telemetry.telemetry.domain.model.ActivitySample
 import com.alex.android_telemetry.telemetry.domain.model.DeviceStateSnapshot
 import com.alex.android_telemetry.telemetry.domain.model.HeadingSample
@@ -27,8 +28,8 @@ import com.alex.android_telemetry.telemetry.domain.model.TrackingMode
 import com.alex.android_telemetry.telemetry.domain.model.TripRuntimeState
 import com.alex.android_telemetry.telemetry.domain.policy.EventThresholdResolver
 import com.alex.android_telemetry.telemetry.ingest.TelemetryBatchEnqueuer
-import kotlinx.datetime.Instant
-import java.util.UUID
+import com.alex.android_telemetry.telemetry.trips.api.ClientAggDto
+import com.alex.android_telemetry.telemetry.trips.api.ClientTripMetricsDto
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -37,6 +38,8 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.launch
+import kotlinx.datetime.Instant
+import java.util.UUID
 
 interface TripRuntimeStateStore {
     suspend fun save(state: TripRuntimeState)
@@ -86,6 +89,7 @@ class TelemetryOrchestrator(
     private val deviceIdProvider: () -> String,
     private val driverIdProvider: () -> String?,
     private val transportModeProvider: () -> String?,
+    private val tripRepository: TripRepository,
     private val accelerometerSource: AccelerometerSource,
     private val gyroscopeSource: GyroscopeSource,
     private val locationSource: LocationSource,
@@ -96,6 +100,7 @@ class TelemetryOrchestrator(
     private val frameAssembler: TelemetryFrameAssembler,
     private val motionVectorComputer: MotionVectorComputer,
     private val batchBuilder: TelemetryBatchBuilder,
+    private val batchSequenceStore: BatchSequenceStore,
     private val batchEnqueuer: TelemetryBatchEnqueuer,
     private val runtimeStateStore: TripRuntimeStateStore,
     private val stateMachine: TripStateMachine = TripStateMachine(),
@@ -122,28 +127,106 @@ class TelemetryOrchestrator(
     suspend fun restore() {
         runtimeStateStore.restore()?.let { restoredState ->
             mutableState.emit(restoredState)
+
+            if (restoredState.sessionId != null && restoredState.telemetryMode == TelemetryMode.COLLECTING) {
+                startSourcesIfNeeded()
+                subscribeIfNeeded()
+                Log.d("TelemetryTrip", "restore(): resumed collecting sessionId=${restoredState.sessionId}")
+            } else {
+                Log.d("TelemetryTrip", "restore(): restored state=${restoredState.telemetryMode} sessionId=${restoredState.sessionId}")
+            }
         }
     }
 
-    suspend fun startTrip(mode: TrackingMode = TrackingMode.SINGLE_TRIP, now: Instant = kotlinx.datetime.Clock.System.now()) {
+    suspend fun startTrip(
+        mode: TrackingMode = TrackingMode.SINGLE_TRIP,
+        now: Instant = kotlinx.datetime.Clock.System.now(),
+    ) {
+        val current = state.value
+        if (current.sessionId != null && current.telemetryMode == TelemetryMode.COLLECTING) {
+            Log.d("TelemetryTrip", "startTrip(): ignored, already collecting sessionId=${current.sessionId}")
+            return
+        }
+
+        batchSequenceStore.reset()
+
         val started = stateMachine.start(mode, now)
         mutableState.emit(started)
         runtimeStateStore.save(started)
+
         startSourcesIfNeeded()
         subscribeIfNeeded()
+
+        Log.d("TelemetryTrip", "startTrip(): sessionId=${started.sessionId}")
     }
 
     suspend fun stopTrip(now: Instant = kotlinx.datetime.Clock.System.now()) {
+        val current = state.value
+        val sessionId = current.sessionId
+        val driverId = driverIdProvider()?.trim().orEmpty()
+        val deviceId = deviceIdProvider()
+        val transportMode = transportModeProvider()
+
+        if (sessionId.isNullOrBlank()) {
+            Log.d("TelemetryTrip", "stopTrip(): ignored, no active session")
+            return
+        }
+
+        val finishingState = stateMachine.finish(current, now)
+        mutableState.emit(finishingState)
+        runtimeStateStore.save(finishingState)
+
         flushNow(now)
+
         accelerometerSource.stop()
         gyroscopeSource.stop()
         locationSource.stop()
         headingSource?.stop()
+
+        if (driverId.isNotBlank()) {
+            val tripDurationSec = current.startedAt?.let { startedAt ->
+                ((now.toEpochMilliseconds() - startedAt.toEpochMilliseconds()).coerceAtLeast(0L)) / 1000.0
+            }
+
+            val clientMetrics = buildClientTripMetrics(current)
+
+            runCatching {
+                Log.d(
+                    "TelemetryTrip",
+                    "stopTrip(): finishTrip sessionId=$sessionId driverId=$driverId deviceId=$deviceId duration=$tripDurationSec"
+                )
+
+                tripRepository.finishTrip(
+                    sessionId = sessionId,
+                    driverId = driverId,
+                    deviceId = deviceId,
+                    trackingMode = current.trackingMode?.toWireValue(),
+                    transportMode = transportMode,
+                    clientEndedAt = now.toString(),
+                    tripDurationSec = tripDurationSec,
+                    finishReason = "app_stop",
+                    clientMetrics = clientMetrics,
+                    deviceContextJson = null,
+                    tailActivityContextJson = null,
+                )
+
+
+            }.onSuccess {
+                Log.d("TelemetryTrip", "stopTrip(): finishTrip completed sessionId=$sessionId")
+            }.onFailure {
+                Log.e("TelemetryTrip", "stopTrip(): finishTrip failed sessionId=$sessionId", it)
+            }
+        } else {
+            Log.w("TelemetryTrip", "stopTrip(): finish skipped, driverId missing sessionId=$sessionId")
+        }
+
+        batchSequenceStore.reset()
         mutableState.emit(stateMachine.stop())
         runtimeStateStore.clear()
         collectionJob?.cancel()
         collectionJob = null
     }
+
 
     suspend fun pauseCollection() {
         val updated = stateMachine.pause(state.value)
@@ -173,6 +256,7 @@ class TelemetryOrchestrator(
             thresholds = thresholdResolver.getEffectiveThresholds(),
             now = now,
         ) ?: return
+
         batchEnqueuer.enqueue(batch)
     }
 
@@ -185,6 +269,7 @@ class TelemetryOrchestrator(
 
     private fun subscribeIfNeeded() {
         if (collectionJob != null) return
+
         collectionJob = scope.launch {
             accelerometerSource.samples.onEach { sample ->
                 latestAccel = latestAccel.merge(sample)
@@ -197,8 +282,8 @@ class TelemetryOrchestrator(
             }.launchIn(this)
 
             locationSource.fixes.onEach { fix ->
-                latestLocation = fix
                 updateDistance(fix)
+                latestLocation = fix
                 onSensorTick(fix.timestamp)
             }.launchIn(this)
 
@@ -217,6 +302,7 @@ class TelemetryOrchestrator(
 
         val imu = mergeImu(latestAccel, latestGyro)
         val motion = motionVectorComputer.compute(imu, latestLocation)
+
         detectors.forEach { detector ->
             detector.detect(motion, now)?.let { event ->
                 batchBuilder.addEvent(event)
@@ -298,8 +384,34 @@ private fun haversineMeters(lat1: Double, lon1: Double, lat2: Double, lon2: Doub
     val dLat = Math.toRadians(lat2 - lat1)
     val dLon = Math.toRadians(lon2 - lon1)
     val a = kotlin.math.sin(dLat / 2) * kotlin.math.sin(dLat / 2) +
-        kotlin.math.cos(Math.toRadians(lat1)) * kotlin.math.cos(Math.toRadians(lat2)) *
-        kotlin.math.sin(dLon / 2) * kotlin.math.sin(dLon / 2)
+            kotlin.math.cos(Math.toRadians(lat1)) * kotlin.math.cos(Math.toRadians(lat2)) *
+            kotlin.math.sin(dLon / 2) * kotlin.math.sin(dLon / 2)
     val c = 2 * kotlin.math.atan2(kotlin.math.sqrt(a), kotlin.math.sqrt(1 - a))
     return r * c
+}
+
+private fun buildClientTripMetrics(state: TripRuntimeState): ClientTripMetricsDto {
+    val distanceKm = state.distanceM / 1000.0
+
+    val zeroAgg = ClientAggDto(
+        count = 0,
+        sumIntensity = 0.0,
+        maxIntensity = 0.0,
+        countPerKm = 0.0,
+        sumPerKm = 0.0,
+    )
+
+    return ClientTripMetricsDto(
+        tripDistanceM = state.distanceM,
+        tripDistanceKmFromGps = distanceKm,
+        brake = zeroAgg,
+        accel = zeroAgg,
+        road = zeroAgg,
+        turn = zeroAgg,
+    )
+}
+
+private fun TrackingMode.toWireValue(): String = when (this) {
+    TrackingMode.SINGLE_TRIP -> "single_trip"
+    TrackingMode.DAY_MONITORING -> "day_monitoring"
 }

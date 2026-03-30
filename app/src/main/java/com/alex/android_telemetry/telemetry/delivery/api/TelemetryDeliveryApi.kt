@@ -8,10 +8,16 @@ data class TelemetryIngestSuccessDto(
     val duplicate: Boolean? = null,
 )
 
+enum class DeliveryRoute {
+    EU,
+    RU,
+}
+
 sealed interface TelemetryApiResult {
     data class Success(
         val status: String?,
         val duplicate: Boolean?,
+        val route: DeliveryRoute,
     ) : TelemetryApiResult
 
     data class HttpError(

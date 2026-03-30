@@ -7,15 +7,21 @@ import com.alex.android_telemetry.telemetry.auth.TelemetryAuthManager
 import com.alex.android_telemetry.telemetry.auth.TelemetryDeviceIdProvider
 import com.alex.android_telemetry.telemetry.auth.TelemetryKeyIdStore
 import com.alex.android_telemetry.telemetry.auth.TelemetryTokenStore
+import com.alex.android_telemetry.telemetry.delivery.api.DeliveryRoute
 import com.alex.android_telemetry.telemetry.delivery.api.OkHttpTelemetryDeliveryApi
 import com.alex.android_telemetry.telemetry.delivery.storage.TelemetryDatabase
+import com.alex.android_telemetry.telemetry.domain.TripFinishManager
+import com.alex.android_telemetry.telemetry.domain.TripRepository
 import com.alex.android_telemetry.telemetry.ingest.repository.TelemetryOutboxRepository
+import com.alex.android_telemetry.telemetry.trips.api.OkHttpTripApi
+import com.alex.android_telemetry.telemetry.trips.storage.PendingTripFinishStore
+import com.alex.android_telemetry.telemetry.trips.storage.TripDeliveryStatsStore
 import kotlinx.serialization.json.Json
 import okhttp3.OkHttpClient
-import android.util.Log
 
 class TelemetryDeliveryGraph(
     val processor: TelemetryDeliveryProcessor,
+    val tripRepository: TripRepository,
 ) {
     companion object {
         fun from(context: Context): TelemetryDeliveryGraph {
@@ -45,7 +51,7 @@ class TelemetryDeliveryGraph(
                 client = okHttpClient,
                 json = json,
             )
-            Log.d("TelemetryDelivery", "ANDROID_REGISTER_KEY empty=${BuildConfig.ANDROID_REGISTER_KEY.isBlank()}")
+
             val authManager = TelemetryAuthManager(
                 authApi = authApi,
                 tokenStore = tokenStore,
@@ -61,8 +67,31 @@ class TelemetryDeliveryGraph(
                 authManager.invalidateToken()
             }
 
+            val pendingTripFinishStore = PendingTripFinishStore(context, json)
+            val tripDeliveryStatsStore = TripDeliveryStatsStore(context, json)
+
+            val tripApi = OkHttpTripApi(
+                baseUrl = TelemetryBackendConfig.RU_BASE_URL,
+                authTokenProvider = { _ -> authManager.getValidToken() },
+                onUnauthorized = { authManager.invalidateToken() },
+                client = okHttpClient,
+                json = json,
+            )
+
+            val tripFinishManager = TripFinishManager(
+                tripApi = tripApi,
+                pendingStore = pendingTripFinishStore,
+                deliveryStatsStore = tripDeliveryStatsStore,
+            )
+
+            val tripRepository = TripRepository(
+                tripApi = tripApi,
+                tripFinishManager = tripFinishManager,
+            )
+
             val euApi = OkHttpTelemetryDeliveryApi(
                 baseUrl = TelemetryBackendConfig.EU_BASE_URL,
+                route = DeliveryRoute.EU,
                 authTokenProvider = authTokenProvider,
                 onUnauthorized = onUnauthorized,
                 client = okHttpClient,
@@ -71,6 +100,7 @@ class TelemetryDeliveryGraph(
 
             val ruApi = OkHttpTelemetryDeliveryApi(
                 baseUrl = TelemetryBackendConfig.RU_BASE_URL,
+                route = DeliveryRoute.RU,
                 authTokenProvider = authTokenProvider,
                 onUnauthorized = onUnauthorized,
                 client = okHttpClient,
@@ -89,9 +119,16 @@ class TelemetryDeliveryGraph(
                 backoffCalculator = backoff,
                 policy = policy,
                 authManager = authManager,
+                onBatchDelivered = { sessionId, route ->
+                    tripDeliveryStatsStore.recordBatchDelivery(sessionId, route)
+                    tripRepository.retryPendingFinishes()
+                },
             )
 
-            return TelemetryDeliveryGraph(processor)
+            return TelemetryDeliveryGraph(
+                processor = processor,
+                tripRepository = tripRepository,
+            )
         }
     }
 }

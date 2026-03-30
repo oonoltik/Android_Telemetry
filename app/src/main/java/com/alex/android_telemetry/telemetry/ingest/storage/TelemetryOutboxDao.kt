@@ -175,16 +175,30 @@ interface TelemetryOutboxDao {
 
     @Query(
         """
-    SELECT COUNT(*) FROM telemetry_outbox
-    WHERE (
-        status = :pendingStatus
-        OR (status = :retryWaitStatus AND next_retry_at_epoch_ms <= :nowEpochMs)
-    )
-    """
+        SELECT COUNT(*) FROM telemetry_outbox
+        WHERE (
+            status = :pendingStatus
+            OR (status = :retryWaitStatus AND next_retry_at_epoch_ms <= :nowEpochMs)
+        )
+        """
     )
     suspend fun countReadyForDelivery(
         nowEpochMs: Long,
         pendingStatus: String = TelemetryOutboxStatus.PENDING,
         retryWaitStatus: String = TelemetryOutboxStatus.RETRY_WAIT,
+    ): Int
+
+    @Query(
+        """
+        SELECT COUNT(*) FROM telemetry_outbox
+        WHERE session_id = :sessionId
+          AND status IN (:pendingStatus, :retryWaitStatus, :inFlightStatus)
+        """
+    )
+    suspend fun countUndeliveredForSession(
+        sessionId: String,
+        pendingStatus: String = TelemetryOutboxStatus.PENDING,
+        retryWaitStatus: String = TelemetryOutboxStatus.RETRY_WAIT,
+        inFlightStatus: String = TelemetryOutboxStatus.IN_FLIGHT,
     ): Int
 }

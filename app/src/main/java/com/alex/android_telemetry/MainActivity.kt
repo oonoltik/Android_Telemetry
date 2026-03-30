@@ -19,10 +19,16 @@ import com.alex.android_telemetry.ui.theme.Android_TelemetryTheme
 import kotlinx.coroutines.launch
 
 class MainActivity : ComponentActivity() {
+
+
+
+    private lateinit var graph: TelemetryAppGraph
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        Log.e("TelemetryTrip", "🔥 APP START NEW BUILD 🔥")
 
-        val graph = TelemetryAppGraph.get(applicationContext)
+        graph = TelemetryAppGraph.get(applicationContext)
 
         lifecycleScope.launch {
             graph.facade.restore()
@@ -44,6 +50,19 @@ class MainActivity : ComponentActivity() {
                         modifier = Modifier.padding(innerPadding),
                     )
                 }
+            }
+        }
+    }
+
+    override fun onStop() {
+        super.onStop()
+
+        lifecycleScope.launch {
+            runCatching {
+                Log.d("TelemetryTrip", "MainActivity onStop -> stopTrip")
+                graph.facade.stopTrip()
+            }.onFailure {
+                Log.e("TelemetryTrip", "stopTrip from onStop failed", it)
             }
         }
     }
