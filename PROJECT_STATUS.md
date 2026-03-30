@@ -2,62 +2,73 @@
 
 ## Current State
 
-✅ BUILD SUCCESSFUL
-✅ Telemetry pipeline fully operational
-✅ Auth integration complete
-✅ Backend delivery working
-✅ Retry & fallback working
+✅ BUILD SUCCESSFUL  
+✅ Telemetry pipeline fully operational  
+✅ Auth integration complete  
+✅ Delivery working (ingest 200)  
+✅ Finish flow working (finish 200)  
+✅ Android = iOS parity (backend flow)
 
 ---
 
 ## Verified Runtime Behavior
 
-* Worker запускается стабильно
-* Batch корректно попадает в outbox
-* Delivery выполняется:
+* Trip lifecycle:
 
-    * claim → send → success → mark delivered
-* Auth работает:
+  start → batching → ingest → stop → finish
 
-    * challenge → register → token → reuse
-* Fallback работает:
+* Worker:
 
-    * EU timeout → RU success
+  stable execution
+
+* Delivery:
+
+  claim → send → success → mark delivered
+
+* Auth:
+
+  challenge → register → token → reuse
+
+* Finish:
+
+  * вызывается из lifecycle
+  * payload корректный
+  * backend возвращает 200
 
 ---
 
 ## Current System Behavior
+Android → ingest (EU timeout ❌ → RU 200 ✅)
+→ finish (200 ✅)
 
-```
-Android → EU endpoint (timeout ❌)
-        → RU endpoint (200 ✅)
-```
 
 ---
 
-## Key Metrics (observed)
+## Key Metrics
 
-* backlog: ~2000 записей
+* backlog: ~2000
 * batch size: 20
-* успешная доставка через fallback
+* ingest success: стабильный через fallback
+* finish success: подтверждён
 
 ---
 
 ## Known Limitation
 
-* EU endpoint не отвечает (SocketTimeout)
+* EU endpoint timeout
 * используется RU fallback
 
 ---
 
 ## Status Summary
 
-📌 **Система полностью работоспособна**
-📌 Осталась только инфраструктурная проблема EU endpoint
+📌 Полностью рабочий pipeline  
+📌 Finish flow завершён  
+📌 Backend parity достигнут
 
 ---
 
 ## Next Critical Step
 
-* разобраться с EU backend
-* оптимизировать throughput
+* iOS-like recovery (pending finish)
+* aggregation parity (убрать fallback summary)

@@ -5,42 +5,59 @@
 ### 1. EU Endpoint Timeout
 
 * `https://api.drivetelemetry.com` не отвечает
-* ошибка:
+* SocketTimeoutException
+* используется RU fallback
 
-    * `SocketTimeoutException`
-* система использует fallback (RU)
-
-👉 Не блокирует delivery
+👉 Не блокирует ingest или finish
 
 ---
 
 ### 2. Высокий backlog
 
-* ~2000+ записей в очереди
-* обрабатывается батчами по 20
+* ~2000+ записей
+* batch size = 20
 
-👉 Нужна оптимизация throughput
+👉 требует оптимизации
+
+---
+
+## Functional Gaps
+
+### 3. Нет persistent finish recovery
+
+* если приложение убито:
+  * pending finish может потеряться
+
+👉 требуется iOS-like recovery
+
+---
+
+### 4. Aggregation упрощён (fallback summary)
+
+* при отсутствии metrics используется stub summary
+
+👉 требуется полноценная агрегация как в iOS
 
 ---
 
 ## Minor
 
-* Есть lint warnings (не критично)
-* Нет метрик (success rate / latency)
-* Нет runtime validation payload
+* нет метрик (success rate / latency)
+* нет payload validation
 
 ---
 
 ## Resolved
 
-* ❌ WorkManager infinite loop
-* ❌ auth 403 (App Attest bypass)
-* ❌ token handling
-* ❌ delivery не работал
+* ❌ auth 403 (App Attest)
+* ❌ token lifecycle
+* ❌ ingest не работал
+* ❌ finish падал (serialization Any)
+* ❌ lifecycle не вызывал finish
 
 ---
 
 ## Notes
 
-📌 Все критические проблемы решены
-📌 Остались только оптимизации и инфраструктура
+📌 Все критические блокеры устранены  
+📌 Остались только улучшения reliability и качества данных

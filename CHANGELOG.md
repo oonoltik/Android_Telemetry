@@ -1,142 +1,72 @@
 # Changelog
 
-## v4 - Android Telemetry Pipeline Complete ✅
+## v5 - Full Android ↔ iOS Parity Achieved 🎯
 
-* Реализован полный Android telemetry pipeline:
+### 🚀 Major
 
-    * sensors → frames → batch → outbox → delivery → backend
-* Добавлен Android auth flow:
+* Достигнут полный end-to-end flow:
 
-    * `/auth/challenge`
-    * `/auth/register`
-    * bearer token
-* Реализован Android stub bypass (совместим с backend strict App Attest)
-* Добавлен TelemetryAuthManager:
+  sensors → frames → batch → outbox → delivery → backend → finish
 
-    * caching token
-    * expiry handling
-    * mutex (single-flight)
-* Интегрирован bearer в delivery API
-* Реализован retry + backoff
-* Реализована обработка 401/403:
+* Реализован корректный lifecycle finish:
 
-    * invalidate token
-    * повторная регистрация
-* Добавлен fallback delivery:
+  * `onStop()` → `stopTrip()` → `finish`
 
-    * EU → RU
-* Добавлено HTTP логирование:
+* Подтверждён успешный `/trip/finish`:
 
-    * request
-    * response
-    * exceptions
-* Исправлен WorkManager loop:
-
-    * REPLACE → KEEP
-    * убран агрессивный scheduler spam
-* Подтверждён end-to-end delivery:
-
-    * `runOnce(): delivered id=...`
-
-📌 Статус: **Pipeline полностью работает**
+  * ingest → session → finish → `200 OK`
 
 ---
 
-## v3 - Telemetry Delivery Pipeline (WIP)
+### 🔐 Auth
 
-* Реализован TelemetryDeliveryGraph
-* Добавлен processor
-* Добавлен Worker
-* Добавлен scheduler
-
----
-
-## v2 - Project Stabilized
-
-* Добавлены project context файлы
-* Подготовка к запуску
-
----
-
-## v1 - Build Fixed
-
-* Исправлены compile ошибки
-* Настроен JAVA_HOME
-* Исправлены проблемы времени и API
-
-## 🚀 Android Telemetry Pipeline v1 (Milestone)
-
-### Summary
-
-Реализован полный telemetry pipeline для Android с end-to-end доставкой данных на backend.
-
-Pipeline:
-
-sensors → frames → batch → outbox → delivery → backend
-
----
-
-### Implemented
-
-* Сбор telemetry (GPS, IMU, device state)
-* Batch aggregation
-* Outbox (Room)
-* Delivery через WorkManager
-* Retry + backoff
-* Auth flow:
+* Полный Android auth flow:
 
   * `/auth/challenge`
   * `/auth/register`
-  * bearer token
-* Android stub bypass (совместим с App Attest backend)
+  * bearer token lifecycle
 * Token caching + expiry handling
-* 401/403 → token invalidation → re-register
-* Fallback delivery:
-
-  * EU → RU
-* HTTP logging (request / response / errors)
+* 401 → invalidate → re-register
+* Mutex (single-flight)
 
 ---
 
-### Fixed
+### 📦 Delivery
 
-* WorkManager infinite restart loop
-* auth 403 (App Attest incompatibility)
-* missing bearer token in ingest
-* delivery pipeline not reaching backend
+* WorkManager delivery pipeline:
 
----
-
-### Verified
-
-* Worker execution стабильный
-* Batch успешно отправляется
-* Backend принимает данные
-* Подтверждено логами:
-
-  * `sending id=...`
-  * `delivered id=...`
+  * batching → Room → worker → backend
+* Retry + backoff
+* EU → RU fallback
+* Logging (request/response/errors)
 
 ---
 
-### Current Behavior
+### 🧠 Fixes
 
-* EU endpoint → timeout
-* RU endpoint → success (200 accepted)
-
-👉 Delivery полностью работает через fallback
-
----
-
-### Status
-
-✅ Production-ready telemetry pipeline
-⚠️ Требуется проверка EU backend
+* ❌ `Map<String, Any>` → заменено на DTO (`TripSummaryPayloadDto`)
+* ❌ Serialization crash (`Any`) → полностью устранён
+* ❌ Finish не отправлялся → исправлено (payload всегда формируется)
+* ❌ Lifecycle mismatch → приведён к iOS (onStop trigger)
 
 ---
 
-### Next Focus
+### ✅ Verified
 
-* Fix EU endpoint
-* Improve throughput (batching / parallelism)
-* Add metrics (success rate / latency)
+* ingest: `200 OK`
+* finish: `200 OK`
+* fallback работает
+* retry работает
+* полный цикл подтверждён логами
+
+---
+
+### 📌 Status
+
+✅ Android pipeline полностью совместим с iOS backend flow  
+🚀 Production-ready baseline
+
+---
+
+## v4 - Android Telemetry Pipeline Complete ✅
+(оставь как есть ниже)

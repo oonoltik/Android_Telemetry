@@ -1,26 +1,41 @@
 # Next Steps
 
-## Immediate (High Priority)
+## 🔴 High Priority (Critical)
 
-### 1. Fix EU endpoint
+### 1. iOS-like Finish Recovery
 
-* проверить backend
-* проверить latency
-* проверить routing / firewall
+* сохранять pending finish
+* retry после рестарта
+* WorkManager для finish delivery
+
+👉 критично для production
 
 ---
 
-### 2. Ускорить delivery
+### 2. Aggregation Parity (iOS)
+
+* считать:
+
+    * distance
+    * duration
+    * avg speed
+    * driving score
+
+* убрать fallback summary
+
+---
+
+## 🟡 Medium Priority
+
+### 3. Throughput optimization
 
 * увеличить batch size
-* добавить несколько runOnce() за worker
 * уменьшить backlog
+* оптимизировать worker
 
 ---
 
-## Short Term
-
-### 3. Добавить метрики
+### 4. Metrics
 
 * success rate
 * retry rate
@@ -28,47 +43,29 @@
 
 ---
 
-### 4. Улучшить retry
+## 🟢 Low Priority
 
-* adaptive backoff
-* smarter retry policy
-
----
-
-## Mid Term
-
-### 5. Параллельная отправка
+### 5. Parallel delivery
 
 * несколько batch одновременно
-* ограничение concurrency
 
 ---
 
 ### 6. Payload validation
 
-* schema check
+* schema
 * size limits
-
----
-
-## Long Term
-
-### 7. Align с iOS pipeline
-
-* унификация логики
-* shared контракт
 
 ---
 
 ## Optional
 
-* отключить EU временно
-* использовать только RU endpoint
+* временно отключить EU endpoint
 
 ---
 
 ## Goal
 
-📌 Production-ready telemetry ingestion
-📌 Высокая надёжность доставки
-📌 Минимальная latency
+📌 Надёжный delivery (без потерь)  
+📌 Полный parity с iOS  
+📌 Production readiness
