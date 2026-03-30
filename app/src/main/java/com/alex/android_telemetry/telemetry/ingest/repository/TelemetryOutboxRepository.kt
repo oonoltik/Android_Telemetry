@@ -68,30 +68,64 @@ class TelemetryOutboxRepository(
         )
     }
 
-    suspend fun claimNextForDelivery(limit: Int): List<TelemetryOutboxEntity> {
-        val now = clock.now().toEpochMilliseconds()
+    suspend fun claimNextForDelivery(
+        limit: Int,
+        prioritySessionIds: Set<String> = emptySet(),
+    ): List<TelemetryOutboxEntity> {
+        if (limit <= 0) return emptyList()
 
-        val candidates = dao.findCandidatesForDelivery(
-            nowEpochMs = now,
-            limit = limit,
-        )
+        val now = Clock.System.now().toEpochMilliseconds()
 
-        if (candidates.isEmpty()) return emptyList()
+        val candidates = if (prioritySessionIds.isEmpty()) {
+            dao.findCandidatesForDelivery(
+                nowEpochMs = now,
+                limit = limit,
+            )
+        } else {
+            val priority = dao.findPriorityCandidatesForDelivery(
+                sessionIds = prioritySessionIds.toList(),
+                nowEpochMs = now,
+                limit = limit,
+            )
+
+            val remaining = limit - priority.size
+
+            if (remaining > 0) {
+                val normal = dao.findNonPriorityCandidatesForDelivery(
+                    excludedSessionIds = prioritySessionIds.toList(),
+                    nowEpochMs = now,
+                    limit = remaining,
+                )
+                priority + normal
+            } else {
+                priority
+            }
+        }
+
+        if (candidates.isEmpty()) {
+            Log.d("TelemetryDelivery", "claimNextForDelivery(): candidates=0")
+            return emptyList()
+        }
 
         val ids = candidates.map { it.id }
-
         val updated = dao.markInFlight(
             ids = ids,
             updatedAtEpochMs = now,
         )
-        Log.d("TelemetryDelivery", "claimNextForDelivery(): candidates=${candidates.size}")
-        Log.d("TelemetryDelivery", "claimNextForDelivery(): updated=$updated ids=$ids")
 
-        if (updated == 0) return emptyList()
+        Log.d(
+            "TelemetryDelivery",
+            "claimNextForDelivery(): prioritySessions=$prioritySessionIds candidates=${candidates.size}"
+        )
+        Log.d(
+            "TelemetryDelivery",
+            "claimNextForDelivery(): updated=$updated ids=$ids"
+        )
+
+        if (updated <= 0) return emptyList()
 
         return candidates
     }
-
     suspend fun markTerminalFailed(
         id: Long,
         httpCode: Int?,
@@ -123,4 +157,8 @@ class TelemetryOutboxRepository(
 
     suspend fun countUndeliveredForSession(sessionId: String): Int =
         dao.countUndeliveredForSession(sessionId)
+
+    suspend fun countAll(): Int {
+        return dao.countAll()
+    }
 }

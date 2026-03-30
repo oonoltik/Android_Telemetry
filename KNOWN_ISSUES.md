@@ -2,62 +2,80 @@
 
 ## Current
 
-### 1. EU Endpoint Timeout
+### 1. EU Endpoint instability / timeout
 
-* `https://api.drivetelemetry.com` не отвечает
-* SocketTimeoutException
-* используется RU fallback
+* `https://api.drivetelemetry.com` периодически отвечает timeout / transport error
+* клиент корректно уходит в RU fallback
+* критичный flow не блокируется, но latency recovery ухудшается
 
-👉 Не блокирует ingest или finish
+👉 correctness не ломает, но влияет на скорость схождения
 
 ---
 
-### 2. Высокий backlog
+### 2. Высокий backlog outbox
 
-* ~2000+ записей
+* в очереди может накапливаться большой хвост batch'ей
+* даже с priority delivery backlog всё ещё влияет на общее время дренажа
 * batch size = 20
 
-👉 требует оптимизации
+👉 требует дальнейшей throughput-оптимизации
+
+---
+
+### 3. Aggregation всё ещё упрощён
+
+* используется fallback / simplified summary
+* нет полной parity с iOS aggregation pipeline
+
+👉 нужен отдельный этап выравнивания расчётов
 
 ---
 
 ## Functional Gaps
 
-### 3. Нет persistent finish recovery
+### 4. Нет полной metrics/observability модели
 
-* если приложение убито:
-  * pending finish может потеряться
+* нет стабильных метрик:
+  * success rate
+  * retry rate
+  * finish recovery latency
+  * per-route delivery stats dashboard
 
-👉 требуется iOS-like recovery
+👉 для production нужна измеримость, а не только логи
 
 ---
 
-### 4. Aggregation упрощён (fallback summary)
+### 5. Нет явной starvation policy для priority delivery
 
-* при отсутствии metrics используется stub summary
+* session с pending finish теперь имеет приоритет
+* но отдельная политика fairness для старого backlog ещё не формализована
 
-👉 требуется полноценная агрегация как в iOS
+👉 желательно добавить guard против starvation
 
 ---
 
 ## Minor
 
-* нет метрик (success rate / latency)
-* нет payload validation
+* нет payload/schema validation
+* нет golden tests на Android ↔ iOS aggregation parity
+* `client_ended_at` / report serialization стоит дополнительно перепроверить на backend round-trip
 
 ---
 
 ## Resolved
 
-* ❌ auth 403 (App Attest)
-* ❌ token lifecycle
-* ❌ ingest не работал
-* ❌ finish падал (serialization Any)
-* ❌ lifecycle не вызывал finish
+* ✅ auth 403 / App Attest mismatch
+* ✅ token lifecycle
+* ✅ ingest pipeline
+* ✅ finish serialization crash (`Any`)
+* ✅ lifecycle-triggered finish
+* ✅ persistent pending finish recovery
+* ✅ immediate finish retry
+* ✅ EU-first / RU-fallback для trip API
 
 ---
 
 ## Notes
 
-📌 Все критические блокеры устранены  
-📌 Остались только улучшения reliability и качества данных
+📌 Все критические блокеры correctness устранены  
+📌 Остались reliability / latency / data quality improvements

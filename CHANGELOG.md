@@ -1,5 +1,67 @@
 # Changelog
 
+## v6 - Priority Delivery + EU-first Trip Routing 🚀
+
+### 🚀 Major
+
+* Реализован `priority delivery` для session с pending finish:
+  * batch'и session с незавершённым `finish` отправляются раньше общего backlog
+  * порядок внутри session сохраняется (`batch_seq` не нарушается)
+
+* Добавлен `immediate finish retry`:
+  * после первого успешно доставленного batch для session с pending finish
+  * после восстановления сети / запуска worker
+
+* Trip API переведён на корректную схему маршрутизации:
+  * **EU = primary**
+  * **RU = fallback only**
+
+---
+
+### 🌐 Routing
+
+* Auth:
+  * EU first
+  * RU fallback при transport/network failure
+
+* Ingest:
+  * EU first
+  * RU fallback при retryable/network failure
+
+* Trip API (`/trip/finish`, `/trip/report`, `/trips/recent`, `/driver/home`):
+  * EU first
+  * RU fallback при retryable/network failure
+
+---
+
+### ✅ Verified
+
+* подтверждён сценарий:
+  * early stop → pending finish → ingest delivered → finish retry → `200 OK`
+* подтверждён сценарий:
+  * network loss → finish fail → pending → network restore → finish retry → `200 OK`
+* `FinishRetryWorker` и delivery worker корректно сходятся к конечному состоянию
+* `FallbackTripApi` собран и подключён
+
+---
+
+### 🧠 Fixes
+
+* ❌ `RU` как primary для trip API → исправлено на `EU first, RU fallback`
+* ❌ медленное схождение finish при backlog → ускорено через priority delivery
+* ❌ finish retry зависел только от периодического worker → добавлен immediate retry trigger
+
+---
+
+### 📌 Status
+
+✅ Correctness подтверждён  
+✅ Recovery подтверждён  
+✅ EU-first / RU-fallback routing выровнен для ingest и trip API  
+🚀 Система перешла от "просто работает" к "быстро сходится"
+
+---
+
 ## v5 - Full Android ↔ iOS Parity Achieved 🎯
 
 ### 🚀 Major

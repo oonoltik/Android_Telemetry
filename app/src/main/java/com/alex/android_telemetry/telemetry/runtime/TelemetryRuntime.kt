@@ -102,6 +102,7 @@ class TelemetryOrchestrator(
     private val batchBuilder: TelemetryBatchBuilder,
     private val batchSequenceStore: BatchSequenceStore,
     private val batchEnqueuer: TelemetryBatchEnqueuer,
+    private val outboxRepository: com.alex.android_telemetry.telemetry.ingest.repository.TelemetryOutboxRepository,
     private val runtimeStateStore: TripRuntimeStateStore,
     private val stateMachine: TripStateMachine = TripStateMachine(),
 ) {
@@ -158,6 +159,20 @@ class TelemetryOrchestrator(
         subscribeIfNeeded()
 
         Log.d("TelemetryTrip", "startTrip(): sessionId=${started.sessionId}")
+        scope.launch {
+            runCatching {
+                val startedSessionId = started.sessionId ?: return@runCatching
+                val totalQueued = outboxRepository.countAll()
+                val sessionQueued = outboxRepository.countUndeliveredForSession(startedSessionId)
+
+                Log.d(
+                    "TelemetryTrip",
+                    "outbox@start sessionId=$startedSessionId totalQueued=$totalQueued sessionQueued=$sessionQueued"
+                )
+            }.onFailure {
+                Log.e("TelemetryTrip", "outbox@start failed", it)
+            }
+        }
     }
 
     suspend fun stopTrip(now: Instant = kotlinx.datetime.Clock.System.now()) {
@@ -191,6 +206,17 @@ class TelemetryOrchestrator(
             val clientMetrics = buildClientTripMetrics(current)
 
             runCatching {
+                runCatching {
+                    val totalQueued = outboxRepository.countAll()
+                    val sessionQueued = outboxRepository.countUndeliveredForSession(sessionId)
+
+                    Log.d(
+                        "TelemetryTrip",
+                        "outbox@stop sessionId=$sessionId totalQueued=$totalQueued sessionQueued=$sessionQueued"
+                    )
+                }.onFailure {
+                    Log.e("TelemetryTrip", "outbox@stop failed", it)
+                }
                 Log.d(
                     "TelemetryTrip",
                     "stopTrip(): finishTrip sessionId=$sessionId driverId=$driverId deviceId=$deviceId duration=$tripDurationSec"

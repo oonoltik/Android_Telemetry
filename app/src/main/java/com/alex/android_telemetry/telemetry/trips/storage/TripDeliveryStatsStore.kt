@@ -29,7 +29,7 @@ class TripDeliveryStatsStore(
         }.getOrDefault(DeliveryStats())
     }
 
-    fun recordBatchDelivery(sessionId: String, route: DeliveryRoute) {
+    fun recordBatchDelivery(sessionId: String, route: DeliveryRoute): DeliveryStats {
         val current = get(sessionId)
         val updated = when (route) {
             DeliveryRoute.EU -> current.copy(euBatches = current.euBatches + 1)
@@ -39,6 +39,8 @@ class TripDeliveryStatsStore(
         prefs.edit()
             .putString(key(sessionId), json.encodeToString(updated))
             .apply()
+
+        return updated
     }
 
     fun clear(sessionId: String) {

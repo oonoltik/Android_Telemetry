@@ -173,6 +173,9 @@ interface TelemetryOutboxDao {
         failedStatus: String = TelemetryOutboxStatus.FAILED_AUTH,
     )
 
+    @Query("SELECT COUNT(*) FROM telemetry_outbox")
+    suspend fun countAll(): Int
+
     @Query(
         """
         SELECT COUNT(*) FROM telemetry_outbox
@@ -195,10 +198,52 @@ interface TelemetryOutboxDao {
           AND status IN (:pendingStatus, :retryWaitStatus, :inFlightStatus)
         """
     )
+
+
     suspend fun countUndeliveredForSession(
         sessionId: String,
         pendingStatus: String = TelemetryOutboxStatus.PENDING,
         retryWaitStatus: String = TelemetryOutboxStatus.RETRY_WAIT,
         inFlightStatus: String = TelemetryOutboxStatus.IN_FLIGHT,
     ): Int
+
+    @Query(
+        """
+    SELECT * FROM telemetry_outbox
+    WHERE (
+        status = :pendingStatus
+        OR (status = :retryWaitStatus AND next_retry_at_epoch_ms <= :nowEpochMs)
+    )
+      AND session_id IN (:sessionIds)
+    ORDER BY batch_seq ASC, created_at_epoch_ms ASC
+    LIMIT :limit
+    """
+    )
+    suspend fun findPriorityCandidatesForDelivery(
+        sessionIds: List<String>,
+        nowEpochMs: Long,
+        limit: Int,
+        pendingStatus: String = TelemetryOutboxStatus.PENDING,
+        retryWaitStatus: String = TelemetryOutboxStatus.RETRY_WAIT,
+    ): List<TelemetryOutboxEntity>
+
+    @Query(
+        """
+    SELECT * FROM telemetry_outbox
+    WHERE (
+        status = :pendingStatus
+        OR (status = :retryWaitStatus AND next_retry_at_epoch_ms <= :nowEpochMs)
+    )
+      AND session_id NOT IN (:excludedSessionIds)
+    ORDER BY created_at_epoch_ms ASC
+    LIMIT :limit
+    """
+    )
+    suspend fun findNonPriorityCandidatesForDelivery(
+        excludedSessionIds: List<String>,
+        nowEpochMs: Long,
+        limit: Int,
+        pendingStatus: String = TelemetryOutboxStatus.PENDING,
+        retryWaitStatus: String = TelemetryOutboxStatus.RETRY_WAIT,
+    ): List<TelemetryOutboxEntity>
 }

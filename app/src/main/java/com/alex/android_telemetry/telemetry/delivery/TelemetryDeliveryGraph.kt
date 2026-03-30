@@ -1,6 +1,7 @@
 package com.alex.android_telemetry.telemetry.delivery
 
 import android.content.Context
+import android.util.Log
 import com.alex.android_telemetry.BuildConfig
 import com.alex.android_telemetry.telemetry.auth.TelemetryAuthApi
 import com.alex.android_telemetry.telemetry.auth.TelemetryAuthManager
@@ -14,10 +15,13 @@ import com.alex.android_telemetry.telemetry.domain.TripFinishManager
 import com.alex.android_telemetry.telemetry.domain.TripRepository
 import com.alex.android_telemetry.telemetry.ingest.repository.TelemetryOutboxRepository
 import com.alex.android_telemetry.telemetry.trips.api.OkHttpTripApi
+import com.alex.android_telemetry.telemetry.trips.finish.FinishRetryScheduler
 import com.alex.android_telemetry.telemetry.trips.storage.PendingTripFinishStore
 import com.alex.android_telemetry.telemetry.trips.storage.TripDeliveryStatsStore
 import kotlinx.serialization.json.Json
 import okhttp3.OkHttpClient
+import com.alex.android_telemetry.telemetry.trips.api.FallbackTripApi
+import com.alex.android_telemetry.telemetry.trips.api.TripApi
 
 class TelemetryDeliveryGraph(
     val processor: TelemetryDeliveryProcessor,
@@ -69,19 +73,34 @@ class TelemetryDeliveryGraph(
 
             val pendingTripFinishStore = PendingTripFinishStore(context, json)
             val tripDeliveryStatsStore = TripDeliveryStatsStore(context, json)
+            val finishRetryScheduler = FinishRetryScheduler(context)
 
-            val tripApi = OkHttpTripApi(
-                baseUrl = TelemetryBackendConfig.RU_BASE_URL,
-                authTokenProvider = { _ -> authManager.getValidToken() },
+            val euTripApi = OkHttpTripApi(
+                baseUrl = TelemetryBackendConfig.EU_BASE_URL,
+                authTokenProvider = { deviceId -> authManager.getValidToken() },
                 onUnauthorized = { authManager.invalidateToken() },
                 client = okHttpClient,
                 json = json,
+            )
+
+            val ruTripApi = OkHttpTripApi(
+                baseUrl = TelemetryBackendConfig.RU_BASE_URL,
+                authTokenProvider = { deviceId -> authManager.getValidToken() },
+                onUnauthorized = { authManager.invalidateToken() },
+                client = okHttpClient,
+                json = json,
+            )
+
+            val tripApi: TripApi = FallbackTripApi(
+                primary = euTripApi,
+                fallback = ruTripApi,
             )
 
             val tripFinishManager = TripFinishManager(
                 tripApi = tripApi,
                 pendingStore = pendingTripFinishStore,
                 deliveryStatsStore = tripDeliveryStatsStore,
+                finishRetryScheduler = finishRetryScheduler,
             )
 
             val tripRepository = TripRepository(
@@ -119,9 +138,29 @@ class TelemetryDeliveryGraph(
                 backoffCalculator = backoff,
                 policy = policy,
                 authManager = authManager,
+                getPrioritySessionIds = {
+                    pendingTripFinishStore.getAll().map { it.sessionId }.toSet()
+                },
                 onBatchDelivered = { sessionId, route ->
+                    val before = tripDeliveryStatsStore.get(sessionId)
                     tripDeliveryStatsStore.recordBatchDelivery(sessionId, route)
-                    tripRepository.retryPendingFinishes()
+                    val after = tripDeliveryStatsStore.get(sessionId)
+
+                    if (pendingTripFinishStore.exists(sessionId)) {
+                        if (before.deliveredBatches == 0 && after.deliveredBatches > 0) {
+                            Log.d(
+                                "TelemetryTrip",
+                                "first delivered batch for pending finish sessionId=$sessionId -> scheduleFinishRetryImmediate()"
+                            )
+                        } else {
+                            Log.d(
+                                "TelemetryTrip",
+                                "delivered batch for pending finish sessionId=$sessionId -> scheduleFinishRetryImmediate()"
+                            )
+                        }
+
+                        finishRetryScheduler.scheduleImmediate()
+                    }
                 },
             )
 

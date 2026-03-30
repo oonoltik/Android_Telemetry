@@ -17,6 +17,7 @@ class TelemetryDeliveryProcessor(
     private val authManager: TelemetryAuthManager,
     private val onBatchDelivered: suspend (sessionId: String, route: DeliveryRoute) -> Unit,
     private val clock: Clock = Clock.System,
+    private val getPrioritySessionIds: suspend () -> Set<String>,
 ) {
     suspend fun runOnce(): DeliveryRunResult {
         val now = clock.now().toEpochMilliseconds()
@@ -28,8 +29,12 @@ class TelemetryDeliveryProcessor(
         val pendingCount = repository.countReadyForDelivery(now)
         Log.d("TelemetryDelivery", "runOnce(): readyForDelivery=$pendingCount")
 
-        val items = repository.claimNextForDelivery(policy.maxBatchCountPerRun)
-        Log.d("TelemetryDelivery", "runOnce(): claimed=${items.size}")
+        val prioritySessionIds = getPrioritySessionIds()
+        val items = repository.claimNextForDelivery(
+            limit = policy.maxBatchCountPerRun,
+            prioritySessionIds = prioritySessionIds,
+        )
+        Log.d("TelemetryDelivery", "runOnce(): prioritySessionIds=$prioritySessionIds")
 
         if (items.isEmpty()) {
             Log.d("TelemetryDelivery", "runOnce(): idle, nothing to deliver")

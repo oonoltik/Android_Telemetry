@@ -1,71 +1,96 @@
 # Next Steps
 
-## 🔴 High Priority (Critical)
+## 🔴 High Priority
 
-### 1. iOS-like Finish Recovery
+### 1. Throughput optimization after correctness
 
-* сохранять pending finish
-* retry после рестарта
-* WorkManager для finish delivery
+* уменьшить backlog
+* оптимизировать claim/send loop
+* при необходимости повысить batch size
+* добавить fairness policy для priority delivery
 
-👉 критично для production
+👉 цель: быстрее схождение после stop/offline
 
 ---
 
 ### 2. Aggregation Parity (iOS)
 
-* считать:
+* довести расчёты:
+  * distance
+  * duration
+  * avg speed
+  * driving score
+  * trip summary
+* убрать fallback/simplified summary
 
-    * distance
-    * duration
-    * avg speed
-    * driving score
+👉 это главный remaining parity gap
 
-* убрать fallback summary
+---
+
+### 3. Metrics / Observability
+
+* finish recovery latency
+* success rate by route (EU / RU)
+* retry rate
+* queue depth
+* per-session delivery timing
+
+👉 нужна измеримая production-картина
 
 ---
 
 ## 🟡 Medium Priority
 
-### 3. Throughput optimization
+### 4. Fairness for priority delivery
 
-* увеличить batch size
-* уменьшить backlog
-* оптимизировать worker
-
----
-
-### 4. Metrics
-
-* success rate
-* retry rate
-* latency
+* не допускать starvation старого backlog
+* варианты:
+  * N priority batch → 1 normal batch
+  * weighted scheduling
+  * per-session quota
 
 ---
 
-## 🟢 Low Priority
+### 5. Golden tests / replay tests
 
-### 5. Parallel delivery
+* одинаковый synthetic trip
+* сравнение:
+  * iOS
+  * Android
+  * backend totals
 
-* несколько batch одновременно
+👉 нужен контроль drift'а после следующих изменений
 
 ---
 
 ### 6. Payload validation
 
-* schema
+* schema checks
 * size limits
+* defensive validation перед отправкой
 
 ---
 
-## Optional
+## 🟢 Low Priority
 
-* временно отключить EU endpoint
+### 7. Parallel delivery tuning
+
+* аккуратно увеличить throughput без нарушения порядка внутри session
+
+---
+
+### 8. Diagnostics UX
+
+* показать в debug UI:
+  * pending finish count
+  * outbox depth
+  * last delivery route
+  * finish retry state
 
 ---
 
 ## Goal
 
-📌 Надёжный delivery (без потерь)  
-📌 Полный parity с iOS  
-📌 Production readiness
+📌 Быстрое и предсказуемое схождение после stop/offline  
+📌 Полный iOS parity по aggregation  
+📌 Production-grade observability

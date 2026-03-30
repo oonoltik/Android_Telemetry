@@ -118,7 +118,11 @@ class OkHttpTripApi(
             }
 
             if (!response.isSuccessful) {
-                error("fetchTripReport failed: code=${response.code} body=$body")
+                val bodyText = response.body?.string().orEmpty()
+                throw TripApiException(
+                    code = response.code,
+                    message = "HTTP ${response.code}: $bodyText",
+                )
             }
 
             json.decodeFromString(TripReportDto.serializer(), body)
@@ -152,7 +156,11 @@ class OkHttpTripApi(
             }
 
             if (!response.isSuccessful) {
-                error("performFinishTrip failed: code=${response.code} body=$body")
+                val bodyText = response.body?.string().orEmpty()
+                throw TripApiException(
+                    code = response.code,
+                    message = "HTTP ${response.code}: $bodyText",
+                )
             }
 
             json.decodeFromString(TripReportDto.serializer(), body)

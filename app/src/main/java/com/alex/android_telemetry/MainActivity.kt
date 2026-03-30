@@ -15,12 +15,11 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.lifecycleScope
+import com.alex.android_telemetry.telemetry.delivery.TelemetryDeliveryGraph
 import com.alex.android_telemetry.ui.theme.Android_TelemetryTheme
 import kotlinx.coroutines.launch
 
 class MainActivity : ComponentActivity() {
-
-
 
     private lateinit var graph: TelemetryAppGraph
 
@@ -33,6 +32,14 @@ class MainActivity : ComponentActivity() {
         lifecycleScope.launch {
             graph.facade.restore()
             graph.scheduler.schedulePeriodic()
+
+            runCatching {
+                TelemetryDeliveryGraph.from(applicationContext)
+                    .tripRepository
+                    .retryPendingFinishes()
+            }.onFailure {
+                Log.e("TelemetryTrip", "retryPendingFinishes on app start failed", it)
+            }
 
             if (hasLocationPermission()) {
                 Log.d("TelemetryDelivery", "Location permission granted, starting trip")

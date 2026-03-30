@@ -7,6 +7,7 @@ import com.alex.android_telemetry.telemetry.trips.api.ClientTripMetricsDto
 import com.alex.android_telemetry.telemetry.trips.api.PendingTripFinishDto
 import com.alex.android_telemetry.telemetry.trips.api.TripApi
 import com.alex.android_telemetry.telemetry.trips.api.TripReportDto
+import com.alex.android_telemetry.telemetry.trips.finish.FinishRetryScheduler
 import com.alex.android_telemetry.telemetry.trips.storage.PendingTripFinishStore
 import com.alex.android_telemetry.telemetry.trips.storage.TripDeliveryStatsStore
 import kotlinx.datetime.Clock
@@ -17,6 +18,7 @@ class TripFinishManager(
     private val tripApi: TripApi,
     private val pendingStore: PendingTripFinishStore,
     private val deliveryStatsStore: TripDeliveryStatsStore,
+    private val finishRetryScheduler: FinishRetryScheduler,
 ) {
     suspend fun finishTrip(
         sessionId: String,
@@ -56,13 +58,23 @@ class TripFinishManager(
 
         val deliveredBatches = deliveryStatsStore.get(sessionId).deliveredBatches
 
-        if (deliveredBatches == 0) {
-            pendingStore.upsert(pending)
+        Log.d(
+            "TelemetryTrip",
+            "finishTrip(): sessionId=$sessionId deliveredBatches=$deliveredBatches -> attempt finish now"
+        )
+
+        return try {
+            performFinishTrip(
+                pending = pending,
+                attempt = 0,
+                storePendingOnFailure = true,
+            )
+        } catch (t: Throwable) {
             Log.d(
                 "TelemetryTrip",
-                "finish queued sessionId=$sessionId deliveredBatches=0"
+                "finish queued after immediate attempt sessionId=$sessionId deliveredBatches=$deliveredBatches error=${t.message}"
             )
-            return TripReportDto(
+            TripReportDto(
                 sessionId = sessionId,
                 driverId = driverId,
                 deviceId = deviceId,
@@ -70,8 +82,6 @@ class TripFinishManager(
                 worstBatchScore = 0.0,
             )
         }
-
-        return performFinishTrip(pending)
     }
 
     suspend fun performFinishTrip(
@@ -86,6 +96,7 @@ class TripFinishManager(
         } catch (t: Throwable) {
             if (storePendingOnFailure) {
                 pendingStore.upsert(pending)
+                finishRetryScheduler.scheduleImmediate()
             }
             Log.d(
                 "TelemetryTrip",
@@ -100,19 +111,23 @@ class TripFinishManager(
 
         for (item in items) {
             val deliveredBatches = deliveryStatsStore.get(item.sessionId).deliveredBatches
-            if (deliveredBatches == 0) {
-                Log.d(
-                    "TelemetryTrip",
-                    "retryPendingFinishes skip sessionId=${item.sessionId}: no delivered batches yet"
-                )
-                continue
-            }
+
+            Log.d(
+                "TelemetryTrip",
+                "retryPendingFinishes attempt sessionId=${item.sessionId} deliveredBatches=$deliveredBatches"
+            )
 
             runCatching {
                 performFinishTrip(
                     pending = item,
                     attempt = 0,
                     storePendingOnFailure = true,
+                )
+            }.onFailure {
+                Log.e(
+                    "TelemetryTrip",
+                    "retryPendingFinishes failed sessionId=${item.sessionId} deliveredBatches=$deliveredBatches",
+                    it,
                 )
             }
         }

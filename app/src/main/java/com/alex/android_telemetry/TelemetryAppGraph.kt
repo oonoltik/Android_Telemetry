@@ -126,6 +126,7 @@ class TelemetryAppGraph private constructor(
                 ),
                 batchSequenceStore = batchSequenceStore,
                 batchEnqueuer = enqueuer,
+                outboxRepository = repository,
                 runtimeStateStore = runtimeStateStore,
             )
 
