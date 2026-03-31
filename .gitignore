@@ -1,21 +1,19 @@
-# Gradle
-.gradle/
-build/
+# macOS
+.DS_Store
 
-# Local config
+# Android
+.gradle/
+.idea/
+.kotlin/
+**/build/
 local.properties
 
-# Android Studio
-.idea/
-*.iml
+# iOS
+DerivedData/
+.build/
+*.xcworkspace/xcuserdata/
+*.xcodeproj/xcuserdata/
+*.swiftpm/
 
-# APK / AAB
-*.apk
-*.aab
-
-# Logs
-*.log
-
-# OS
-.DS_Store
-Thumbs.db
+# Optional dependency directories
+Pods/
