@@ -11,9 +11,11 @@ local.properties
 # iOS
 DerivedData/
 .build/
-*.xcworkspace/xcuserdata/
-*.xcodeproj/xcuserdata/
 *.swiftpm/
+**/*.xcworkspace/xcuserdata/
+**/*.xcodeproj/xcuserdata/
+*.xcuserstate
 
 # Optional dependency directories
 Pods/
+
