@@ -1,0 +1,814 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 77;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		F507E2DB2F224D4200F8D50E /* TrackingMode.swift in Sources */ = {isa = PBXBuildFile; fileRef = F507E2DA2F224D3F00F8D50E /* TrackingMode.swift */; };
+		F507E2DD2F224D6100F8D50E /* DayMonitoringManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = F507E2DC2F224D5E00F8D50E /* DayMonitoringManager.swift */; };
+		F507E2F52F24E3AA00F8D50E /* WaterGlassFullScreenView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F507E2F42F24E3A700F8D50E /* WaterGlassFullScreenView.swift */; };
+		F507E2F72F24E3D000F8D50E /* WaterGlassView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F507E2F62F24E3CE00F8D50E /* WaterGlassView.swift */; };
+		F51CC9742F178AFE00926111 /* KeychainStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = F51CC9732F178AFA00926111 /* KeychainStore.swift */; };
+		F51CC9762F178B2500926111 /* AuthManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = F51CC9752F178B2300926111 /* AuthManager.swift */; };
+		F532A1662F66A1E60083C8BF /* LanguageManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = F532A1652F66A0960083C8BF /* LanguageManager.swift */; };
+		F532A1672F66A1ED0083C8BF /* LocalizationCatalog.swift in Sources */ = {isa = PBXBuildFile; fileRef = F532A1642F66A07D0083C8BF /* LocalizationCatalog.swift */; };
+		F532A1682F66A1F40083C8BF /* LocalizationKey.swift in Sources */ = {isa = PBXBuildFile; fileRef = F532A1632F66A0570083C8BF /* LocalizationKey.swift */; };
+		F532A1692F66A1FA0083C8BF /* AppLanguage.swift in Sources */ = {isa = PBXBuildFile; fileRef = F532A1622F66A02F0083C8BF /* AppLanguage.swift */; };
+		F532A16D2F6826720083C8BF /* DriverHomeResponse.swift in Sources */ = {isa = PBXBuildFile; fileRef = F532A16C2F6826710083C8BF /* DriverHomeResponse.swift */; };
+		F532A16F2F695D4F0083C8BF /* WaterGameManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = F532A16E2F695D4E0083C8BF /* WaterGameManager.swift */; };
+		F532A1712F6963220083C8BF /* _DriverScoreCardView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F532A1702F6963200083C8BF /* _DriverScoreCardView.swift */; };
+		F532A1732F6964A20083C8BF /* _TripStateBadgeView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F532A1722F6964A10083C8BF /* _TripStateBadgeView.swift */; };
+		F532A1752F6964C00083C8BF /* _TripSummaryCardView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F532A1742F6964BE0083C8BF /* _TripSummaryCardView.swift */; };
+		F532A1772F6964E00083C8BF /* _StartStopControlsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F532A1762F6964DF0083C8BF /* _StartStopControlsView.swift */; };
+		F532A1792F6965A00083C8BF /* CardStyle.swift in Sources */ = {isa = PBXBuildFile; fileRef = F532A1782F69659F0083C8BF /* CardStyle.swift */; };
+		F532A17B2F6ACA810083C8BF /* PermissionOnboardingView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F532A17A2F6ACA7F0083C8BF /* PermissionOnboardingView.swift */; };
+		F532A1942F6ADD960083C8BF /* TelemetryAppApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = F532A1922F6ADD960083C8BF /* TelemetryAppApp.swift */; };
+		F532A1952F6ADD960083C8BF /* FeatureFlags.swift in Sources */ = {isa = PBXBuildFile; fileRef = F532A18C2F6ADD960083C8BF /* FeatureFlags.swift */; };
+		F532A1962F6ADD960083C8BF /* InfoPlist.strings in Resources */ = {isa = PBXBuildFile; fileRef = F532A1902F6ADD960083C8BF /* InfoPlist.strings */; };
+		F532A1982F6ADD960083C8BF /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = F532A18B2F6ADD960083C8BF /* Assets.xcassets */; };
+		F55E1BCB2F4DBF4B00ED0E87 /* ManualTripAutoFinish.swift in Sources */ = {isa = PBXBuildFile; fileRef = F55E1BCA2F4DBF4800ED0E87 /* ManualTripAutoFinish.swift */; };
+		F5617FF92F01E5F7000889E0 /* Axis3.swift in Sources */ = {isa = PBXBuildFile; fileRef = F5617FF82F01E5EC000889E0 /* Axis3.swift */; };
+		F56722602EFEDF7700757F45 /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F567225B2EFEDF7700757F45 /* ContentView.swift */; };
+		F56722692EFEEE5400757F45 /* TripReportView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F56722682EFEEE4E00757F45 /* TripReportView.swift */; };
+		F567226B2EFEF0BD00757F45 /* TripReport.swift in Sources */ = {isa = PBXBuildFile; fileRef = F567226A2EFEF0AC00757F45 /* TripReport.swift */; };
+		F56EE8482F2B54BE008E6576 /* TripConfigModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = F56EE8472F2B54BE008E6576 /* TripConfigModels.swift */; };
+		F56EE84A2F2B54FC008E6576 /* TripConfigView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F56EE8492F2B54FC008E6576 /* TripConfigView.swift */; };
+		F57D59482F6D65E700450312 /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = F57D59472F6D65E700450312 /* PrivacyInfo.xcprivacy */; };
+		F57FB91A2EEADC82002BC621 /* SensorManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = F57FB9192EEADC66002BC621 /* SensorManager.swift */; };
+		F57FB91E2EEAE76D002BC621 /* NetworkManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = F57FB9172EEADBA5002BC621 /* NetworkManager.swift */; };
+		F57FB9202EEAEC09002BC621 /* models.swift in Sources */ = {isa = PBXBuildFile; fileRef = F57FB91F2EEAEBF6002BC621 /* models.swift */; };
+		F57FB9242EEB2721002BC621 /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F57FB9232EEB259A002BC621 /* SettingsView.swift */; };
+		F597ADF62F5AD4DC00A9DEDC /* NumericSanitizer.swift in Sources */ = {isa = PBXBuildFile; fileRef = F597ADF52F5AD4D900A9DEDC /* NumericSanitizer.swift */; };
+		F5A3AB482F1FD8CB00BBB788 /* TripsArchiveView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F5A3AB472F1FD8C500BBB788 /* TripsArchiveView.swift */; };
+		F5A3AB4A2F1FD91A00BBB788 /* TripSummary.swift in Sources */ = {isa = PBXBuildFile; fileRef = F5A3AB492F1FD90700BBB788 /* TripSummary.swift */; };
+		F5BBFDB32F47014000DC82C0 /* DriverSetupView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F5BBFDB22F47014000DC82C0 /* DriverSetupView.swift */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXContainerItemProxy section */
+		F57FB8E82EEAC360002BC621 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = F57FB8D22EEAC360002BC621 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = F57FB8D92EEAC360002BC621;
+			remoteInfo = TelemetryApp;
+		};
+		F57FB8F22EEAC360002BC621 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = F57FB8D22EEAC360002BC621 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = F57FB8D92EEAC360002BC621;
+			remoteInfo = TelemetryApp;
+		};
+/* End PBXContainerItemProxy section */
+
+/* Begin PBXFileReference section */
+		F507E2DA2F224D3F00F8D50E /* TrackingMode.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TrackingMode.swift; sourceTree = "<group>"; };
+		F507E2DC2F224D5E00F8D50E /* DayMonitoringManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DayMonitoringManager.swift; sourceTree = "<group>"; };
+		F507E2F42F24E3A700F8D50E /* WaterGlassFullScreenView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WaterGlassFullScreenView.swift; sourceTree = "<group>"; };
+		F507E2F62F24E3CE00F8D50E /* WaterGlassView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WaterGlassView.swift; sourceTree = "<group>"; };
+		F51CC9732F178AFA00926111 /* KeychainStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KeychainStore.swift; sourceTree = "<group>"; };
+		F51CC9752F178B2300926111 /* AuthManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AuthManager.swift; sourceTree = "<group>"; };
+		F532A1622F66A02F0083C8BF /* AppLanguage.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppLanguage.swift; sourceTree = "<group>"; };
+		F532A1632F66A0570083C8BF /* LocalizationKey.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LocalizationKey.swift; sourceTree = "<group>"; };
+		F532A1642F66A07D0083C8BF /* LocalizationCatalog.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LocalizationCatalog.swift; sourceTree = "<group>"; };
+		F532A1652F66A0960083C8BF /* LanguageManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LanguageManager.swift; sourceTree = "<group>"; };
+		F532A16C2F6826710083C8BF /* DriverHomeResponse.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DriverHomeResponse.swift; sourceTree = "<group>"; };
+		F532A16E2F695D4E0083C8BF /* WaterGameManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WaterGameManager.swift; sourceTree = "<group>"; };
+		F532A1702F6963200083C8BF /* _DriverScoreCardView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = _DriverScoreCardView.swift; sourceTree = "<group>"; };
+		F532A1722F6964A10083C8BF /* _TripStateBadgeView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = _TripStateBadgeView.swift; sourceTree = "<group>"; };
+		F532A1742F6964BE0083C8BF /* _TripSummaryCardView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = _TripSummaryCardView.swift; sourceTree = "<group>"; };
+		F532A1762F6964DF0083C8BF /* _StartStopControlsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = _StartStopControlsView.swift; sourceTree = "<group>"; };
+		F532A1782F69659F0083C8BF /* CardStyle.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CardStyle.swift; sourceTree = "<group>"; };
+		F532A17A2F6ACA7F0083C8BF /* PermissionOnboardingView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PermissionOnboardingView.swift; sourceTree = "<group>"; };
+		F532A18B2F6ADD960083C8BF /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
+		F532A18C2F6ADD960083C8BF /* FeatureFlags.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FeatureFlags.swift; sourceTree = "<group>"; };
+		F532A18D2F6ADD960083C8BF /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
+		F532A18E2F6ADD960083C8BF /* en */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = en; path = en.lproj/InfoPlist.strings; sourceTree = "<group>"; };
+		F532A18F2F6ADD960083C8BF /* ru */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = ru; path = ru.lproj/InfoPlist.strings; sourceTree = "<group>"; };
+		F532A1912F6ADD960083C8BF /* TelemetryApp.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = TelemetryApp.entitlements; sourceTree = "<group>"; };
+		F532A1922F6ADD960083C8BF /* TelemetryAppApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TelemetryAppApp.swift; sourceTree = "<group>"; };
+		F55E1BCA2F4DBF4800ED0E87 /* ManualTripAutoFinish.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ManualTripAutoFinish.swift; sourceTree = "<group>"; };
+		F5617FF82F01E5EC000889E0 /* Axis3.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Axis3.swift; sourceTree = "<group>"; };
+		F567225B2EFEDF7700757F45 /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
+		F56722682EFEEE4E00757F45 /* TripReportView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TripReportView.swift; sourceTree = "<group>"; };
+		F567226A2EFEF0AC00757F45 /* TripReport.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TripReport.swift; sourceTree = "<group>"; };
+		F56EE8472F2B54BE008E6576 /* TripConfigModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TripConfigModels.swift; sourceTree = "<group>"; };
+		F56EE8492F2B54FC008E6576 /* TripConfigView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TripConfigView.swift; sourceTree = "<group>"; };
+		F57D59472F6D65E700450312 /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; lastKnownFileType = text.xml; path = PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
+		F57FB8DA2EEAC360002BC621 /* TelemetryApp.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = TelemetryApp.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		F57FB8E72EEAC360002BC621 /* TelemetryAppTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = TelemetryAppTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		F57FB8F12EEAC360002BC621 /* TelemetryAppUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = TelemetryAppUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		F57FB9172EEADBA5002BC621 /* NetworkManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NetworkManager.swift; sourceTree = "<group>"; };
+		F57FB9192EEADC66002BC621 /* SensorManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SensorManager.swift; sourceTree = "<group>"; };
+		F57FB91F2EEAEBF6002BC621 /* models.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = models.swift; sourceTree = "<group>"; };
+		F57FB9232EEB259A002BC621 /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
+		F597ADF52F5AD4D900A9DEDC /* NumericSanitizer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NumericSanitizer.swift; sourceTree = "<group>"; };
+		F5A3AB472F1FD8C500BBB788 /* TripsArchiveView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TripsArchiveView.swift; sourceTree = "<group>"; };
+		F5A3AB492F1FD90700BBB788 /* TripSummary.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TripSummary.swift; sourceTree = "<group>"; };
+		F5BBFDB22F47014000DC82C0 /* DriverSetupView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DriverSetupView.swift; sourceTree = "<group>"; };
+/* End PBXFileReference section */
+
+/* Begin PBXFileSystemSynchronizedRootGroup section */
+		F57FB8EA2EEAC360002BC621 /* TelemetryAppTests */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = TelemetryAppTests;
+			sourceTree = "<group>";
+		};
+		F57FB8F42EEAC360002BC621 /* TelemetryAppUITests */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = TelemetryAppUITests;
+			sourceTree = "<group>";
+		};
+/* End PBXFileSystemSynchronizedRootGroup section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		F57FB8D72EEAC360002BC621 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		F57FB8E42EEAC360002BC621 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		F57FB8EE2EEAC360002BC621 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXGroup section */
+		F532A1612F66A0220083C8BF /* Localization */ = {
+			isa = PBXGroup;
+			children = (
+				F532A1652F66A0960083C8BF /* LanguageManager.swift */,
+				F532A1642F66A07D0083C8BF /* LocalizationCatalog.swift */,
+				F532A1632F66A0570083C8BF /* LocalizationKey.swift */,
+				F532A1622F66A02F0083C8BF /* AppLanguage.swift */,
+			);
+			path = Localization;
+			sourceTree = "<group>";
+		};
+		F532A1932F6ADD960083C8BF /* TelemetryApp */ = {
+			isa = PBXGroup;
+			children = (
+				F532A18B2F6ADD960083C8BF /* Assets.xcassets */,
+				F532A18C2F6ADD960083C8BF /* FeatureFlags.swift */,
+				F57D59472F6D65E700450312 /* PrivacyInfo.xcprivacy */,
+				F532A18D2F6ADD960083C8BF /* Info.plist */,
+				F532A1902F6ADD960083C8BF /* InfoPlist.strings */,
+				F532A1912F6ADD960083C8BF /* TelemetryApp.entitlements */,
+				F532A1922F6ADD960083C8BF /* TelemetryAppApp.swift */,
+			);
+			path = TelemetryApp;
+			sourceTree = "<group>";
+		};
+		F57FB8D12EEAC360002BC621 = {
+			isa = PBXGroup;
+			children = (
+				F532A1612F66A0220083C8BF /* Localization */,
+				F57FB9222EEB258F002BC621 /* Views */,
+				F57FB9142EEAD820002BC621 /* Networking */,
+				F57FB9132EEAD80B002BC621 /* Models */,
+				F57FB9122EEAD7E8002BC621 /* Managers */,
+				F57FB9102EEAD77C002BC621 /* Services */,
+				F57FB8EA2EEAC360002BC621 /* TelemetryAppTests */,
+				F57FB8F42EEAC360002BC621 /* TelemetryAppUITests */,
+				F57FB8DB2EEAC360002BC621 /* Products */,
+				F532A1932F6ADD960083C8BF /* TelemetryApp */,
+			);
+			sourceTree = "<group>";
+		};
+		F57FB8DB2EEAC360002BC621 /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				F57FB8DA2EEAC360002BC621 /* TelemetryApp.app */,
+				F57FB8E72EEAC360002BC621 /* TelemetryAppTests.xctest */,
+				F57FB8F12EEAC360002BC621 /* TelemetryAppUITests.xctest */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+		F57FB9102EEAD77C002BC621 /* Services */ = {
+			isa = PBXGroup;
+			children = (
+			);
+			path = Services;
+			sourceTree = "<group>";
+		};
+		F57FB9122EEAD7E8002BC621 /* Managers */ = {
+			isa = PBXGroup;
+			children = (
+				F532A16E2F695D4E0083C8BF /* WaterGameManager.swift */,
+				F55E1BCA2F4DBF4800ED0E87 /* ManualTripAutoFinish.swift */,
+				F507E2DC2F224D5E00F8D50E /* DayMonitoringManager.swift */,
+				F57FB9192EEADC66002BC621 /* SensorManager.swift */,
+			);
+			path = Managers;
+			sourceTree = "<group>";
+		};
+		F57FB9132EEAD80B002BC621 /* Models */ = {
+			isa = PBXGroup;
+			children = (
+				F597ADF52F5AD4D900A9DEDC /* NumericSanitizer.swift */,
+				F56EE8472F2B54BE008E6576 /* TripConfigModels.swift */,
+				F507E2DA2F224D3F00F8D50E /* TrackingMode.swift */,
+				F5A3AB492F1FD90700BBB788 /* TripSummary.swift */,
+				F5617FF82F01E5EC000889E0 /* Axis3.swift */,
+				F567226A2EFEF0AC00757F45 /* TripReport.swift */,
+				F57FB91F2EEAEBF6002BC621 /* models.swift */,
+			);
+			path = Models;
+			sourceTree = "<group>";
+		};
+		F57FB9142EEAD820002BC621 /* Networking */ = {
+			isa = PBXGroup;
+			children = (
+				F51CC9752F178B2300926111 /* AuthManager.swift */,
+				F51CC9732F178AFA00926111 /* KeychainStore.swift */,
+				F57FB9172EEADBA5002BC621 /* NetworkManager.swift */,
+			);
+			path = Networking;
+			sourceTree = "<group>";
+		};
+		F57FB9222EEB258F002BC621 /* Views */ = {
+			isa = PBXGroup;
+			children = (
+				F532A17A2F6ACA7F0083C8BF /* PermissionOnboardingView.swift */,
+				F532A1782F69659F0083C8BF /* CardStyle.swift */,
+				F532A1762F6964DF0083C8BF /* _StartStopControlsView.swift */,
+				F532A1742F6964BE0083C8BF /* _TripSummaryCardView.swift */,
+				F532A1722F6964A10083C8BF /* _TripStateBadgeView.swift */,
+				F532A1702F6963200083C8BF /* _DriverScoreCardView.swift */,
+				F532A16C2F6826710083C8BF /* DriverHomeResponse.swift */,
+				F56EE8492F2B54FC008E6576 /* TripConfigView.swift */,
+				F507E2F62F24E3CE00F8D50E /* WaterGlassView.swift */,
+				F507E2F42F24E3A700F8D50E /* WaterGlassFullScreenView.swift */,
+				F5BBFDB22F47014000DC82C0 /* DriverSetupView.swift */,
+				F5A3AB472F1FD8C500BBB788 /* TripsArchiveView.swift */,
+				F57FB9232EEB259A002BC621 /* SettingsView.swift */,
+				F567225B2EFEDF7700757F45 /* ContentView.swift */,
+				F56722682EFEEE4E00757F45 /* TripReportView.swift */,
+			);
+			path = Views;
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
+		F57FB8D92EEAC360002BC621 /* TelemetryApp */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = F57FB8FB2EEAC360002BC621 /* Build configuration list for PBXNativeTarget "TelemetryApp" */;
+			buildPhases = (
+				F57FB8D62EEAC360002BC621 /* Sources */,
+				F57FB8D72EEAC360002BC621 /* Frameworks */,
+				F57FB8D82EEAC360002BC621 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = TelemetryApp;
+			packageProductDependencies = (
+			);
+			productName = TelemetryApp;
+			productReference = F57FB8DA2EEAC360002BC621 /* TelemetryApp.app */;
+			productType = "com.apple.product-type.application";
+		};
+		F57FB8E62EEAC360002BC621 /* TelemetryAppTests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = F57FB8FE2EEAC360002BC621 /* Build configuration list for PBXNativeTarget "TelemetryAppTests" */;
+			buildPhases = (
+				F57FB8E32EEAC360002BC621 /* Sources */,
+				F57FB8E42EEAC360002BC621 /* Frameworks */,
+				F57FB8E52EEAC360002BC621 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				F57FB8E92EEAC360002BC621 /* PBXTargetDependency */,
+			);
+			fileSystemSynchronizedGroups = (
+				F57FB8EA2EEAC360002BC621 /* TelemetryAppTests */,
+			);
+			name = TelemetryAppTests;
+			packageProductDependencies = (
+			);
+			productName = TelemetryAppTests;
+			productReference = F57FB8E72EEAC360002BC621 /* TelemetryAppTests.xctest */;
+			productType = "com.apple.product-type.bundle.unit-test";
+		};
+		F57FB8F02EEAC360002BC621 /* TelemetryAppUITests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = F57FB9012EEAC360002BC621 /* Build configuration list for PBXNativeTarget "TelemetryAppUITests" */;
+			buildPhases = (
+				F57FB8ED2EEAC360002BC621 /* Sources */,
+				F57FB8EE2EEAC360002BC621 /* Frameworks */,
+				F57FB8EF2EEAC360002BC621 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				F57FB8F32EEAC360002BC621 /* PBXTargetDependency */,
+			);
+			fileSystemSynchronizedGroups = (
+				F57FB8F42EEAC360002BC621 /* TelemetryAppUITests */,
+			);
+			name = TelemetryAppUITests;
+			packageProductDependencies = (
+			);
+			productName = TelemetryAppUITests;
+			productReference = F57FB8F12EEAC360002BC621 /* TelemetryAppUITests.xctest */;
+			productType = "com.apple.product-type.bundle.ui-testing";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		F57FB8D22EEAC360002BC621 /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				BuildIndependentTargetsInParallel = 1;
+				KnownAssetTags = (
+					New,
+				);
+				LastSwiftUpdateCheck = 2610;
+				LastUpgradeCheck = 2610;
+				TargetAttributes = {
+					F57FB8D92EEAC360002BC621 = {
+						CreatedOnToolsVersion = 26.1.1;
+					};
+					F57FB8E62EEAC360002BC621 = {
+						CreatedOnToolsVersion = 26.1.1;
+						TestTargetID = F57FB8D92EEAC360002BC621;
+					};
+					F57FB8F02EEAC360002BC621 = {
+						CreatedOnToolsVersion = 26.1.1;
+						TestTargetID = F57FB8D92EEAC360002BC621;
+					};
+				};
+			};
+			buildConfigurationList = F57FB8D52EEAC360002BC621 /* Build configuration list for PBXProject "TelemetryApp" */;
+			developmentRegion = en;
+			hasScannedForEncodings = 0;
+			knownRegions = (
+				en,
+				Base,
+				ru,
+			);
+			mainGroup = F57FB8D12EEAC360002BC621;
+			minimizedProjectReferenceProxies = 1;
+			preferredProjectObjectVersion = 77;
+			productRefGroup = F57FB8DB2EEAC360002BC621 /* Products */;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				F57FB8D92EEAC360002BC621 /* TelemetryApp */,
+				F57FB8E62EEAC360002BC621 /* TelemetryAppTests */,
+				F57FB8F02EEAC360002BC621 /* TelemetryAppUITests */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXResourcesBuildPhase section */
+		F57FB8D82EEAC360002BC621 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				F57D59482F6D65E700450312 /* PrivacyInfo.xcprivacy in Resources */,
+				F532A1962F6ADD960083C8BF /* InfoPlist.strings in Resources */,
+				F532A1982F6ADD960083C8BF /* Assets.xcassets in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		F57FB8E52EEAC360002BC621 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		F57FB8EF2EEAC360002BC621 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXResourcesBuildPhase section */
+
+/* Begin PBXSourcesBuildPhase section */
+		F57FB8D62EEAC360002BC621 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				F5A3AB482F1FD8CB00BBB788 /* TripsArchiveView.swift in Sources */,
+				F532A1942F6ADD960083C8BF /* TelemetryAppApp.swift in Sources */,
+				F532A1952F6ADD960083C8BF /* FeatureFlags.swift in Sources */,
+				F57FB9202EEAEC09002BC621 /* models.swift in Sources */,
+				F507E2DD2F224D6100F8D50E /* DayMonitoringManager.swift in Sources */,
+				F532A16D2F6826720083C8BF /* DriverHomeResponse.swift in Sources */,
+				F56EE84A2F2B54FC008E6576 /* TripConfigView.swift in Sources */,
+				F532A1732F6964A20083C8BF /* _TripStateBadgeView.swift in Sources */,
+				F532A1672F66A1ED0083C8BF /* LocalizationCatalog.swift in Sources */,
+				F57FB91A2EEADC82002BC621 /* SensorManager.swift in Sources */,
+				F507E2F52F24E3AA00F8D50E /* WaterGlassFullScreenView.swift in Sources */,
+				F56722692EFEEE5400757F45 /* TripReportView.swift in Sources */,
+				F57FB9242EEB2721002BC621 /* SettingsView.swift in Sources */,
+				F5BBFDB32F47014000DC82C0 /* DriverSetupView.swift in Sources */,
+				F532A16F2F695D4F0083C8BF /* WaterGameManager.swift in Sources */,
+				F5617FF92F01E5F7000889E0 /* Axis3.swift in Sources */,
+				F56EE8482F2B54BE008E6576 /* TripConfigModels.swift in Sources */,
+				F532A1682F66A1F40083C8BF /* LocalizationKey.swift in Sources */,
+				F57FB91E2EEAE76D002BC621 /* NetworkManager.swift in Sources */,
+				F507E2F72F24E3D000F8D50E /* WaterGlassView.swift in Sources */,
+				F532A1662F66A1E60083C8BF /* LanguageManager.swift in Sources */,
+				F5A3AB4A2F1FD91A00BBB788 /* TripSummary.swift in Sources */,
+				F532A1752F6964C00083C8BF /* _TripSummaryCardView.swift in Sources */,
+				F532A1772F6964E00083C8BF /* _StartStopControlsView.swift in Sources */,
+				F56722602EFEDF7700757F45 /* ContentView.swift in Sources */,
+				F597ADF62F5AD4DC00A9DEDC /* NumericSanitizer.swift in Sources */,
+				F51CC9762F178B2500926111 /* AuthManager.swift in Sources */,
+				F567226B2EFEF0BD00757F45 /* TripReport.swift in Sources */,
+				F507E2DB2F224D4200F8D50E /* TrackingMode.swift in Sources */,
+				F55E1BCB2F4DBF4B00ED0E87 /* ManualTripAutoFinish.swift in Sources */,
+				F532A1692F66A1FA0083C8BF /* AppLanguage.swift in Sources */,
+				F532A1792F6965A00083C8BF /* CardStyle.swift in Sources */,
+				F532A17B2F6ACA810083C8BF /* PermissionOnboardingView.swift in Sources */,
+				F51CC9742F178AFE00926111 /* KeychainStore.swift in Sources */,
+				F532A1712F6963220083C8BF /* _DriverScoreCardView.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		F57FB8E32EEAC360002BC621 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		F57FB8ED2EEAC360002BC621 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin PBXTargetDependency section */
+		F57FB8E92EEAC360002BC621 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = F57FB8D92EEAC360002BC621 /* TelemetryApp */;
+			targetProxy = F57FB8E82EEAC360002BC621 /* PBXContainerItemProxy */;
+		};
+		F57FB8F32EEAC360002BC621 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = F57FB8D92EEAC360002BC621 /* TelemetryApp */;
+			targetProxy = F57FB8F22EEAC360002BC621 /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
+
+/* Begin PBXVariantGroup section */
+		F532A1902F6ADD960083C8BF /* InfoPlist.strings */ = {
+			isa = PBXVariantGroup;
+			children = (
+				F532A18E2F6ADD960083C8BF /* en */,
+				F532A18F2F6ADD960083C8BF /* ru */,
+			);
+			name = InfoPlist.strings;
+			sourceTree = "<group>";
+		};
+/* End PBXVariantGroup section */
+
+/* Begin XCBuildConfiguration section */
+		F57FB8F92EEAC360002BC621 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = YES;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++20";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				DEVELOPMENT_TEAM = 5DHKTNBC74;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_TESTABILITY = YES;
+				ENABLE_USER_SCRIPT_SANDBOXING = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu17;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"DEBUG=1",
+					"$(inherited)",
+				);
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 26.1;
+				LOCALIZATION_PREFERS_STRING_CATALOGS = YES;
+				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
+				MTL_FAST_MATH = YES;
+				ONLY_ACTIVE_ARCH = YES;
+				SDKROOT = iphoneos;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "DEBUG $(inherited)";
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+			};
+			name = Debug;
+		};
+		F57FB8FA2EEAC360002BC621 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = YES;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++20";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				DEVELOPMENT_TEAM = 5DHKTNBC74;
+				ENABLE_NS_ASSERTIONS = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_USER_SCRIPT_SANDBOXING = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu17;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 26.1;
+				LOCALIZATION_PREFERS_STRING_CATALOGS = YES;
+				MTL_ENABLE_DEBUG_INFO = NO;
+				MTL_FAST_MATH = YES;
+				SDKROOT = iphoneos;
+				SWIFT_COMPILATION_MODE = wholemodule;
+				VALIDATE_PRODUCT = YES;
+			};
+			name = Release;
+		};
+		F57FB8FC2EEAC360002BC621 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_ENTITLEMENTS = TelemetryApp/TelemetryApp.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 10;
+				DEVELOPMENT_TEAM = 586DTS6D8R;
+				ENABLE_PREVIEWS = YES;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = TelemetryApp/Info.plist;
+				INFOPLIST_KEY_LSApplicationCategoryType = "";
+				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
+				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
+				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
+				INFOPLIST_KEY_UISupportedInterfaceOrientations = "UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight UIInterfaceOrientationPortrait";
+				IPHONEOS_DEPLOYMENT_TARGET = 16.6;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				MARKETING_VERSION = 1.0.1;
+				PRODUCT_BUNDLE_IDENTIFIER = com.alexey.TelemetryApp;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				STRING_CATALOG_GENERATE_SYMBOLS = YES;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = 1;
+			};
+			name = Debug;
+		};
+		F57FB8FD2EEAC360002BC621 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_ENTITLEMENTS = TelemetryApp/TelemetryApp.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 10;
+				DEVELOPMENT_TEAM = 586DTS6D8R;
+				ENABLE_PREVIEWS = YES;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = TelemetryApp/Info.plist;
+				INFOPLIST_KEY_LSApplicationCategoryType = "";
+				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
+				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
+				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
+				INFOPLIST_KEY_UISupportedInterfaceOrientations = "UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight UIInterfaceOrientationPortrait";
+				IPHONEOS_DEPLOYMENT_TARGET = 16.6;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				MARKETING_VERSION = 1.0.1;
+				PRODUCT_BUNDLE_IDENTIFIER = com.alexey.TelemetryApp;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				STRING_CATALOG_GENERATE_SYMBOLS = YES;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = 1;
+			};
+			name = Release;
+		};
+		F57FB8FF2EEAC360002BC621 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = 5DHKTNBC74;
+				GENERATE_INFOPLIST_FILE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 16.6;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.alexey.TelemetryAppTests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				STRING_CATALOG_GENERATE_SYMBOLS = NO;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/TelemetryApp.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/TelemetryApp";
+			};
+			name = Debug;
+		};
+		F57FB9002EEAC360002BC621 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = 5DHKTNBC74;
+				GENERATE_INFOPLIST_FILE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 16.6;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.alexey.TelemetryAppTests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				STRING_CATALOG_GENERATE_SYMBOLS = NO;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/TelemetryApp.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/TelemetryApp";
+			};
+			name = Release;
+		};
+		F57FB9022EEAC360002BC621 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = 5DHKTNBC74;
+				GENERATE_INFOPLIST_FILE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 16.6;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.alexey.TelemetryAppUITests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				STRING_CATALOG_GENERATE_SYMBOLS = NO;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_TARGET_NAME = TelemetryApp;
+			};
+			name = Debug;
+		};
+		F57FB9032EEAC360002BC621 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = 5DHKTNBC74;
+				GENERATE_INFOPLIST_FILE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 16.6;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.alexey.TelemetryAppUITests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				STRING_CATALOG_GENERATE_SYMBOLS = NO;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_TARGET_NAME = TelemetryApp;
+			};
+			name = Release;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		F57FB8D52EEAC360002BC621 /* Build configuration list for PBXProject "TelemetryApp" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				F57FB8F92EEAC360002BC621 /* Debug */,
+				F57FB8FA2EEAC360002BC621 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		F57FB8FB2EEAC360002BC621 /* Build configuration list for PBXNativeTarget "TelemetryApp" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				F57FB8FC2EEAC360002BC621 /* Debug */,
+				F57FB8FD2EEAC360002BC621 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		F57FB8FE2EEAC360002BC621 /* Build configuration list for PBXNativeTarget "TelemetryAppTests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				F57FB8FF2EEAC360002BC621 /* Debug */,
+				F57FB9002EEAC360002BC621 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		F57FB9012EEAC360002BC621 /* Build configuration list for PBXNativeTarget "TelemetryAppUITests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				F57FB9022EEAC360002BC621 /* Debug */,
+				F57FB9032EEAC360002BC621 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+/* End XCConfigurationList section */
+	};
+	rootObject = F57FB8D22EEAC360002BC621 /* Project object */;
+}
