@@ -37,47 +37,38 @@ class TelemetryFrameAssembler {
     )
 }
 
-open class BatchSequenceStore {
-    protected var seq: Int = 0
-
-    open fun next(): Int {
-        seq += 1
-        return seq
-    }
-
-    open fun current(): Int = seq
-
-    open fun restore(value: Int) {
-        seq = value.coerceAtLeast(0)
-    }
-
-    open fun reset() {
-        seq = 0
-    }
+interface LegacyBatchSequenceStore {
+    fun next(): Int
+    fun current(): Int
+    fun restore(value: Int)
+    fun reset()
 }
 
-class PersistentBatchSequenceStore(
+class PersistentLegacyBatchSequenceStore(
     context: Context,
-) : BatchSequenceStore() {
+) : LegacyBatchSequenceStore {
     private val prefs = context.getSharedPreferences("telemetry_batch_seq", Context.MODE_PRIVATE)
+    private var seq: Int = 0
 
     init {
         restore(prefs.getInt(KEY_SEQ, 0))
     }
 
     override fun next(): Int {
-        val value = super.next()
-        prefs.edit().putInt(KEY_SEQ, value).apply()
-        return value
+        seq += 1
+        prefs.edit().putInt(KEY_SEQ, seq).apply()
+        return seq
     }
 
+    override fun current(): Int = seq
+
     override fun restore(value: Int) {
-        super.restore(value)
+        seq = value.coerceAtLeast(0)
         prefs.edit().putInt(KEY_SEQ, seq).apply()
     }
 
     override fun reset() {
-        super.reset()
+        seq = 0
         prefs.edit().putInt(KEY_SEQ, 0).apply()
     }
 
@@ -92,7 +83,7 @@ class BatchIdGenerator {
 
 class TelemetryBatchBuilder(
     private val flushPolicy: BatchFlushPolicy,
-    private val batchSequenceStore: BatchSequenceStore,
+    private val batchSequenceStore: LegacyBatchSequenceStore,
     private val batchIdGenerator: BatchIdGenerator,
 ) {
     private val frames = mutableListOf<TelemetryFrame>()

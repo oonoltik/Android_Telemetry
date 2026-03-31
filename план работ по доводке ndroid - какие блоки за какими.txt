@@ -1,0 +1,606 @@
+Если совсем коротко по приоритету:
+
+сначала: lifecycle поездки и foreground service
+потом: минимальный сбор телеметрии
+потом: экраны
+потом: полный аналог SensorManager
+
+Почему это оптимально именно в вашем случае:
+
+pipeline уже почти готов
+главный риск сейчас не в UI
+главный риск и не в отсутствии всех сенсоров сразу
+главный риск — правильный владелец session lifecycle на Android
+
+Если ошибиться с этим слоем, потом и UI, и сенсоры придётся переделывать.
+
+Я бы дал такой конкретный стартовый спринт:
+
+Sprint 1
+
+TelemetryForegroundService
+TripSessionRepository
+TripRuntimeState
+StartTripUseCase
+StopTripUseCase
+минимальный LocationTelemetrySource
+интеграция с текущим delivery pipeline
+
+Sprint 2
+
+HomeScreen
+DriverSetupScreen
+SettingsScreen
+TripReportScreen
+bind UI к StateFlow сервиса
+
+Sprint 3
+
+IMU + projection
+activity recognition
+day monitoring
+pedometer/altimeter
+parity tuning against Swift
+
+Мой прямой совет: начинайте с ForegroundService + TripSessionRuntime, а не с экранов и не с полного SensorManager.
+
+Да. Ниже даю конкретные package'и и новые файлы для старта именно с ForegroundService + TripSessionRuntime, без экранов и без полного SensorManager.
+
+Можно брать как стартовый каркас.
+
+app/src/main/java/com/alex/android_telemetry/
+
+TelemetryApplication.kt
+
+core/
+core/di/
+core/di/AppContainer.kt
+core/di/ServiceLocator.kt
+
+core/time/
+core/time/ClockProvider.kt
+core/time/SystemClockProvider.kt
+
+core/id/
+core/id/SessionIdFactory.kt
+core/id/BatchIdFactory.kt
+
+core/log/
+core/log/TelemetryLogger.kt
+core/log/AndroidTelemetryLogger.kt
+
+core/dispatchers/
+core/dispatchers/AppDispatchers.kt
+
+core/foreground/
+core/foreground/NotificationFactory.kt
+core/foreground/NotificationChannels.kt
+core/foreground/ForegroundIds.kt
+
+telemetry/
+telemetry/runtime/
+telemetry/runtime/TripRuntimeState.kt
+telemetry/runtime/TripRuntimeSnapshot.kt
+telemetry/runtime/TripRuntimeStore.kt
+telemetry/runtime/InMemoryTripRuntimeStore.kt
+telemetry/runtime/TripSessionRuntime.kt
+telemetry/runtime/TripStateMachine.kt
+telemetry/runtime/TripRuntimeEvents.kt
+telemetry/runtime/TripRuntimeReducer.kt
+
+telemetry/session/
+telemetry/session/TripSession.kt
+telemetry/session/TripSessionRepository.kt
+telemetry/session/TripSessionRepositoryImpl.kt
+telemetry/session/TripSessionStarter.kt
+telemetry/session/TripSessionStopper.kt
+telemetry/session/TripFinishCoordinator.kt
+
+telemetry/service/
+telemetry/service/TelemetryForegroundService.kt
+telemetry/service/TelemetryServiceBinder.kt
+telemetry/service/TelemetryServiceController.kt
+telemetry/service/TelemetryServiceActions.kt
+telemetry/service/TelemetryServiceStarter.kt
+
+telemetry/capture/
+telemetry/capture/TelemetryCaptureCoordinator.kt
+telemetry/capture/TelemetryCaptureState.kt
+telemetry/capture/TelemetryCaptureScheduler.kt
+
+telemetry/capture/location/
+telemetry/capture/location/LocationTelemetrySource.kt
+telemetry/capture/location/FusedLocationTelemetrySource.kt
+telemetry/capture/location/LocationSampleMapper.kt
+telemetry/capture/location/LocationCaptureConfig.kt
+
+telemetry/capture/activity/
+telemetry/capture/activity/ActivityTelemetrySource.kt
+telemetry/capture/activity/NoOpActivityTelemetrySource.kt
+
+telemetry/capture/device/
+telemetry/capture/device/DeviceStateSource.kt
+telemetry/capture/device/BatteryStateReader.kt
+telemetry/capture/device/NetworkStateReader.kt
+
+telemetry/batching/
+telemetry/batching/TelemetryBatchAssembler.kt
+telemetry/batching/TelemetryBatchWindow.kt
+telemetry/batching/BatchSequenceStore.kt
+telemetry/batching/BatchFlushPolicy.kt
+
+telemetry/domain/
+telemetry/domain/TripStatus.kt
+telemetry/domain/TrackingMode.kt
+telemetry/domain/TransportMode.kt
+telemetry/domain/FinishReason.kt
+
+telemetry/model/
+telemetry/model/TelemetrySampleDraft.kt
+telemetry/model/TelemetryBatchDraft.kt
+telemetry/model/FinishPayloadDraft.kt
+telemetry/model/RuntimeCounters.kt
+telemetry/model/RuntimeRouteStats.kt
+
+telemetry/usecase/
+telemetry/usecase/StartTripUseCase.kt
+telemetry/usecase/StopTripUseCase.kt
+telemetry/usecase/GetCurrentTripStateUseCase.kt
+telemetry/usecase/ObserveTripStateUseCase.kt
+
+telemetry/recovery/
+telemetry/recovery/TripRecoveryManager.kt
+telemetry/recovery/RecoverActiveTripUseCase.kt
+telemetry/recovery/FinishRecoveryScheduler.kt
+
+telemetry/storage/
+telemetry/storage/runtime/
+telemetry/storage/runtime/ActiveTripEntity.kt
+telemetry/storage/runtime/ActiveTripDao.kt
+telemetry/storage/runtime/RuntimeStateMapper.kt
+
+telemetry/storage/preferences/
+telemetry/storage/preferences/TelemetryPreferences.kt
+telemetry/storage/preferences/RuntimePreferences.kt
+
+telemetry/integration/
+telemetry/integration/DeliveryFacade.kt
+telemetry/integration/FinishDispatchFacade.kt
+telemetry/integration/CurrentPipelineBridge.kt
+
+Теперь что делает каждый блок.
+
+TelemetryApplication.kt
+Точка инициализации. Поднимает DI, notification channels, recovery startup.
+
+core/di/AppContainer.kt
+Единый контейнер зависимостей для runtime слоя.
+
+core/di/ServiceLocator.kt
+Простой доступ к контейнеру из service и worker.
+
+core/time/ClockProvider.kt
+Абстракция времени для runtime и тестов.
+
+core/time/SystemClockProvider.kt
+Боевой источник времени.
+
+core/id/SessionIdFactory.kt
+Создание session_id.
+
+core/id/BatchIdFactory.kt
+Создание batch_id.
+
+core/log/TelemetryLogger.kt
+Интерфейс логирования.
+
+core/log/AndroidTelemetryLogger.kt
+Logcat + при желании file logs.
+
+core/dispatchers/AppDispatchers.kt
+Dispatchers IO Default Main для unit-test friendly кода.
+
+core/foreground/NotificationFactory.kt
+Сборка foreground notification для активной поездки.
+
+core/foreground/NotificationChannels.kt
+Создание Android notification channels.
+
+core/foreground/ForegroundIds.kt
+Константы notification id и channel id.
+
+telemetry/runtime/TripRuntimeState.kt
+Главное состояние поездки. Idle Starting Active Stopping Finishing Error.
+
+telemetry/runtime/TripRuntimeSnapshot.kt
+Плоский snapshot для UI и debug.
+
+telemetry/runtime/TripRuntimeStore.kt
+Интерфейс хранения runtime state как StateFlow.
+
+telemetry/runtime/InMemoryTripRuntimeStore.kt
+Реализация state store в памяти процесса.
+
+telemetry/runtime/TripSessionRuntime.kt
+Главный orchestrator поездки. Старт стоп flush finish recovery hooks.
+
+telemetry/runtime/TripStateMachine.kt
+Чистая state machine с допустимыми переходами.
+
+telemetry/runtime/TripRuntimeEvents.kt
+Список runtime событий StartRequested FirstLocation BatchDelivered FinishQueued FinishSucceeded и т.д.
+
+telemetry/runtime/TripRuntimeReducer.kt
+Reducer который применяет события к TripRuntimeState.
+
+telemetry/session/TripSession.kt
+Модель активной поездки. sessionId startedAt trackingMode transportMode batchSeq и т.д.
+
+telemetry/session/TripSessionRepository.kt
+Интерфейс чтения и записи активной поездки.
+
+telemetry/session/TripSessionRepositoryImpl.kt
+Room/DataStore реализация хранения активной поездки.
+
+telemetry/session/TripSessionStarter.kt
+Создаёт новую поездку и initial state.
+
+telemetry/session/TripSessionStopper.kt
+Закрывает сбор, snapshot'ит конец поездки, инициирует finish flow.
+
+telemetry/session/TripFinishCoordinator.kt
+Собирает finish payload и вызывает текущий pipeline finish/retry логику.
+
+telemetry/service/TelemetryForegroundService.kt
+Единственный owner runtime в фоне. Держит поездку независимо от UI.
+
+telemetry/service/TelemetryServiceBinder.kt
+Binder для UI чтобы читать состояние сервиса.
+
+telemetry/service/TelemetryServiceController.kt
+Клиентский facade для start stop bind unbind из Activity/ViewModel.
+
+telemetry/service/TelemetryServiceActions.kt
+Action константы START STOP RESUME RECOVER.
+
+telemetry/service/TelemetryServiceStarter.kt
+Безопасный запуск сервиса через ContextCompat.startForegroundService.
+
+telemetry/capture/TelemetryCaptureCoordinator.kt
+Управляет capture sources и batching scheduler.
+
+telemetry/capture/TelemetryCaptureState.kt
+Текущее состояние capture слоя.
+
+telemetry/capture/TelemetryCaptureScheduler.kt
+Таймеры flush batching sampling windows.
+
+telemetry/capture/location/LocationTelemetrySource.kt
+Интерфейс location source.
+
+telemetry/capture/location/FusedLocationTelemetrySource.kt
+Реализация через FusedLocationProviderClient.
+
+telemetry/capture/location/LocationSampleMapper.kt
+Преобразование Location в wire-compatible sample draft.
+
+telemetry/capture/location/LocationCaptureConfig.kt
+Intervals priority minDistance batching config.
+
+telemetry/capture/activity/ActivityTelemetrySource.kt
+Интерфейс activity source. Пока можно no-op.
+
+telemetry/capture/activity/NoOpActivityTelemetrySource.kt
+Временная заглушка до нормального ActivityRecognition.
+
+telemetry/capture/device/DeviceStateSource.kt
+Снимок battery foreground network power state.
+
+telemetry/capture/device/BatteryStateReader.kt
+Чтение батареи и low power.
+
+telemetry/capture/device/NetworkStateReader.kt
+Чтение network type expensive roaming constraints.
+
+telemetry/batching/TelemetryBatchAssembler.kt
+Собирает TelemetryBatchDraft из session state и накопленных samples.
+
+telemetry/batching/TelemetryBatchWindow.kt
+Буфер текущего окна sample'ов.
+
+telemetry/batching/BatchSequenceStore.kt
+Хранит и инкрементит batch_seq для session_id.
+
+telemetry/batching/BatchFlushPolicy.kt
+Правила когда flush по таймеру, count threshold, stop.
+
+telemetry/domain/TripStatus.kt
+Enum runtime статусов поездки.
+
+telemetry/domain/TrackingMode.kt
+single_trip и дальше day_monitoring.
+
+telemetry/domain/TransportMode.kt
+car и будущие режимы.
+
+telemetry/domain/FinishReason.kt
+manual_stop auto_stop recovery и т.д.
+
+telemetry/model/TelemetrySampleDraft.kt
+Локальная промежуточная модель sample до wire mapper.
+
+telemetry/model/TelemetryBatchDraft.kt
+Локальная промежуточная модель batch до отправки.
+
+telemetry/model/FinishPayloadDraft.kt
+Локальная модель finish payload builder.
+
+telemetry/model/RuntimeCounters.kt
+Live counters samples batches delivered elapsedSeconds.
+
+telemetry/model/RuntimeRouteStats.kt
+EU RU delivery stats для текущей сессии.
+
+telemetry/usecase/StartTripUseCase.kt
+Публичный вход на старт поездки.
+
+telemetry/usecase/StopTripUseCase.kt
+Публичный вход на стоп поездки.
+
+telemetry/usecase/GetCurrentTripStateUseCase.kt
+Разовый запрос snapshot состояния.
+
+telemetry/usecase/ObserveTripStateUseCase.kt
+Подписка UI на StateFlow.
+
+telemetry/recovery/TripRecoveryManager.kt
+Логика восстановления после process death.
+
+telemetry/recovery/RecoverActiveTripUseCase.kt
+Восстанавливает активную сессию и перезапускает service runtime.
+
+telemetry/recovery/FinishRecoveryScheduler.kt
+Триггерит уже существующий worker/retry механизм finish.
+
+telemetry/storage/runtime/ActiveTripEntity.kt
+Room entity для активной поездки.
+
+telemetry/storage/runtime/ActiveTripDao.kt
+DAO для active trip state.
+
+telemetry/storage/runtime/RuntimeStateMapper.kt
+Маппинг Entity <-> Domain.
+
+telemetry/storage/preferences/TelemetryPreferences.kt
+Общие telemetry prefs.
+
+telemetry/storage/preferences/RuntimePreferences.kt
+trackingMode onboarding flags last active session id и т.д.
+
+telemetry/integration/DeliveryFacade.kt
+Адаптер поверх уже существующего delivery pipeline ingest.
+
+telemetry/integration/FinishDispatchFacade.kt
+Адаптер поверх уже существующего finish retry pipeline.
+
+telemetry/integration/CurrentPipelineBridge.kt
+Точка стыковки нового runtime с уже написанными auth delivery finish recovery компонентами.
+
+Теперь даю минимальный боевой срез, что реально создавать первым коммитом.
+
+TelemetryApplication.kt
+
+core/di/AppContainer.kt
+core/time/ClockProvider.kt
+core/time/SystemClockProvider.kt
+core/id/SessionIdFactory.kt
+core/id/BatchIdFactory.kt
+core/log/TelemetryLogger.kt
+core/log/AndroidTelemetryLogger.kt
+core/foreground/NotificationFactory.kt
+core/foreground/NotificationChannels.kt
+core/foreground/ForegroundIds.kt
+
+telemetry/runtime/TripRuntimeState.kt
+telemetry/runtime/TripRuntimeSnapshot.kt
+telemetry/runtime/TripRuntimeStore.kt
+telemetry/runtime/InMemoryTripRuntimeStore.kt
+telemetry/runtime/TripSessionRuntime.kt
+telemetry/runtime/TripStateMachine.kt
+
+telemetry/session/TripSession.kt
+telemetry/session/TripSessionRepository.kt
+telemetry/session/TripSessionRepositoryImpl.kt
+telemetry/session/TripSessionStarter.kt
+telemetry/session/TripSessionStopper.kt
+telemetry/session/TripFinishCoordinator.kt
+
+telemetry/service/TelemetryForegroundService.kt
+telemetry/service/TelemetryServiceActions.kt
+telemetry/service/TelemetryServiceStarter.kt
+
+telemetry/capture/TelemetryCaptureCoordinator.kt
+telemetry/capture/location/LocationTelemetrySource.kt
+telemetry/capture/location/FusedLocationTelemetrySource.kt
+telemetry/capture/location/LocationSampleMapper.kt
+telemetry/capture/location/LocationCaptureConfig.kt
+
+telemetry/batching/TelemetryBatchAssembler.kt
+telemetry/batching/TelemetryBatchWindow.kt
+telemetry/batching/BatchSequenceStore.kt
+telemetry/batching/BatchFlushPolicy.kt
+
+telemetry/model/TelemetrySampleDraft.kt
+telemetry/model/TelemetryBatchDraft.kt
+telemetry/model/FinishPayloadDraft.kt
+telemetry/model/RuntimeCounters.kt
+telemetry/model/RuntimeRouteStats.kt
+
+telemetry/usecase/StartTripUseCase.kt
+telemetry/usecase/StopTripUseCase.kt
+telemetry/usecase/ObserveTripStateUseCase.kt
+
+telemetry/recovery/TripRecoveryManager.kt
+telemetry/recovery/RecoverActiveTripUseCase.kt
+
+telemetry/storage/runtime/ActiveTripEntity.kt
+telemetry/storage/runtime/ActiveTripDao.kt
+telemetry/storage/runtime/RuntimeStateMapper.kt
+
+telemetry/integration/DeliveryFacade.kt
+telemetry/integration/FinishDispatchFacade.kt
+telemetry/integration/CurrentPipelineBridge.kt
+
+Теперь даю порядок реализации по шагам, тоже в виде plain text.
+
+Шаг 1
+Создать TelemetryApplication.kt
+Создать AppContainer.kt
+Поднять NotificationChannels.kt
+Подключить существующие auth delivery finish зависимости в CurrentPipelineBridge.kt
+
+Шаг 2
+Создать TripRuntimeState.kt
+Создать TripRuntimeStore.kt
+Создать InMemoryTripRuntimeStore.kt
+Создать TripSession.kt
+Создать TripSessionRepository.kt
+Создать ActiveTripEntity.kt
+Создать ActiveTripDao.kt
+Создать RuntimeStateMapper.kt
+Создать TripSessionRepositoryImpl.kt
+
+Шаг 3
+Создать SessionIdFactory.kt
+Создать BatchIdFactory.kt
+Создать BatchSequenceStore.kt
+Создать RuntimeCounters.kt
+Создать RuntimeRouteStats.kt
+
+Шаг 4
+Создать TelemetryForegroundService.kt
+Создать TelemetryServiceActions.kt
+Создать TelemetryServiceStarter.kt
+Создать NotificationFactory.kt
+Сделать сервис единственным owner runtime
+
+Шаг 5
+Создать LocationTelemetrySource.kt
+Создать FusedLocationTelemetrySource.kt
+Создать LocationCaptureConfig.kt
+Создать LocationSampleMapper.kt
+Сделать минимальный поток location samples
+
+Шаг 6
+Создать TelemetryBatchWindow.kt
+Создать TelemetryBatchAssembler.kt
+Создать BatchFlushPolicy.kt
+Создать TelemetryCaptureCoordinator.kt
+Начать выпускать минимальные ingest batches
+
+Шаг 7
+Создать DeliveryFacade.kt
+Создать CurrentPipelineBridge.kt
+Вшить отправку batch в уже существующий pipeline
+Обновлять runtime state по delivered batch
+
+Шаг 8
+Создать FinishPayloadDraft.kt
+Создать TripFinishCoordinator.kt
+Создать TripSessionStopper.kt
+Сделать stop -> drain -> finish через существующий pending/retry pipeline
+
+Шаг 9
+Создать TripSessionStarter.kt
+Создать StartTripUseCase.kt
+Создать StopTripUseCase.kt
+Создать ObserveTripStateUseCase.kt
+Вытащить наружу простой API для будущего UI
+
+Шаг 10
+Создать TripRecoveryManager.kt
+Создать RecoverActiveTripUseCase.kt
+На старте приложения восстанавливать active trip и service
+
+Теперь даю рекомендуемый package tree именно для копипаста в задачу/тикет.
+
+package com.alex.android_telemetry.core.di
+package com.alex.android_telemetry.core.time
+package com.alex.android_telemetry.core.id
+package com.alex.android_telemetry.core.log
+package com.alex.android_telemetry.core.foreground
+
+package com.alex.android_telemetry.telemetry.runtime
+package com.alex.android_telemetry.telemetry.session
+package com.alex.android_telemetry.telemetry.service
+package com.alex.android_telemetry.telemetry.capture
+package com.alex.android_telemetry.telemetry.capture.location
+package com.alex.android_telemetry.telemetry.capture.activity
+package com.alex.android_telemetry.telemetry.capture.device
+package com.alex.android_telemetry.telemetry.batching
+package com.alex.android_telemetry.telemetry.domain
+package com.alex.android_telemetry.telemetry.model
+package com.alex.android_telemetry.telemetry.usecase
+package com.alex.android_telemetry.telemetry.recovery
+package com.alex.android_telemetry.telemetry.storage.runtime
+package com.alex.android_telemetry.telemetry.storage.preferences
+package com.alex.android_telemetry.telemetry.integration
+
+И отдельно даю что пока не делать на этом этапе.
+
+Не делать сейчас ui.home
+Не делать сейчас ui.settings
+Не делать сейчас ui.report
+Не делать сейчас ui.archive
+Не делать сейчас daymonitoring
+Не делать сейчас imu full parity
+Не делать сейчас projected accelerations parity
+Не делать сейчас pedometer
+Не делать сейчас altimeter
+Не делать сейчас waterglass
+Не делать сейчас localization
+Не делать сейчас play integrity production version
+
+И даю какой runtime API должен получиться после первого этапа.
+
+StartTripUseCase.start(
+    driverId: String?,
+    trackingMode: TrackingMode,
+    transportMode: TransportMode
+)
+
+StopTripUseCase.stop(
+    finishReason: FinishReason
+)
+
+ObserveTripStateUseCase.observe(): StateFlow<TripRuntimeSnapshot>
+
+И какие состояния должны быть в TripRuntimeState.
+
+Idle
+Starting
+Active
+Stopping
+Finishing
+Finished
+Recovery
+Error
+
+И какие поля должны быть в TripRuntimeSnapshot минимум.
+
+isTracking
+sessionId
+driverId
+trackingMode
+transportMode
+startedAt
+endedAt
+elapsedSec
+samplesBuffered
+batchesCreated
+batchesDelivered
+euDelivered
+ruDelivered
+finishPending
+lastError
+lastReportSessionId

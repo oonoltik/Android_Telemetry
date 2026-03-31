@@ -14,7 +14,8 @@ import com.alex.android_telemetry.sensors.platform.AndroidNetworkStateSource
 import com.alex.android_telemetry.sensors.platform.AndroidSensorTimestampConverter
 import com.alex.android_telemetry.telemetry.auth.TelemetryDeviceIdProvider
 import com.alex.android_telemetry.telemetry.batching.BatchIdGenerator
-import com.alex.android_telemetry.telemetry.batching.PersistentBatchSequenceStore
+import com.alex.android_telemetry.telemetry.batching.PersistentLegacyBatchSequenceStore
+import com.alex.android_telemetry.telemetry.batching.LegacyBatchSequenceStore
 import com.alex.android_telemetry.telemetry.batching.TelemetryBatchBuilder
 import com.alex.android_telemetry.telemetry.batching.TelemetryFrameAssembler
 import com.alex.android_telemetry.telemetry.delivery.TelemetryDeliveryGraph
@@ -31,6 +32,11 @@ import com.google.android.gms.location.LocationServices
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.serialization.json.Json
+
+
+
+
+
 
 class TelemetryAppGraph private constructor(
     val facade: TelemetryFacade,
@@ -82,7 +88,7 @@ class TelemetryAppGraph private constructor(
                 nowElapsedRealtimeNsProvider = { SystemClock.elapsedRealtimeNanos() },
             )
 
-            val batchSequenceStore = PersistentBatchSequenceStore(context)
+            val batchSequenceStore: LegacyBatchSequenceStore = PersistentLegacyBatchSequenceStore(context)
             val runtimeStateStore = PersistentTripRuntimeStateStore(context)
 
             val orchestrator = TelemetryOrchestrator(

@@ -7,7 +7,7 @@ import com.alex.android_telemetry.sensors.api.GyroscopeSource
 import com.alex.android_telemetry.sensors.api.HeadingSource
 import com.alex.android_telemetry.sensors.api.LocationSource
 import com.alex.android_telemetry.sensors.api.NetworkStateSource
-import com.alex.android_telemetry.telemetry.batching.BatchSequenceStore
+
 import com.alex.android_telemetry.telemetry.batching.TelemetryBatchBuilder
 import com.alex.android_telemetry.telemetry.batching.TelemetryFrameAssembler
 import com.alex.android_telemetry.telemetry.detectors.AccelEventDetector
@@ -30,6 +30,7 @@ import com.alex.android_telemetry.telemetry.domain.policy.EventThresholdResolver
 import com.alex.android_telemetry.telemetry.ingest.TelemetryBatchEnqueuer
 import com.alex.android_telemetry.telemetry.trips.api.ClientAggDto
 import com.alex.android_telemetry.telemetry.trips.api.ClientTripMetricsDto
+import com.alex.android_telemetry.telemetry.batching.LegacyBatchSequenceStore
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -39,7 +40,7 @@ import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.launch
 import kotlinx.datetime.Instant
-import java.util.UUID
+
 
 interface TripRuntimeStateStore {
     suspend fun save(state: TripRuntimeState)
@@ -61,10 +62,9 @@ sealed interface TripLifecycleDecision {
     data object FinishTrip : TripLifecycleDecision
     data object Ignore : TripLifecycleDecision
 }
-
-class TripStateMachine {
+class LegacyTripStateMachine {
     fun start(mode: TrackingMode, now: Instant): TripRuntimeState = TripRuntimeState(
-        sessionId = UUID.randomUUID().toString(),
+        sessionId = java.util.UUID.randomUUID().toString(),
         trackingMode = mode,
         telemetryMode = TelemetryMode.COLLECTING,
         startedAt = now,
@@ -79,10 +79,15 @@ class TripStateMachine {
         state.copy(telemetryMode = TelemetryMode.COLLECTING)
 
     fun finish(state: TripRuntimeState, now: Instant): TripRuntimeState =
-        state.copy(telemetryMode = TelemetryMode.FINISHING, pendingFinish = true, lastSampleAt = now)
+        state.copy(
+            telemetryMode = TelemetryMode.FINISHING,
+            pendingFinish = true,
+            lastSampleAt = now,
+        )
 
     fun stop(): TripRuntimeState = TripRuntimeState()
 }
+
 
 class TelemetryOrchestrator(
     private val scope: CoroutineScope,
@@ -100,11 +105,12 @@ class TelemetryOrchestrator(
     private val frameAssembler: TelemetryFrameAssembler,
     private val motionVectorComputer: MotionVectorComputer,
     private val batchBuilder: TelemetryBatchBuilder,
-    private val batchSequenceStore: BatchSequenceStore,
+
     private val batchEnqueuer: TelemetryBatchEnqueuer,
     private val outboxRepository: com.alex.android_telemetry.telemetry.ingest.repository.TelemetryOutboxRepository,
     private val runtimeStateStore: TripRuntimeStateStore,
-    private val stateMachine: TripStateMachine = TripStateMachine(),
+    private val stateMachine: LegacyTripStateMachine = LegacyTripStateMachine(),
+    private val batchSequenceStore: LegacyBatchSequenceStore,
 ) {
     private val detectors: List<TelemetryEventDetector> = listOf(
         AccelEventDetector { thresholdResolver.getEffectiveThresholds() },
