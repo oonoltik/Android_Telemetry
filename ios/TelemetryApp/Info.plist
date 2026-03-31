@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+
+	<key>NSLocationWhenInUseUsageDescription</key>
+	<string>We use your location to record trips, calculate distance and speed, and provide trip summaries and driving insights.</string>
+
+	<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
+	<string>We use your location in the background to automatically detect and record trips without requiring manual interaction.</string>
+
+	<key>NSMotionUsageDescription</key>
+	<string>We use motion data to detect driving activity and identify events such as acceleration, braking, and turns to improve trip accuracy.</string>
+
+	<key>UIBackgroundModes</key>
+	<array>
+		<string>location</string>
+	</array>
+
+</dict>
+</plist>
