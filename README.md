@@ -1,112 +1,64 @@
-# Android Telemetry Project
+# Telemetry (Android + iOS Monorepo)
 
 ## Overview
 
-Android приложение для сбора и отправки телеметрии:
-
-* GPS
-* IMU
-* orientation
-* network state
-* device state
-
-Pipeline:
-
-`sensors → frames → batch → outbox → delivery → backend → finish`
+Этот репозиторий теперь содержит **оба клиента**:
+- Android (Kotlin)
+- iOS (Swift / Xcode)
 
 ---
 
-## Current Status
+## Structure
 
-✅ Pipeline полностью работает  
-✅ Auth интегрирован  
-✅ Ingest (`200 OK`)  
-✅ Finish (`200 OK`)  
-✅ Pending finish recovery подтверждён  
-✅ Trip API переведён на `EU first / RU fallback`  
-⚠️ EU endpoint периодически нестабилен, поэтому RU fallback активно используется
-
----
-
-## Architecture
-
-### Ingestion
-
-* sensors → frames → batch
-
-### Storage
-
-* Room (outbox)
-* pending finish store
-* delivery stats store
-
-### Delivery
-
-* WorkManager
-* retry + backoff
-* fallback (`EU → RU`)
-* priority delivery для session с pending finish
-
-### Auth
-
-* `/auth/challenge`
-* `/auth/register`
-* bearer token
-* Android bypass
-
-### Finish
-
-* lifecycle trigger (`onStop`)
-* payload DTO (без `Any`)
-* pending finish + retry worker
-* immediate finish retry после delivered batch / network restore
-* backend-compatible
-
-### Trip API Routing
-
-* `/trip/finish`
-* `/trip/report`
-* `/trips/recent`
-* `/driver/home`
-
-Работают по схеме:
-
-```text
-EU = primary
-RU = fallback only
+```
+Android_Telemetry/
+  android/   # Android project (Android Studio)
+  ios/       # iOS project (Xcode)
+  docs/
 ```
 
 ---
 
-## What is already verified
+## How to run
 
-* ingest success через EU/RU routing
-* finish success
-* early stop recovery
-* network-loss recovery
-* WorkManager delivery + finish retry convergence
-
----
-
-## Remaining Gaps
-
-* aggregation parity с iOS
-* throughput / backlog optimization
-* observability / metrics
+### Android
+Открыть:
+```
+android/
+```
+в Android Studio
 
 ---
 
-## Quick Start
+### iOS
+Открыть:
+```
+ios/TelemetryApp.xcodeproj
+```
+в Xcode
 
-```bash
-./gradlew clean assembleDebug
+---
+
+## Important
+
+📌 Android — основной reference pipeline  
+📌 iOS — должен сходиться по контракту и поведению  
+
+---
+
+## Pipeline
+
+```
+sensors → frames → batch → outbox → delivery → backend → finish
 ```
 
+(одинаковый концепт для Android и iOS)
+
 ---
 
-## Status Summary
+## Current focus
 
-Проект уже находится в состоянии:
-* correctness confirmed
-* recovery confirmed
-* next phase = latency / throughput / aggregation parity
+- aggregation parity (Android ↔ iOS)
+- shared contracts
+- throughput / backlog
+- observability
