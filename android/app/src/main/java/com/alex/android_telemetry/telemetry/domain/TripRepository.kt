@@ -1,10 +1,22 @@
 package com.alex.android_telemetry.telemetry.domain
 
-import com.alex.android_telemetry.telemetry.trips.api.ClientTripMetricsDto
 import com.alex.android_telemetry.telemetry.trips.api.DriverHomeResponseDto
+import com.alex.android_telemetry.telemetry.trips.api.FinishCommand
 import com.alex.android_telemetry.telemetry.trips.api.TripApi
 import com.alex.android_telemetry.telemetry.trips.api.TripReportDto
 import com.alex.android_telemetry.telemetry.trips.api.TripSummaryDto
+
+sealed class TripFinishResult {
+    data class Sent(val report: TripReportDto) : TripFinishResult()
+    data class Queued(
+        val placeholderReport: TripReportDto?,
+        val reason: String? = null,
+    ) : TripFinishResult()
+    data class Failed(
+        val error: Throwable,
+        val message: String? = error.message,
+    ) : TripFinishResult()
+}
 
 class TripRepository(
     private val tripApi: TripApi,
@@ -22,32 +34,8 @@ class TripRepository(
         return tripApi.fetchTripReport(deviceId, sessionId, driverId)
     }
 
-    suspend fun finishTrip(
-        sessionId: String,
-        driverId: String,
-        deviceId: String,
-        trackingMode: String? = null,
-        transportMode: String? = null,
-        clientEndedAt: String? = null,
-        tripDurationSec: Double? = null,
-        finishReason: String? = null,
-        clientMetrics: ClientTripMetricsDto? = null,
-        deviceContextJson: String? = null,
-        tailActivityContextJson: String? = null,
-    ): TripReportDto {
-        return tripFinishManager.finishTrip(
-            sessionId = sessionId,
-            driverId = driverId,
-            deviceId = deviceId,
-            trackingMode = trackingMode,
-            transportMode = transportMode,
-            clientEndedAt = clientEndedAt,
-            tripDurationSec = tripDurationSec,
-            finishReason = finishReason,
-            clientMetrics = clientMetrics,
-            deviceContextJson = deviceContextJson,
-            tailActivityContextJson = tailActivityContextJson,
-        )
+    suspend fun finishTrip(command: FinishCommand): TripFinishResult {
+        return tripFinishManager.finishTrip(command)
     }
 
     suspend fun retryPendingFinishes() {

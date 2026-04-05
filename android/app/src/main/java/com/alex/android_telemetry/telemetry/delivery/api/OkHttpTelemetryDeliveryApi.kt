@@ -35,7 +35,7 @@ class OkHttpTelemetryDeliveryApi(
 
             Log.d(
                 "TelemetryDelivery",
-                "HTTP POST ${baseUrl.trimEnd('/')}/ingest route=$route tokenPresent=${!token.isNullOrBlank()}"
+                "HTTP POST ${baseUrl.trimEnd('/')}/ingest route=$route tokenPresent=${!token.isNullOrBlank()} payload=${payloadJson.take(4000)}"
             )
 
             try {

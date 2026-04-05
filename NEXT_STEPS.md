@@ -3,26 +3,49 @@
 ## 🔴 High Priority
 
 ### 1. Aggregation parity (Android ↔ iOS)
-- одинаковые расчёты
-- одинаковые DTO
+- MotionVectorComputer 1:1 с iOS
+- одинаковые события (accel/brake/turn)
+- golden tests
+
+---
 
 ### 2. Shared contracts
-- единая модель данных
-- синхронизация API
+- TelemetryBatch DTO синхронизация
+- TripFinishRequest полный контракт
+- единый naming (speed_m_s, a_long_g и т.д.)
 
-### 3. Throughput
-- уменьшить backlog
-- оптимизировать delivery
+---
+
+### 3. Finish payload completion
+- trip_core
+- trip_summary
+- trip_metrics_raw
+- device_meta
+- client_metrics
+
+---
+
+### 4. Sensor completeness
+- activity recognition
+- pedometer
+- altimeter
+- screen interaction
 
 ---
 
 ## 🟡 Medium
 
-- metrics / observability
-- fairness policy
+### Observability
+- queue depth
+- delivery latency
+- finish retry metrics
+
+### Day monitoring
+- auto start/stop trips
+- activity-based gating
 
 ---
 
 ## 🟢 Low
 
-- debug UI
+- debug UI → production UI (Compose navigation)

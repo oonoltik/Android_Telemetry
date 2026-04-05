@@ -1,15 +1,35 @@
 # Changelog
 
-## v7 - Monorepo (Android + iOS)
+## v8 - Delivery + Identity + Finish parity
 
 ### Added
-- iOS проект добавлен в репозиторий (`ios/`)
-- unified repo structure
+- driver API:
+  - prepare
+  - register
+  - login
+  - delete
+- AccountDeleteManager
+- finish retry pipeline
+- pending finish storage
+- debug UI (identity + finish states)
+
+---
 
 ### Changed
-- Android перенесён в `android/`
-- gitignore обновлён (исключены Xcode user files)
+- finish flow переработан:
+  - stop → drain → pending → retry
+- delivery pipeline стабилизирован
+- batch_seq централизован
+
+---
+
+### Fixed
+- duplicate batch_seq
+- race condition при flush
+- finish до первого delivery
+
+---
 
 ### Notes
-- теперь единый source of truth для Android + iOS
-- следующий этап: cross-platform parity
+- Android теперь соответствует core telemetry contract
+- готово к iOS parity этапу

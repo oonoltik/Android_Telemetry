@@ -41,6 +41,11 @@ import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.launch
 import kotlinx.datetime.Instant
 
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
+
+import com.alex.android_telemetry.telemetry.domain.TripFinishResult
+import com.alex.android_telemetry.telemetry.domain.model.TripFinishUiState
 
 interface TripRuntimeStateStore {
     suspend fun save(state: TripRuntimeState)
@@ -81,7 +86,10 @@ class LegacyTripStateMachine {
     fun finish(state: TripRuntimeState, now: Instant): TripRuntimeState =
         state.copy(
             telemetryMode = TelemetryMode.FINISHING,
-            pendingFinish = true,
+            pendingFinish = false,
+            finishUiState = TripFinishUiState.FINISHING_IN_PROGRESS,
+            lastFinishError = null,
+            lastTripReport = null,
             lastSampleAt = now,
         )
 
@@ -108,6 +116,7 @@ class TelemetryOrchestrator(
 
     private val batchEnqueuer: TelemetryBatchEnqueuer,
     private val outboxRepository: com.alex.android_telemetry.telemetry.ingest.repository.TelemetryOutboxRepository,
+    private val tripDeliveryStatsStore: com.alex.android_telemetry.telemetry.trips.storage.TripDeliveryStatsStore,
     private val runtimeStateStore: TripRuntimeStateStore,
     private val stateMachine: LegacyTripStateMachine = LegacyTripStateMachine(),
     private val batchSequenceStore: LegacyBatchSequenceStore,
@@ -130,19 +139,166 @@ class TelemetryOrchestrator(
     private var latestNetworkState: NetworkStateSnapshot? = null
     private var latestActivity: ActivitySample? = null
     private var collectionJob: Job? = null
+    private val flushMutex = Mutex()
 
-    suspend fun restore() {
-        runtimeStateStore.restore()?.let { restoredState ->
-            mutableState.emit(restoredState)
+    private suspend fun shouldResumeCollectedSession(
+        restoredState: TripRuntimeState,
+        now: Instant,
+    ): Boolean {
+        val sessionId = restoredState.sessionId
+        val startedAt = restoredState.startedAt
 
-            if (restoredState.sessionId != null && restoredState.telemetryMode == TelemetryMode.COLLECTING) {
-                startSourcesIfNeeded()
-                subscribeIfNeeded()
-                Log.d("TelemetryTrip", "restore(): resumed collecting sessionId=${restoredState.sessionId}")
-            } else {
-                Log.d("TelemetryTrip", "restore(): restored state=${restoredState.telemetryMode} sessionId=${restoredState.sessionId}")
-            }
+        if (sessionId.isNullOrBlank()) {
+            Log.d("TelemetryTrip", "restoreGuard(): reject, missing sessionId")
+            return false
         }
+
+        if (restoredState.telemetryMode != TelemetryMode.COLLECTING) {
+            Log.d(
+                "TelemetryTrip",
+                "restoreGuard(): reject, telemetryMode=${restoredState.telemetryMode} sessionId=$sessionId"
+            )
+            return false
+        }
+
+        if (startedAt == null) {
+            Log.d("TelemetryTrip", "restoreGuard(): reject, missing startedAt sessionId=$sessionId")
+            return false
+        }
+
+        val ageSec =
+            ((now.toEpochMilliseconds() - startedAt.toEpochMilliseconds()).coerceAtLeast(0L)) / 1000.0
+
+        val deliveredBatches = runCatching {
+            tripDeliveryStatsStore.get(sessionId).deliveredBatches
+        }.getOrElse {
+            Log.e("TelemetryTrip", "restoreGuard(): deliveryStats read failed sessionId=$sessionId", it)
+            0
+        }
+
+        val sessionQueued = runCatching {
+            outboxRepository.countUndeliveredForSession(sessionId)
+        }.getOrElse {
+            Log.e("TelemetryTrip", "restoreGuard(): outbox count failed sessionId=$sessionId", it)
+            0
+        }
+
+        Log.d(
+            "TelemetryTrip",
+            "restoreGuard(): inspect sessionId=$sessionId ageSec=$ageSec deliveredBatches=$deliveredBatches sessionQueued=$sessionQueued"
+        )
+
+        if (ageSec > MAX_RESTORE_SESSION_AGE_SEC) {
+            Log.d(
+                "TelemetryTrip",
+                "restoreGuard(): reject, too old sessionId=$sessionId ageSec=$ageSec"
+            )
+            return false
+        }
+
+        if (deliveredBatches <= 0 && sessionQueued <= 0) {
+            Log.d(
+                "TelemetryTrip",
+                "restoreGuard(): reject, no delivered and no queued data sessionId=$sessionId"
+            )
+            return false
+        }
+
+        Log.d(
+            "TelemetryTrip",
+            "restoreGuard(): accept sessionId=$sessionId deliveredBatches=$deliveredBatches sessionQueued=$sessionQueued"
+        )
+        return true
+    }
+
+    private suspend fun detachFromStaleActiveSession(restoredState: TripRuntimeState) {
+        val sessionId = restoredState.sessionId
+
+        Log.w(
+            "TelemetryTrip",
+            "restoreGuard(): detaching from stale active runtime sessionId=$sessionId"
+        )
+
+        mutableState.emit(stateMachine.stop())
+        runtimeStateStore.clear()
+        batchSequenceStore.reset()
+
+        collectionJob?.cancel()
+        collectionJob = null
+
+        accelerometerSource.stop()
+        gyroscopeSource.stop()
+        locationSource.stop()
+        headingSource?.stop()
+
+        val sessionQueued = runCatching {
+            if (sessionId.isNullOrBlank()) 0 else outboxRepository.countUndeliveredForSession(sessionId)
+        }.getOrDefault(0)
+
+        Log.d(
+            "TelemetryTrip",
+            "restoreGuard(): runtime detached only, queued batches preserved sessionId=$sessionId sessionQueued=$sessionQueued"
+        )
+    }
+
+    private suspend fun logOutboxBeforeNewTripStart() {
+        val totalQueued = runCatching {
+            outboxRepository.countAll()
+        }.getOrElse {
+            Log.e("TelemetryTrip", "startTrip(): failed to read totalQueued", it)
+            -1
+        }
+
+        Log.d(
+            "TelemetryTrip",
+            "startTrip(): proceeding even with old outbox tail totalQueued=$totalQueued"
+        )
+    }
+
+    suspend fun restore(now: Instant = kotlinx.datetime.Clock.System.now()) {
+        val restoredState = runtimeStateStore.restore()
+
+        if (restoredState == null) {
+            Log.d("TelemetryTrip", "restore(): nothing to restore")
+            return
+        }
+
+        Log.d(
+            "TelemetryTrip",
+            "restore(): found state telemetryMode=${restoredState.telemetryMode} sessionId=${restoredState.sessionId} startedAt=${restoredState.startedAt}"
+        )
+
+        if (restoredState.sessionId != null && restoredState.telemetryMode == TelemetryMode.COLLECTING) {
+            val shouldResume = shouldResumeCollectedSession(
+                restoredState = restoredState,
+                now = now,
+            )
+
+            if (!shouldResume) {
+                detachFromStaleActiveSession(restoredState)
+                Log.d(
+                    "TelemetryTrip",
+                    "restore(): skipped auto resume for sessionId=${restoredState.sessionId}, queued batches kept"
+                )
+                return
+            }
+
+            mutableState.emit(restoredState)
+            startSourcesIfNeeded()
+            subscribeIfNeeded()
+
+            Log.d(
+                "TelemetryTrip",
+                "restore(): resumed collecting sessionId=${restoredState.sessionId}"
+            )
+            return
+        }
+
+        mutableState.emit(restoredState)
+        Log.d(
+            "TelemetryTrip",
+            "restore(): restored passive state=${restoredState.telemetryMode} sessionId=${restoredState.sessionId}"
+        )
     }
 
     suspend fun startTrip(
@@ -150,10 +306,43 @@ class TelemetryOrchestrator(
         now: Instant = kotlinx.datetime.Clock.System.now(),
     ) {
         val current = state.value
+
         if (current.sessionId != null && current.telemetryMode == TelemetryMode.COLLECTING) {
-            Log.d("TelemetryTrip", "startTrip(): ignored, already collecting sessionId=${current.sessionId}")
+            Log.d(
+                "TelemetryTrip",
+                "startTrip(): ignored, already collecting sessionId=${current.sessionId}"
+            )
             return
         }
+
+        val previousSessionId = current.sessionId
+        val previousMode = current.telemetryMode
+
+        val previousSessionQueued = runCatching {
+            previousSessionId?.let { outboxRepository.countUndeliveredForSession(it) } ?: 0
+        }.getOrElse {
+            Log.e(
+                "TelemetryTrip",
+                "startTrip(): failed to read previous session queued sessionId=$previousSessionId",
+                it
+            )
+            -1
+        }
+
+        Log.d(
+            "TelemetryTrip",
+            "startTrip(): requested with previousSessionId=$previousSessionId previousTelemetryMode=$previousMode previousSessionQueued=$previousSessionQueued"
+        )
+
+        logOutboxBeforeNewTripStart()
+
+        latestAccel = null
+        latestGyro = null
+        latestLocation = null
+        latestHeading = null
+        latestDeviceState = null
+        latestNetworkState = null
+        latestActivity = null
 
         batchSequenceStore.reset()
 
@@ -164,7 +353,11 @@ class TelemetryOrchestrator(
         startSourcesIfNeeded()
         subscribeIfNeeded()
 
-        Log.d("TelemetryTrip", "startTrip(): sessionId=${started.sessionId}")
+        Log.d(
+            "TelemetryTrip",
+            "startTrip(): started new sessionId=${started.sessionId} replacingPreviousSessionId=$previousSessionId oldSessionQueued=$previousSessionQueued"
+        )
+
         scope.launch {
             runCatching {
                 val startedSessionId = started.sessionId ?: return@runCatching
@@ -182,6 +375,8 @@ class TelemetryOrchestrator(
     }
 
     suspend fun stopTrip(now: Instant = kotlinx.datetime.Clock.System.now()) {
+        Log.d("TelemetryTrip", "stopTrip() CALLED")
+
         val current = state.value
         val sessionId = current.sessionId
         val driverId = driverIdProvider()?.trim().orEmpty()
@@ -193,16 +388,28 @@ class TelemetryOrchestrator(
             return
         }
 
+        Log.d(
+            "TelemetryTrip",
+            "stopTrip(): sessionId=$sessionId driverId=$driverId deviceId=$deviceId trackingMode=${current.trackingMode} transportMode=$transportMode"
+        )
+
         val finishingState = stateMachine.finish(current, now)
         mutableState.emit(finishingState)
         runtimeStateStore.save(finishingState)
 
+        Log.d("TelemetryTrip", "stopTrip(): flushing current buffers sessionId=$sessionId")
         flushNow(now)
 
+        Log.d("TelemetryTrip", "stopTrip(): stopping sensors sessionId=$sessionId")
         accelerometerSource.stop()
         gyroscopeSource.stop()
         locationSource.stop()
         headingSource?.stop()
+
+        var finalUiState = TripFinishUiState.IDLE
+        var finalPendingFinish = false
+        var finalReport: com.alex.android_telemetry.telemetry.trips.api.TripReportDto? = null
+        var finalError: String? = null
 
         if (driverId.isNotBlank()) {
             val tripDurationSec = current.startedAt?.let { startedAt ->
@@ -211,55 +418,94 @@ class TelemetryOrchestrator(
 
             val clientMetrics = buildClientTripMetrics(current)
 
-            runCatching {
-                runCatching {
-                    val totalQueued = outboxRepository.countAll()
-                    val sessionQueued = outboxRepository.countUndeliveredForSession(sessionId)
+            Log.d(
+                "TelemetryTrip",
+                "stopTrip(): dispatch finish sessionId=$sessionId tripDurationSec=$tripDurationSec"
+            )
+
+            val command = com.alex.android_telemetry.telemetry.trips.api.FinishCommand(
+                sessionId = sessionId,
+                driverId = driverId,
+                deviceId = deviceId,
+                clientEndedAt = now.toString(),
+                trackingMode = current.trackingMode?.toWireValue(),
+                transportMode = transportMode,
+                tripDurationSec = tripDurationSec,
+                finishReason = "app_stop",
+                clientMetrics = clientMetrics,
+                tripSummary = null,
+                tripMetricsRaw = null,
+                deviceContext = null,
+                tailActivityContext = null,
+            )
+
+            when (val finishResult = tripRepository.finishTrip(command)) {
+                is TripFinishResult.Sent -> {
+                    finalUiState = TripFinishUiState.FINISHED_WITH_REPORT
+                    finalPendingFinish = false
+                    finalReport = finishResult.report
+                    finalError = null
 
                     Log.d(
                         "TelemetryTrip",
-                        "outbox@stop sessionId=$sessionId totalQueued=$totalQueued sessionQueued=$sessionQueued"
+                        "stopTrip(): finish sent sessionId=$sessionId reportSessionId=${finishResult.report.sessionId}"
                     )
-                }.onFailure {
-                    Log.e("TelemetryTrip", "outbox@stop failed", it)
                 }
-                Log.d(
-                    "TelemetryTrip",
-                    "stopTrip(): finishTrip sessionId=$sessionId driverId=$driverId deviceId=$deviceId duration=$tripDurationSec"
-                )
 
-                tripRepository.finishTrip(
-                    sessionId = sessionId,
-                    driverId = driverId,
-                    deviceId = deviceId,
-                    trackingMode = current.trackingMode?.toWireValue(),
-                    transportMode = transportMode,
-                    clientEndedAt = now.toString(),
-                    tripDurationSec = tripDurationSec,
-                    finishReason = "app_stop",
-                    clientMetrics = clientMetrics,
-                    deviceContextJson = null,
-                    tailActivityContextJson = null,
-                )
+                is TripFinishResult.Queued -> {
+                    finalUiState = TripFinishUiState.FINISH_QUEUED
+                    finalPendingFinish = true
+                    finalReport = finishResult.placeholderReport
+                    finalError = finishResult.reason
 
+                    Log.w(
+                        "TelemetryTrip",
+                        "stopTrip(): finish queued sessionId=$sessionId reason=${finishResult.reason}"
+                    )
+                }
 
-            }.onSuccess {
-                Log.d("TelemetryTrip", "stopTrip(): finishTrip completed sessionId=$sessionId")
-            }.onFailure {
-                Log.e("TelemetryTrip", "stopTrip(): finishTrip failed sessionId=$sessionId", it)
+                is TripFinishResult.Failed -> {
+                    finalUiState = TripFinishUiState.FINISH_FAILED
+                    finalPendingFinish = false
+                    finalReport = null
+                    finalError = finishResult.message
+
+                    Log.e(
+                        "TelemetryTrip",
+                        "stopTrip(): finish failed sessionId=$sessionId error=${finishResult.message}",
+                        finishResult.error
+                    )
+                }
             }
         } else {
+            finalUiState = TripFinishUiState.FINISH_FAILED
+            finalPendingFinish = false
+            finalError = "driver_id missing"
+
             Log.w("TelemetryTrip", "stopTrip(): finish skipped, driverId missing sessionId=$sessionId")
         }
 
+        Log.d("TelemetryTrip", "stopTrip(): resetting batch sequence sessionId=$sessionId")
         batchSequenceStore.reset()
-        mutableState.emit(stateMachine.stop())
+
+        val stoppedState = stateMachine.stop().copy(
+            pendingFinish = finalPendingFinish,
+            finishUiState = finalUiState,
+            lastTripReport = finalReport,
+            lastFinishError = finalError,
+        )
+
+        mutableState.emit(stoppedState)
         runtimeStateStore.clear()
+
         collectionJob?.cancel()
         collectionJob = null
+
+        Log.d(
+            "TelemetryTrip",
+            "stopTrip(): completed sessionId=$sessionId finishUiState=$finalUiState pendingFinish=$finalPendingFinish"
+        )
     }
-
-
     suspend fun pauseCollection() {
         val updated = stateMachine.pause(state.value)
         mutableState.emit(updated)
@@ -273,23 +519,31 @@ class TelemetryOrchestrator(
     }
 
     suspend fun flushNow(now: Instant = kotlinx.datetime.Clock.System.now()) {
-        val current = state.value
-        val sessionId = current.sessionId ?: return
-        val batch = batchBuilder.flush(
-            deviceId = deviceIdProvider(),
-            driverId = driverIdProvider(),
-            sessionId = sessionId,
-            trackingMode = current.trackingMode,
-            transportMode = transportModeProvider(),
-            latestDeviceState = latestDeviceState,
-            latestNetworkState = latestNetworkState,
-            headingSummary = latestHeading,
-            activitySummary = latestActivity,
-            thresholds = thresholdResolver.getEffectiveThresholds(),
-            now = now,
-        ) ?: return
+        flushMutex.withLock {
+            val current = state.value
+            val sessionId = current.sessionId ?: return
 
-        batchEnqueuer.enqueue(batch)
+            val batch = batchBuilder.flush(
+                deviceId = deviceIdProvider(),
+                driverId = driverIdProvider(),
+                sessionId = sessionId,
+                trackingMode = current.trackingMode,
+                transportMode = transportModeProvider(),
+                latestDeviceState = latestDeviceState,
+                latestNetworkState = latestNetworkState,
+                headingSummary = latestHeading,
+                activitySummary = latestActivity,
+                thresholds = thresholdResolver.getEffectiveThresholds(),
+                now = now,
+            ) ?: return
+
+            Log.d(
+                "TelemetryTrip",
+                "flushNow(): enqueue batch sessionId=${batch.sessionId} batchId=${batch.batchId} batchSeq=${batch.batchSeq} frames=${batch.frames.size} events=${batch.events.size}"
+            )
+
+            batchEnqueuer.enqueue(batch)
+        }
     }
 
     private suspend fun startSourcesIfNeeded() {
@@ -361,6 +615,10 @@ class TelemetryOrchestrator(
         runtimeStateStore.save(updated)
 
         if (batchBuilder.shouldFlush(now)) {
+            Log.d(
+                "TelemetryTrip",
+                "onSensorTick(): shouldFlush=true sessionId=${current.sessionId} now=$now"
+            )
             flushNow(now)
         }
     }
@@ -442,6 +700,8 @@ private fun buildClientTripMetrics(state: TripRuntimeState): ClientTripMetricsDt
         turn = zeroAgg,
     )
 }
+
+private const val MAX_RESTORE_SESSION_AGE_SEC = 60 * 60.0
 
 private fun TrackingMode.toWireValue(): String = when (this) {
     TrackingMode.SINGLE_TRIP -> "single_trip"

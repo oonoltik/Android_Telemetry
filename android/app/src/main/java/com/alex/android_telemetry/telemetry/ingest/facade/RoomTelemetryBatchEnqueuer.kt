@@ -29,6 +29,12 @@ class RoomTelemetryBatchEnqueuer(
     override suspend fun enqueue(batch: TelemetryBatch) {
         val dto = mapper.map(batch)
         val payload = json.encodeToString(dto)
+
+        Log.d(
+            "TelemetryDelivery",
+            "enqueue payload: sessionId=${batch.sessionId} batchId=${batch.batchId} seq=${batch.batchSeq} payload=${payload.take(4000)}"
+        )
+
         val now = clock.now().toEpochMilliseconds()
 
         val inserted = repository.enqueue(

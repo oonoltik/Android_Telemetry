@@ -50,7 +50,8 @@ class TelemetryDeliveryGraph(
             val keyIdStore = TelemetryKeyIdStore(context)
 
             val authApi = TelemetryAuthApi(
-                baseUrl = TelemetryBackendConfig.EU_BASE_URL,
+                euBaseUrl = TelemetryBackendConfig.EU_BASE_URL,
+                ruBaseUrl = TelemetryBackendConfig.RU_BASE_URL,
                 androidRegisterKey = BuildConfig.ANDROID_REGISTER_KEY,
                 client = okHttpClient,
                 json = json,
@@ -73,6 +74,8 @@ class TelemetryDeliveryGraph(
 
             val pendingTripFinishStore = PendingTripFinishStore(context, json)
             val tripDeliveryStatsStore = TripDeliveryStatsStore(context, json)
+            val runtimeStateStore =
+                com.alex.android_telemetry.telemetry.runtime.PersistentTripRuntimeStateStore(context)
             val finishRetryScheduler = FinishRetryScheduler(context)
 
             val euTripApi = OkHttpTripApi(
@@ -139,27 +142,63 @@ class TelemetryDeliveryGraph(
                 policy = policy,
                 authManager = authManager,
                 getPrioritySessionIds = {
-                    pendingTripFinishStore.getAll().map { it.sessionId }.toSet()
+                    val restored = runtimeStateStore.restore()
+
+                    val activeSessionId =
+                        if (restored?.sessionId != null &&
+                            restored.telemetryMode == com.alex.android_telemetry.telemetry.domain.model.TelemetryMode.COLLECTING
+                        ) {
+                            restored.sessionId
+                        } else {
+                            null
+                        }
+
+                    val pendingSessions =
+                        pendingTripFinishStore.getAll().map { it.sessionId }
+
+                    val result = buildSet {
+                        activeSessionId?.let { add(it) }
+                        addAll(pendingSessions)
+                    }
+
+                    Log.d(
+                        "TelemetryDelivery",
+                        "prioritySessions resolved active=$activeSessionId pending=$pendingSessions result=$result"
+                    )
+
+                    result
                 },
                 onBatchDelivered = { sessionId, route ->
+                    val hadPendingFinish = pendingTripFinishStore.exists(sessionId)
                     val before = tripDeliveryStatsStore.get(sessionId)
+
+                    Log.d(
+                        "TelemetryTrip",
+                        "onBatchDelivered(): before sessionId=$sessionId route=$route deliveredBatches=${before.deliveredBatches} hadPendingFinish=$hadPendingFinish"
+                    )
+
                     tripDeliveryStatsStore.recordBatchDelivery(sessionId, route)
+
                     val after = tripDeliveryStatsStore.get(sessionId)
 
-                    if (pendingTripFinishStore.exists(sessionId)) {
+                    Log.d(
+                        "TelemetryTrip",
+                        "onBatchDelivered(): after sessionId=$sessionId route=$route deliveredBatches=${after.deliveredBatches} hadPendingFinish=$hadPendingFinish"
+                    )
+
+                    if (hadPendingFinish) {
                         if (before.deliveredBatches == 0 && after.deliveredBatches > 0) {
                             Log.d(
                                 "TelemetryTrip",
-                                "first delivered batch for pending finish sessionId=$sessionId -> scheduleFinishRetryImmediate()"
+                                "onBatchDelivered(): first delivered batch for pending finish sessionId=$sessionId route=$route deliveredBatches=${after.deliveredBatches} -> scheduleFinishRetryImmediate()"
                             )
+                            finishRetryScheduler.scheduleImmediate()
                         } else {
                             Log.d(
                                 "TelemetryTrip",
-                                "delivered batch for pending finish sessionId=$sessionId -> scheduleFinishRetryImmediate()"
+                                "onBatchDelivered(): delivered with existing pending finish sessionId=$sessionId route=$route deliveredBatches=${after.deliveredBatches}"
                             )
                         }
-
-                        finishRetryScheduler.scheduleImmediate()
                     }
                 },
             )

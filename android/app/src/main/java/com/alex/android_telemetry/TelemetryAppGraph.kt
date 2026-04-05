@@ -12,15 +12,27 @@ import com.alex.android_telemetry.sensors.platform.AndroidHeadingSource
 import com.alex.android_telemetry.sensors.platform.AndroidLocationSource
 import com.alex.android_telemetry.sensors.platform.AndroidNetworkStateSource
 import com.alex.android_telemetry.sensors.platform.AndroidSensorTimestampConverter
+import com.alex.android_telemetry.telemetry.auth.TelemetryAuthApi
+import com.alex.android_telemetry.telemetry.auth.TelemetryAuthManager
 import com.alex.android_telemetry.telemetry.auth.TelemetryDeviceIdProvider
+import com.alex.android_telemetry.telemetry.auth.TelemetryKeyIdStore
+import com.alex.android_telemetry.telemetry.auth.TelemetryTokenStore
 import com.alex.android_telemetry.telemetry.batching.BatchIdGenerator
-import com.alex.android_telemetry.telemetry.batching.PersistentLegacyBatchSequenceStore
 import com.alex.android_telemetry.telemetry.batching.LegacyBatchSequenceStore
+import com.alex.android_telemetry.telemetry.batching.PersistentLegacyBatchSequenceStore
 import com.alex.android_telemetry.telemetry.batching.TelemetryBatchBuilder
 import com.alex.android_telemetry.telemetry.batching.TelemetryFrameAssembler
+import com.alex.android_telemetry.telemetry.delivery.TelemetryBackendConfig
 import com.alex.android_telemetry.telemetry.delivery.TelemetryDeliveryGraph
 import com.alex.android_telemetry.telemetry.delivery.TelemetryDeliveryScheduler
 import com.alex.android_telemetry.telemetry.domain.policy.BatchFlushPolicy
+import com.alex.android_telemetry.telemetry.driver.AccountDeleteManager
+import com.alex.android_telemetry.telemetry.driver.DriverIdStore
+import com.alex.android_telemetry.telemetry.driver.DriverLoginManager
+import com.alex.android_telemetry.telemetry.driver.DriverPrepareManager
+import com.alex.android_telemetry.telemetry.driver.DriverRegisterManager
+import com.alex.android_telemetry.telemetry.driver.DriverRepository
+import com.alex.android_telemetry.telemetry.driver.api.OkHttpDriverApi
 import com.alex.android_telemetry.telemetry.ingest.facade.RoomTelemetryBatchEnqueuer
 import com.alex.android_telemetry.telemetry.ingest.mapper.TelemetryBatchDtoMapper
 import com.alex.android_telemetry.telemetry.ingest.repository.TelemetryOutboxRepository
@@ -32,15 +44,17 @@ import com.google.android.gms.location.LocationServices
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.serialization.json.Json
-
-
-
-
-
+import okhttp3.OkHttpClient
 
 class TelemetryAppGraph private constructor(
     val facade: TelemetryFacade,
     val scheduler: TelemetryDeliveryScheduler,
+    val driverRepository: DriverRepository,
+    val driverPrepareManager: DriverPrepareManager,
+    val driverRegisterManager: DriverRegisterManager,
+    val driverLoginManager: DriverLoginManager,
+    val accountDeleteManager: AccountDeleteManager,
+    val deviceIdProvider: TelemetryDeviceIdProvider,
 ) {
     companion object {
         @Volatile
@@ -52,7 +66,8 @@ class TelemetryAppGraph private constructor(
             }
 
         private fun build(context: Context): TelemetryAppGraph {
-            val database = com.alex.android_telemetry.telemetry.delivery.storage.TelemetryDatabase.get(context)
+            val database =
+                com.alex.android_telemetry.telemetry.delivery.storage.TelemetryDatabase.get(context)
             val repository = TelemetryOutboxRepository(database.telemetryOutboxDao())
             val scheduler = TelemetryDeliveryScheduler(context)
             val mapper = TelemetryBatchDtoMapper()
@@ -63,15 +78,63 @@ class TelemetryAppGraph private constructor(
                 explicitNulls = false
             }
 
-            val deliveryGraph = TelemetryDeliveryGraph.from(context)
-            val telemetryDeviceIdProvider = TelemetryDeviceIdProvider(context)
+            val okHttpClient = OkHttpClient()
 
-            val driverPrefs = context.getSharedPreferences("telemetry_driver", Context.MODE_PRIVATE)
-            val driverIdProvider: () -> String? = {
-                driverPrefs.getString("driver_id", "analitik7")
-                    ?.trim()
-                    ?.takeIf { it.isNotEmpty() }
-            }
+            val telemetryDeviceIdProvider = TelemetryDeviceIdProvider(context)
+            val telemetryTokenStore = TelemetryTokenStore(context)
+            val telemetryKeyIdStore = TelemetryKeyIdStore(context)
+
+            val telemetryAuthApi = TelemetryAuthApi(
+                euBaseUrl = TelemetryBackendConfig.EU_BASE_URL,
+                ruBaseUrl = TelemetryBackendConfig.RU_BASE_URL,
+                androidRegisterKey = BuildConfig.ANDROID_REGISTER_KEY,
+                client = okHttpClient,
+                json = appJson,
+            )
+
+            val telemetryAuthManager = TelemetryAuthManager(
+                authApi = telemetryAuthApi,
+                tokenStore = telemetryTokenStore,
+                keyIdStore = telemetryKeyIdStore,
+                deviceIdProvider = telemetryDeviceIdProvider,
+            )
+
+            val deliveryGraph = TelemetryDeliveryGraph.from(context)
+
+            val sharedPreferences =
+                context.getSharedPreferences("telemetry_driver", Context.MODE_PRIVATE)
+
+            val driverIdStore = DriverIdStore(sharedPreferences)
+
+            val driverApi = OkHttpDriverApi(
+                okHttpClient = okHttpClient,
+                json = appJson,
+                authManager = telemetryAuthManager,
+                euBaseUrl = TelemetryBackendConfig.EU_BASE_URL,
+                ruBaseUrl = TelemetryBackendConfig.RU_BASE_URL,
+            )
+
+            val driverRepository = DriverRepository(
+                driverApi = driverApi,
+                driverIdStore = driverIdStore,
+            )
+
+            val driverPrepareManager = DriverPrepareManager(
+                driverRepository = driverRepository,
+            )
+
+            val driverRegisterManager = DriverRegisterManager(
+                driverRepository = driverRepository,
+            )
+
+            val driverLoginManager = DriverLoginManager(
+                driverRepository = driverRepository,
+            )
+
+            val accountDeleteManager = AccountDeleteManager(
+                driverRepository = driverRepository,
+                authManager = telemetryAuthManager,
+            )
 
             val enqueuer = RoomTelemetryBatchEnqueuer(
                 mapper = mapper,
@@ -84,17 +147,26 @@ class TelemetryAppGraph private constructor(
             val powerManager = context.getSystemService(Context.POWER_SERVICE) as PowerManager
             val connectivityManager =
                 context.getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
+
             val timestampConverter = AndroidSensorTimestampConverter(
                 nowElapsedRealtimeNsProvider = { SystemClock.elapsedRealtimeNanos() },
             )
 
-            val batchSequenceStore: LegacyBatchSequenceStore = PersistentLegacyBatchSequenceStore(context)
+            val batchSequenceStore: LegacyBatchSequenceStore =
+                PersistentLegacyBatchSequenceStore(context)
+
             val runtimeStateStore = PersistentTripRuntimeStateStore(context)
+
+            val tripDeliveryStatsStore =
+                com.alex.android_telemetry.telemetry.trips.storage.TripDeliveryStatsStore(
+                    context = context,
+                    json = appJson,
+                )
 
             val orchestrator = TelemetryOrchestrator(
                 scope = CoroutineScope(Dispatchers.Default),
                 deviceIdProvider = { telemetryDeviceIdProvider.get() },
-                driverIdProvider = driverIdProvider,
+                driverIdProvider = { driverIdStore.get().orEmpty() },
                 transportModeProvider = { "unknown" },
                 tripRepository = deliveryGraph.tripRepository,
                 accelerometerSource = AndroidAccelerometerSource(
@@ -121,7 +193,8 @@ class TelemetryAppGraph private constructor(
                 ),
                 thresholdResolver = StaticThresholdResolver(),
                 frameAssembler = TelemetryFrameAssembler(),
-                motionVectorComputer = com.alex.android_telemetry.telemetry.detectors.MotionVectorComputer(),
+                motionVectorComputer =
+                    com.alex.android_telemetry.telemetry.detectors.MotionVectorComputer(),
                 batchBuilder = TelemetryBatchBuilder(
                     flushPolicy = BatchFlushPolicy(
                         maxWindowMs = 15_000,
@@ -133,12 +206,19 @@ class TelemetryAppGraph private constructor(
                 batchSequenceStore = batchSequenceStore,
                 batchEnqueuer = enqueuer,
                 outboxRepository = repository,
+                tripDeliveryStatsStore = tripDeliveryStatsStore,
                 runtimeStateStore = runtimeStateStore,
             )
 
             return TelemetryAppGraph(
                 facade = TelemetryFacade(orchestrator),
                 scheduler = scheduler,
+                driverRepository = driverRepository,
+                driverPrepareManager = driverPrepareManager,
+                driverRegisterManager = driverRegisterManager,
+                driverLoginManager = driverLoginManager,
+                accountDeleteManager = accountDeleteManager,
+                deviceIdProvider = telemetryDeviceIdProvider,
             )
         }
     }

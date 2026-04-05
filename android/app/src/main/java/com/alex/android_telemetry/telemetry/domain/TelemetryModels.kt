@@ -1,5 +1,6 @@
 package com.alex.android_telemetry.telemetry.domain.model
 
+import com.alex.android_telemetry.telemetry.trips.api.TripReportDto
 import kotlinx.datetime.Instant
 
 // Raw / normalized inputs
@@ -73,6 +74,14 @@ enum class TelemetryMode {
     FINISHING,
 }
 
+enum class TripFinishUiState {
+    IDLE,
+    FINISHING_IN_PROGRESS,
+    FINISH_QUEUED,
+    FINISHED_WITH_REPORT,
+    FINISH_FAILED,
+}
+
 data class TripRuntimeState(
     val sessionId: String? = null,
     val trackingMode: TrackingMode? = null,
@@ -84,6 +93,9 @@ data class TripRuntimeState(
     val distanceM: Double = 0.0,
     val isForegroundCollection: Boolean = false,
     val pendingFinish: Boolean = false,
+    val finishUiState: TripFinishUiState = TripFinishUiState.IDLE,
+    val lastTripReport: TripReportDto? = null,
+    val lastFinishError: String? = null,
 )
 
 enum class TelemetryEventType {

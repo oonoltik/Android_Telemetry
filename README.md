@@ -62,3 +62,14 @@ sensors → frames → batch → outbox → delivery → backend → finish
 - shared contracts
 - throughput / backlog
 - observability
+
+## Current Status
+
+Android telemetry pipeline fully functional:
+
+- ingest → batching → outbox → delivery → backend
+- finish lifecycle aligned with contract
+- identity lifecycle implemented
+
+⚠️ Для корректного тестирования motion:
+используйте реальное устройство или mock IMU

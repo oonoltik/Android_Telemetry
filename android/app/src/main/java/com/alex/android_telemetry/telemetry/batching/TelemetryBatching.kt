@@ -48,28 +48,35 @@ class PersistentLegacyBatchSequenceStore(
     context: Context,
 ) : LegacyBatchSequenceStore {
     private val prefs = context.getSharedPreferences("telemetry_batch_seq", Context.MODE_PRIVATE)
+    private val lock = Any()
     private var seq: Int = 0
 
     init {
         restore(prefs.getInt(KEY_SEQ, 0))
     }
 
-    override fun next(): Int {
+    override fun next(): Int = synchronized(lock) {
         seq += 1
-        prefs.edit().putInt(KEY_SEQ, seq).apply()
-        return seq
+        prefs.edit().putInt(KEY_SEQ, seq).commit()
+        seq
     }
 
-    override fun current(): Int = seq
+    override fun current(): Int = synchronized(lock) {
+        seq
+    }
 
     override fun restore(value: Int) {
-        seq = value.coerceAtLeast(0)
-        prefs.edit().putInt(KEY_SEQ, seq).apply()
+        synchronized(lock) {
+            seq = value.coerceAtLeast(0)
+            prefs.edit().putInt(KEY_SEQ, seq).commit()
+        }
     }
 
     override fun reset() {
-        seq = 0
-        prefs.edit().putInt(KEY_SEQ, 0).apply()
+        synchronized(lock) {
+            seq = 0
+            prefs.edit().putInt(KEY_SEQ, 0).commit()
+        }
     }
 
     private companion object {
@@ -86,24 +93,31 @@ class TelemetryBatchBuilder(
     private val batchSequenceStore: LegacyBatchSequenceStore,
     private val batchIdGenerator: BatchIdGenerator,
 ) {
+    private val lock = Any()
     private val frames = mutableListOf<TelemetryFrame>()
     private val events = mutableListOf<DetectedTelemetryEvent>()
     private var windowStartedAt: Instant? = null
 
     fun addFrame(frame: TelemetryFrame) {
-        if (windowStartedAt == null) windowStartedAt = frame.timestamp
-        frames += frame
+        synchronized(lock) {
+            if (windowStartedAt == null) {
+                windowStartedAt = frame.timestamp
+            }
+            frames += frame
+        }
     }
 
     fun addEvent(event: DetectedTelemetryEvent) {
-        events += event
+        synchronized(lock) {
+            events += event
+        }
     }
 
-    fun shouldFlush(now: Instant): Boolean {
-        if (frames.isEmpty() && events.isEmpty()) return false
-        if (frames.size >= flushPolicy.maxFrames) return true
-        val started = windowStartedAt ?: return false
-        return (now - started).inWholeMilliseconds >= flushPolicy.maxWindowMs
+    fun shouldFlush(now: Instant): Boolean = synchronized(lock) {
+        if (frames.isEmpty() && events.isEmpty()) return@synchronized false
+        if (frames.size >= flushPolicy.maxFrames) return@synchronized true
+        val started = windowStartedAt ?: return@synchronized false
+        (now - started).inWholeMilliseconds >= flushPolicy.maxWindowMs
     }
 
     fun flush(
@@ -118,8 +132,8 @@ class TelemetryBatchBuilder(
         activitySummary: ActivitySample?,
         thresholds: EventThresholdSet?,
         now: Instant,
-    ): TelemetryBatch? {
-        if (frames.isEmpty() && events.isEmpty()) return null
+    ): TelemetryBatch? = synchronized(lock) {
+        if (frames.isEmpty() && events.isEmpty()) return@synchronized null
 
         val batch = TelemetryBatch(
             deviceId = deviceId,
@@ -142,6 +156,6 @@ class TelemetryBatchBuilder(
         frames.clear()
         events.clear()
         windowStartedAt = null
-        return batch
+        batch
     }
 }

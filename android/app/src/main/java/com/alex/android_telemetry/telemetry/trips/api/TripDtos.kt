@@ -24,25 +24,94 @@ data class ClientTripMetricsDto(
 )
 
 @Serializable
-data class PendingTripFinishDto(
+data class TripCoreDto(
+    @SerialName("trip_id") val tripId: String,
     @SerialName("session_id") val sessionId: String,
-    @SerialName("driver_id") val driverId: String,
-    @SerialName("device_id") val deviceId: String,
     @SerialName("client_ended_at") val clientEndedAt: String,
-    @SerialName("created_at") val createdAt: String,
-    @SerialName("tracking_mode") val trackingMode: String? = null,
-    @SerialName("transport_mode") val transportMode: String? = null,
-    @SerialName("trip_duration_sec") val tripDurationSec: Double? = null,
-    @SerialName("finish_reason") val finishReason: String? = null,
-    @SerialName("client_metrics") val clientMetrics: ClientTripMetricsDto? = null,
-    @SerialName("device_context_json") val deviceContextJson: String? = null,
-    @SerialName("tail_activity_context_json") val tailActivityContextJson: String? = null,
+)
+
+@Serializable
+data class DeviceMetaDto(
+    @SerialName("platform") val platform: String,
     @SerialName("app_version") val appVersion: String? = null,
     @SerialName("app_build") val appBuild: String? = null,
     @SerialName("ios_version") val iosVersion: String? = null,
     @SerialName("device_model") val deviceModel: String? = null,
     @SerialName("locale") val locale: String? = null,
     @SerialName("timezone") val timezone: String? = null,
+)
+
+@Serializable
+data class TripSummaryPayloadDto(
+    @SerialName("score_v2") val scoreV2: Double,
+    @SerialName("driving_load") val drivingLoad: Double,
+    @SerialName("distance_km") val distanceKm: Double,
+    @SerialName("avg_speed_kmh") val avgSpeedKmh: Double,
+    @SerialName("driving_mode") val drivingMode: String,
+    @SerialName("trip_duration_sec") val tripDurationSec: Double,
+)
+
+@Serializable
+data class TripMetricsRawDto(
+    @SerialName("trip_distance_m") val tripDistanceM: Double,
+    @SerialName("trip_distance_km_from_gps") val tripDistanceKmFromGps: Double,
+    @SerialName("brake") val brake: ClientAggDto,
+    @SerialName("accel") val accel: ClientAggDto,
+    @SerialName("turn") val turn: ClientAggDto,
+    @SerialName("road") val road: ClientAggDto,
+)
+
+@Serializable
+data class PendingTripFinishDto(
+    @SerialName("session_id") val sessionId: String,
+    @SerialName("driver_id") val driverId: String,
+    @SerialName("device_id") val deviceId: String,
+    @SerialName("client_ended_at") val clientEndedAt: String,
+    @SerialName("created_at") val createdAt: String,
+
+    @SerialName("trip_core") val tripCore: TripCoreDto,
+    @SerialName("device_meta") val deviceMeta: DeviceMetaDto,
+
+    @SerialName("tracking_mode") val trackingMode: String? = null,
+    @SerialName("transport_mode") val transportMode: String? = null,
+    @SerialName("trip_duration_sec") val tripDurationSec: Double? = null,
+    @SerialName("finish_reason") val finishReason: String? = null,
+
+    @SerialName("client_metrics") val clientMetrics: ClientTripMetricsDto? = null,
+    @SerialName("trip_summary") val tripSummary: TripSummaryPayloadDto? = null,
+    @SerialName("trip_metrics_raw") val tripMetricsRaw: TripMetricsRawDto? = null,
+
+    @SerialName("device_context") val deviceContext: JsonObject? = null,
+    @SerialName("tail_activity_context") val tailActivityContext: JsonObject? = null,
+
+    @SerialName("app_version") val appVersion: String? = null,
+    @SerialName("app_build") val appBuild: String? = null,
+    @SerialName("ios_version") val iosVersion: String? = null,
+    @SerialName("device_model") val deviceModel: String? = null,
+    @SerialName("locale") val locale: String? = null,
+    @SerialName("timezone") val timezone: String? = null,
+
+    @SerialName("retry_count") val retryCount: Int = 0,
+    @SerialName("last_attempt_at") val lastAttemptAt: String? = null,
+    @SerialName("last_error") val lastError: String? = null,
+    @SerialName("queued_because_no_delivered_batches") val queuedBecauseNoDeliveredBatches: Boolean = false,
+)
+
+@Serializable
+data class FinishCommand(
+    @SerialName("session_id") val sessionId: String,
+    @SerialName("driver_id") val driverId: String,
+    @SerialName("device_id") val deviceId: String,
+    @SerialName("client_ended_at") val clientEndedAt: String,
+    @SerialName("tracking_mode") val trackingMode: String? = null,
+    @SerialName("transport_mode") val transportMode: String? = null,
+    @SerialName("trip_duration_sec") val tripDurationSec: Double? = null,
+    @SerialName("finish_reason") val finishReason: String? = null,
+    @SerialName("client_metrics") val clientMetrics: ClientTripMetricsDto? = null,
+    @SerialName("trip_summary") val tripSummary: TripSummaryPayloadDto? = null,
+    @SerialName("trip_metrics_raw") val tripMetricsRaw: TripMetricsRawDto? = null,
+    @SerialName("device_context") val deviceContext: JsonObject? = null,
+    @SerialName("tail_activity_context") val tailActivityContext: JsonObject? = null,
 )
 
 @Serializable
