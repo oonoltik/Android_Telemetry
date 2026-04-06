@@ -1,75 +1,16 @@
-# Telemetry (Android + iOS Monorepo)
+# Telemetry SDK
 
 ## Overview
-
-Этот репозиторий теперь содержит **оба клиента**:
-- Android (Kotlin)
-- iOS (Swift / Xcode)
-
----
-
-## Structure
-
-```
-Android_Telemetry/
-  android/   # Android project (Android Studio)
-  ios/       # iOS project (Xcode)
-  docs/
-```
-
----
-
-## How to run
-
-### Android
-Открыть:
-```
-android/
-```
-в Android Studio
-
----
-
-### iOS
-Открыть:
-```
-ios/TelemetryApp.xcodeproj
-```
-в Xcode
-
----
-
-## Important
-
-📌 Android — основной reference pipeline  
-📌 iOS — должен сходиться по контракту и поведению  
-
----
+Android + iOS telemetry system
 
 ## Pipeline
+sensors → batch → delivery → backend → finish
 
-```
-sensors → frames → batch → outbox → delivery → backend → finish
-```
+## Status
+Android pipeline ready
+Day monitoring implemented
 
-(одинаковый концепт для Android и iOS)
-
----
-
-## Current focus
-
-- aggregation parity (Android ↔ iOS)
-- shared contracts
-- throughput / backlog
-- observability
-
-## Current Status
-
-Android telemetry pipeline fully functional:
-
-- ingest → batching → outbox → delivery → backend
-- finish lifecycle aligned with contract
-- identity lifecycle implemented
-
-⚠️ Для корректного тестирования motion:
-используйте реальное устройство или mock IMU
+## Focus
+- parity
+- contracts
+- motion accuracy

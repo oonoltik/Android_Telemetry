@@ -1,0 +1,110 @@
+[
+  {
+    "name": "fallback_without_course_or_axis",
+    "input": {
+      "accelRefNorthG": 0.12,
+      "accelRefEastG": -0.34,
+      "accelRefUpG": 0.56,
+      "speedMS": 11.2,
+      "preferGpsProjection": false
+    },
+    "expected": {
+      "aLongG": -0.34,
+      "aLatG": 0.12,
+      "aVertG": 0.56,
+      "speedMS": 11.2
+    }
+  },
+  {
+    "name": "imu_axis_identity_north",
+    "input": {
+      "accelRefNorthG": 0.12,
+      "accelRefEastG": -0.34,
+      "accelRefUpG": 0.56,
+      "speedMS": 11.2,
+      "imuForwardAxisRefNorth": 1.0,
+      "imuForwardAxisRefEast": 0.0,
+      "preferGpsProjection": false
+    },
+    "expected": {
+      "aLongG": 0.12,
+      "aLatG": -0.34,
+      "aVertG": 0.56,
+      "speedMS": 11.2
+    }
+  },
+  {
+    "name": "imu_axis_identity_east",
+    "input": {
+      "accelRefNorthG": 0.12,
+      "accelRefEastG": -0.34,
+      "accelRefUpG": 0.56,
+      "speedMS": 11.2,
+      "imuForwardAxisRefNorth": 0.0,
+      "imuForwardAxisRefEast": 1.0,
+      "preferGpsProjection": false
+    },
+    "expected": {
+      "aLongG": -0.34,
+      "aLatG": -0.12,
+      "aVertG": 0.56,
+      "speedMS": 11.2
+    }
+  },
+  {
+    "name": "imu_axis_is_normalized_before_projection",
+    "input": {
+      "accelRefNorthG": 0.3,
+      "accelRefEastG": 0.4,
+      "accelRefUpG": 0.1,
+      "speedMS": 9.0,
+      "imuForwardAxisRefNorth": 3.0,
+      "imuForwardAxisRefEast": 4.0,
+      "preferGpsProjection": false
+    },
+    "expected": {
+      "aLongG": 0.5,
+      "aLatG": 0.0,
+      "aVertG": 0.1,
+      "speedMS": 9.0
+    }
+  },
+  {
+    "name": "gps_projection_east_course",
+    "input": {
+      "accelRefNorthG": 0.12,
+      "accelRefEastG": -0.34,
+      "accelRefUpG": 0.56,
+      "speedMS": 11.2,
+      "courseRad": 1.5707963267948966,
+      "imuForwardAxisRefNorth": 1.0,
+      "imuForwardAxisRefEast": 0.0,
+      "preferGpsProjection": true
+    },
+    "expected": {
+      "aLongG": -0.34,
+      "aLatG": -0.12,
+      "aVertG": 0.56,
+      "speedMS": 11.2
+    }
+  },
+  {
+    "name": "gps_projection_northeast_course",
+    "input": {
+      "accelRefNorthG": 0.2,
+      "accelRefEastG": 0.4,
+      "accelRefUpG": -0.1,
+      "speedMS": 13.4,
+      "courseRad": 0.7853981633974483,
+      "imuForwardAxisRefNorth": 1.0,
+      "imuForwardAxisRefEast": 0.0,
+      "preferGpsProjection": true
+    },
+    "expected": {
+      "aLongG": 0.4242640687119285,
+      "aLatG": 0.14142135623730953,
+      "aVertG": -0.1,
+      "speedMS": 13.4
+    }
+  }
+]

@@ -5,8 +5,3 @@ import com.alex.android_telemetry.telemetry.domain.model.EventThresholdSet
 interface EventThresholdResolver {
     fun getEffectiveThresholds(): EventThresholdSet
 }
-
-data class BatchFlushPolicy(
-    val maxWindowMs: Long = 15_000,
-    val maxFrames: Int = 50,
-)

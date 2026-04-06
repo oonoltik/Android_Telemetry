@@ -2,12 +2,17 @@ package com.alex.android_telemetry.telemetry.ingest.mapper
 
 import android.os.Build
 import com.alex.android_telemetry.BuildConfig
+import com.alex.android_telemetry.telemetry.domain.model.ActivityContextSummary
 import com.alex.android_telemetry.telemetry.domain.model.ActivitySample
+import com.alex.android_telemetry.telemetry.domain.model.AltimeterSummary
 import com.alex.android_telemetry.telemetry.domain.model.DetectedTelemetryEvent
 import com.alex.android_telemetry.telemetry.domain.model.DeviceStateSnapshot
 import com.alex.android_telemetry.telemetry.domain.model.EventThresholdSet
 import com.alex.android_telemetry.telemetry.domain.model.HeadingSample
+import com.alex.android_telemetry.telemetry.domain.model.MotionActivitySummary
 import com.alex.android_telemetry.telemetry.domain.model.NetworkStateSnapshot
+import com.alex.android_telemetry.telemetry.domain.model.PedometerSummary
+import com.alex.android_telemetry.telemetry.domain.model.ScreenInteractionContextSummary
 import com.alex.android_telemetry.telemetry.domain.model.TelemetryBatch
 import com.alex.android_telemetry.telemetry.domain.model.TelemetryEventType
 import com.alex.android_telemetry.telemetry.domain.model.TelemetryFrame
@@ -33,13 +38,21 @@ import com.alex.android_telemetry.telemetry.ingest.api.TelemetrySampleDto
 import com.alex.android_telemetry.telemetry.ingest.api.TripConfigDto
 import com.alex.android_telemetry.telemetry.ingest.api.V2ConfigDto
 import com.alex.android_telemetry.telemetry.math.NumericSanitizer
-import kotlinx.datetime.Instant
 import java.util.Locale
 import java.util.TimeZone
+import kotlinx.datetime.Instant
 
 class TelemetryBatchDtoMapper {
 
     fun map(batch: TelemetryBatch): TelemetryBatchDto {
+        val motionActivity = batch.motionActivitySummary
+            ?.let(::mapMotionActivity)
+            ?: batch.activitySummary?.let(::mapMotionActivityFallback)
+
+        val activityContext = batch.activityContextSummary
+            ?.let(::mapActivityContext)
+            ?: batch.activitySummary?.let(::mapActivityContextFallback)
+
         return TelemetryBatchDto(
             deviceId = batch.deviceId,
             driverId = batch.driverId,
@@ -58,14 +71,14 @@ class TelemetryBatchDtoMapper {
             samples = batch.frames.map(::mapFrame),
             events = batch.events.map(::mapEvent),
             tripConfig = batch.tripConfig?.let(::mapTripConfig),
-            motionActivity = batch.activitySummary?.let(::mapMotionActivity),
-            pedometer = null,
-            altimeter = null,
+            motionActivity = motionActivity,
+            pedometer = batch.pedometerSummary?.let(::mapPedometer),
+            altimeter = batch.altimeterSummary?.let(::mapAltimeter),
             deviceState = batch.deviceState?.let(::mapDeviceState),
             network = batch.networkState?.let(::mapNetwork),
             heading = batch.headingSummary?.let(::mapHeading),
-            activityContext = batch.activitySummary?.let(::mapActivityContext),
-            screenInteractionContext = null,
+            activityContext = activityContext,
+            screenInteractionContext = batch.screenInteractionContextSummary?.let(::mapScreenInteractionContext),
         )
     }
 
@@ -171,7 +184,17 @@ class TelemetryBatchDtoMapper {
         )
     }
 
-    private fun mapMotionActivity(sample: ActivitySample): MotionActivityBatchDto {
+    private fun mapMotionActivity(summary: MotionActivitySummary): MotionActivityBatchDto {
+        return MotionActivityBatchDto(
+            dominant = summary.dominant ?: "unknown",
+            confidence = summary.confidence ?: "low",
+            durationsSec = summary.durationsSec.mapValues { (_, value) ->
+                NumericSanitizer.sanitizeDouble(value) ?: 0.0
+            },
+        )
+    }
+
+    private fun mapMotionActivityFallback(sample: ActivitySample): MotionActivityBatchDto {
         val dominant = sample.dominant ?: "unknown"
         return MotionActivityBatchDto(
             dominant = dominant,
@@ -180,7 +203,24 @@ class TelemetryBatchDtoMapper {
         )
     }
 
-    private fun mapActivityContext(sample: ActivitySample): ActivityContextBatchDto {
+    private fun mapActivityContext(summary: ActivityContextSummary): ActivityContextBatchDto {
+        return ActivityContextBatchDto(
+            dominant = summary.dominant,
+            bestConfidence = summary.bestConfidence,
+            stationaryShare = NumericSanitizer.sanitizeDouble(summary.stationaryShare),
+            walkingShare = NumericSanitizer.sanitizeDouble(summary.walkingShare),
+            runningShare = NumericSanitizer.sanitizeDouble(summary.runningShare),
+            cyclingShare = NumericSanitizer.sanitizeDouble(summary.cyclingShare),
+            automotiveShare = NumericSanitizer.sanitizeDouble(summary.automotiveShare),
+            unknownShare = NumericSanitizer.sanitizeDouble(summary.unknownShare),
+            nonAutomotiveStreakSec = NumericSanitizer.sanitizeDouble(summary.nonAutomotiveStreakSec),
+            isAutomotiveNow = summary.isAutomotiveNow,
+            windowStartedAt = summary.windowStartedAt?.toIsoString(),
+            windowEndedAt = summary.windowEndedAt?.toIsoString(),
+        )
+    }
+
+    private fun mapActivityContextFallback(sample: ActivitySample): ActivityContextBatchDto {
         val dominant = sample.dominant ?: "unknown"
         val automotiveNow = dominant == "automotive"
         return ActivityContextBatchDto(
@@ -196,6 +236,35 @@ class TelemetryBatchDtoMapper {
             isAutomotiveNow = automotiveNow,
             windowStartedAt = sample.timestamp.toIsoString(),
             windowEndedAt = sample.timestamp.toIsoString(),
+        )
+    }
+
+    private fun mapPedometer(summary: PedometerSummary): PedometerBatchDto {
+        return PedometerBatchDto(
+            steps = summary.steps,
+            distanceM = NumericSanitizer.sanitizeDouble(summary.distanceM),
+            cadence = NumericSanitizer.sanitizeDouble(summary.cadence),
+            pace = NumericSanitizer.sanitizeDouble(summary.pace),
+        )
+    }
+
+    private fun mapAltimeter(summary: AltimeterSummary): AltimeterBatchDto {
+        return AltimeterBatchDto(
+            relAltMMin = NumericSanitizer.sanitizeDouble(summary.relAltMMin),
+            relAltMMax = NumericSanitizer.sanitizeDouble(summary.relAltMMax),
+            pressureKpaMin = NumericSanitizer.sanitizeDouble(summary.pressureKpaMin),
+            pressureKpaMax = NumericSanitizer.sanitizeDouble(summary.pressureKpaMax),
+        )
+    }
+
+    private fun mapScreenInteractionContext(summary: ScreenInteractionContextSummary): ScreenInteractionContextBatchDto {
+        return ScreenInteractionContextBatchDto(
+            count = summary.count,
+            recent = summary.recent,
+            activeSec = NumericSanitizer.sanitizeDouble(summary.activeSec),
+            lastAt = summary.lastAt?.toIsoString(),
+            windowStartedAt = summary.windowStartedAt?.toIsoString(),
+            windowEndedAt = summary.windowEndedAt?.toIsoString(),
         )
     }
 

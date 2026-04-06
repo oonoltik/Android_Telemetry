@@ -42,7 +42,10 @@ class TelemetryCaptureCoordinator(
                 batchWindow.append(sample)
                 runtimeStore.update { state -> state.copy(counters = state.counters.copy(samplesBuffered = batchWindow.size())) }
                 val elapsed = clockProvider.elapsedRealtimeMillis() - lastFlushElapsedMs
-                if (batchFlushPolicy.shouldFlush(batchWindow.size(), elapsed)) {
+                if (
+                    batchWindow.size() >= batchFlushPolicy.maxFrames ||
+                    elapsed >= batchFlushPolicy.maxWindowMs
+                ) {
                     flushNow()
                 }
             }

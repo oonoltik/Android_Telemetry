@@ -10,7 +10,12 @@ import com.alex.android_telemetry.telemetry.domain.TransportMode
 class TelemetryServiceStarter(
     private val context: Context
 ) {
-    fun startTrip(deviceId: String, driverId: String?, trackingMode: TrackingMode, transportMode: TransportMode) {
+    fun startTrip(
+        deviceId: String,
+        driverId: String?,
+        trackingMode: TrackingMode,
+        transportMode: TransportMode
+    ) {
         val intent = Intent(context, TelemetryForegroundService::class.java).apply {
             action = TelemetryServiceActions.ACTION_START_TRIP
             putExtra(TelemetryServiceActions.EXTRA_DEVICE_ID, deviceId)
@@ -32,6 +37,43 @@ class TelemetryServiceStarter(
     fun recoverTrip() {
         val intent = Intent(context, TelemetryForegroundService::class.java).apply {
             action = TelemetryServiceActions.ACTION_RECOVER_TRIP
+        }
+        ContextCompat.startForegroundService(context, intent)
+    }
+
+    fun enableDayMonitoring() {
+        val intent = Intent(context, TelemetryForegroundService::class.java).apply {
+            action = TelemetryServiceActions.ACTION_ENABLE_DAY_MONITORING
+        }
+        ContextCompat.startForegroundService(context, intent)
+    }
+
+    fun disableDayMonitoring() {
+        val intent = Intent(context, TelemetryForegroundService::class.java).apply {
+            action = TelemetryServiceActions.ACTION_DISABLE_DAY_MONITORING
+        }
+        ContextCompat.startForegroundService(context, intent)
+    }
+
+    fun autoStartTrip(
+        deviceId: String,
+        driverId: String?,
+        transportMode: TransportMode = TransportMode.CAR
+    ) {
+        val intent = Intent(context, TelemetryForegroundService::class.java).apply {
+            action = TelemetryServiceActions.ACTION_AUTO_START_TRIP
+            putExtra(TelemetryServiceActions.EXTRA_DEVICE_ID, deviceId)
+            putExtra(TelemetryServiceActions.EXTRA_DRIVER_ID, driverId)
+            putExtra(TelemetryServiceActions.EXTRA_TRACKING_MODE, TrackingMode.DAY_MONITORING.name)
+            putExtra(TelemetryServiceActions.EXTRA_TRANSPORT_MODE, transportMode.name)
+        }
+        ContextCompat.startForegroundService(context, intent)
+    }
+
+    fun autoStopTrip(finishReason: FinishReason = FinishReason.UNKNOWN) {
+        val intent = Intent(context, TelemetryForegroundService::class.java).apply {
+            action = TelemetryServiceActions.ACTION_AUTO_STOP_TRIP
+            putExtra(TelemetryServiceActions.EXTRA_FINISH_REASON, finishReason.name)
         }
         ContextCompat.startForegroundService(context, intent)
     }

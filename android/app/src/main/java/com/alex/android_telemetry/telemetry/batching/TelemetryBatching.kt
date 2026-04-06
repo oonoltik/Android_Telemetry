@@ -1,7 +1,9 @@
 package com.alex.android_telemetry.telemetry.batching
 
 import android.content.Context
+import com.alex.android_telemetry.telemetry.context.BatchContextAssembler
 import com.alex.android_telemetry.telemetry.domain.model.ActivitySample
+import com.alex.android_telemetry.telemetry.domain.model.AltimeterSample
 import com.alex.android_telemetry.telemetry.domain.model.DetectedTelemetryEvent
 import com.alex.android_telemetry.telemetry.domain.model.DeviceStateSnapshot
 import com.alex.android_telemetry.telemetry.domain.model.EventThresholdSet
@@ -10,10 +12,12 @@ import com.alex.android_telemetry.telemetry.domain.model.ImuSample
 import com.alex.android_telemetry.telemetry.domain.model.LocationFix
 import com.alex.android_telemetry.telemetry.domain.model.MotionVector
 import com.alex.android_telemetry.telemetry.domain.model.NetworkStateSnapshot
+import com.alex.android_telemetry.telemetry.domain.model.PedometerSample
+import com.alex.android_telemetry.telemetry.domain.model.ScreenInteractionSample
 import com.alex.android_telemetry.telemetry.domain.model.TelemetryBatch
 import com.alex.android_telemetry.telemetry.domain.model.TelemetryFrame
 import com.alex.android_telemetry.telemetry.domain.model.TrackingMode
-import com.alex.android_telemetry.telemetry.domain.policy.BatchFlushPolicy
+
 import kotlinx.datetime.Instant
 import java.util.UUID
 
@@ -92,10 +96,18 @@ class TelemetryBatchBuilder(
     private val flushPolicy: BatchFlushPolicy,
     private val batchSequenceStore: LegacyBatchSequenceStore,
     private val batchIdGenerator: BatchIdGenerator,
+    private val batchContextAssembler: BatchContextAssembler = BatchContextAssembler(),
 ) {
     private val lock = Any()
+
     private val frames = mutableListOf<TelemetryFrame>()
     private val events = mutableListOf<DetectedTelemetryEvent>()
+
+    private val activitySamples = mutableListOf<ActivitySample>()
+    private val pedometerSamples = mutableListOf<PedometerSample>()
+    private val altimeterSamples = mutableListOf<AltimeterSample>()
+    private val screenInteractionSamples = mutableListOf<ScreenInteractionSample>()
+
     private var windowStartedAt: Instant? = null
 
     fun addFrame(frame: TelemetryFrame) {
@@ -110,12 +122,60 @@ class TelemetryBatchBuilder(
     fun addEvent(event: DetectedTelemetryEvent) {
         synchronized(lock) {
             events += event
+            if (windowStartedAt == null) {
+                windowStartedAt = event.timestamp
+            }
+        }
+    }
+
+    fun addActivitySample(sample: ActivitySample) {
+        synchronized(lock) {
+            if (windowStartedAt == null) {
+                windowStartedAt = sample.timestamp
+            }
+            activitySamples += sample
+        }
+    }
+
+    fun addPedometerSample(sample: PedometerSample) {
+        synchronized(lock) {
+            if (windowStartedAt == null) {
+                windowStartedAt = sample.timestamp
+            }
+            pedometerSamples += sample
+        }
+    }
+
+    fun addAltimeterSample(sample: AltimeterSample) {
+        synchronized(lock) {
+            if (windowStartedAt == null) {
+                windowStartedAt = sample.timestamp
+            }
+            altimeterSamples += sample
+        }
+    }
+
+    fun addScreenInteractionSample(sample: ScreenInteractionSample) {
+        synchronized(lock) {
+            if (windowStartedAt == null) {
+                windowStartedAt = sample.timestamp
+            }
+            screenInteractionSamples += sample
         }
     }
 
     fun shouldFlush(now: Instant): Boolean = synchronized(lock) {
-        if (frames.isEmpty() && events.isEmpty()) return@synchronized false
+        val hasAnyPayload =
+            frames.isNotEmpty() ||
+                    events.isNotEmpty() ||
+                    activitySamples.isNotEmpty() ||
+                    pedometerSamples.isNotEmpty() ||
+                    altimeterSamples.isNotEmpty() ||
+                    screenInteractionSamples.isNotEmpty()
+
+        if (!hasAnyPayload) return@synchronized false
         if (frames.size >= flushPolicy.maxFrames) return@synchronized true
+
         val started = windowStartedAt ?: return@synchronized false
         (now - started).inWholeMilliseconds >= flushPolicy.maxWindowMs
     }
@@ -133,7 +193,26 @@ class TelemetryBatchBuilder(
         thresholds: EventThresholdSet?,
         now: Instant,
     ): TelemetryBatch? = synchronized(lock) {
-        if (frames.isEmpty() && events.isEmpty()) return@synchronized null
+        val hasAnyPayload =
+            frames.isNotEmpty() ||
+                    events.isNotEmpty() ||
+                    activitySamples.isNotEmpty() ||
+                    pedometerSamples.isNotEmpty() ||
+                    altimeterSamples.isNotEmpty() ||
+                    screenInteractionSamples.isNotEmpty()
+
+        if (!hasAnyPayload) return@synchronized null
+
+        val startedAt = windowStartedAt ?: now
+
+        val contextAggregate = batchContextAssembler.assemble(
+            activitySamples = activitySamples.toList(),
+            pedometerSamples = pedometerSamples.toList(),
+            altimeterSamples = altimeterSamples.toList(),
+            screenInteractionSamples = screenInteractionSamples.toList(),
+            windowStartedAt = startedAt,
+            windowEndedAt = now,
+        )
 
         val batch = TelemetryBatch(
             deviceId = deviceId,
@@ -150,12 +229,31 @@ class TelemetryBatchBuilder(
             networkState = latestNetworkState,
             headingSummary = headingSummary,
             activitySummary = activitySummary,
+            motionActivitySummary = contextAggregate.motionActivity,
+            activityContextSummary = contextAggregate.activityContext,
+            pedometerSummary = contextAggregate.pedometer,
+            altimeterSummary = contextAggregate.altimeter,
+            screenInteractionContextSummary = contextAggregate.screenInteractionContext,
             tripConfig = thresholds,
         )
 
+        clearWindowLocked()
+        batch
+    }
+
+    fun resetWindow() {
+        synchronized(lock) {
+            clearWindowLocked()
+        }
+    }
+
+    private fun clearWindowLocked() {
         frames.clear()
         events.clear()
+        activitySamples.clear()
+        pedometerSamples.clear()
+        altimeterSamples.clear()
+        screenInteractionSamples.clear()
         windowStartedAt = null
-        batch
     }
 }

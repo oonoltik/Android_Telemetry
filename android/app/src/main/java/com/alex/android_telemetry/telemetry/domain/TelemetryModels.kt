@@ -61,6 +61,50 @@ data class ActivitySample(
     val confidence: String? = null,
 )
 
+data class MotionActivitySummary(
+    val dominant: String? = null,
+    val confidence: String? = null,
+    val durationsSec: Map<String, Double> = emptyMap(),
+)
+
+data class ActivityContextSummary(
+    val dominant: String? = null,
+    val bestConfidence: String? = null,
+    val stationaryShare: Double? = null,
+    val walkingShare: Double? = null,
+    val runningShare: Double? = null,
+    val cyclingShare: Double? = null,
+    val automotiveShare: Double? = null,
+    val unknownShare: Double? = null,
+    val nonAutomotiveStreakSec: Double? = null,
+    val isAutomotiveNow: Boolean? = null,
+    val windowStartedAt: Instant? = null,
+    val windowEndedAt: Instant? = null,
+)
+
+data class PedometerSummary(
+    val steps: Int? = null,
+    val distanceM: Double? = null,
+    val cadence: Double? = null,
+    val pace: Double? = null,
+)
+
+data class AltimeterSummary(
+    val relAltMMin: Double? = null,
+    val relAltMMax: Double? = null,
+    val pressureKpaMin: Double? = null,
+    val pressureKpaMax: Double? = null,
+)
+
+data class ScreenInteractionContextSummary(
+    val count: Int? = null,
+    val recent: Boolean? = null,
+    val activeSec: Double? = null,
+    val lastAt: Instant? = null,
+    val windowStartedAt: Instant? = null,
+    val windowEndedAt: Instant? = null,
+)
+
 enum class TrackingMode {
     SINGLE_TRIP,
     DAY_MONITORING,
@@ -176,6 +220,34 @@ data class TelemetryBatch(
     val deviceState: DeviceStateSnapshot? = null,
     val networkState: NetworkStateSnapshot? = null,
     val headingSummary: HeadingSample? = null,
+
     val activitySummary: ActivitySample? = null,
+
+    val motionActivitySummary: MotionActivitySummary? = null,
+    val activityContextSummary: ActivityContextSummary? = null,
+    val pedometerSummary: PedometerSummary? = null,
+    val altimeterSummary: AltimeterSummary? = null,
+    val screenInteractionContextSummary: ScreenInteractionContextSummary? = null,
+
     val tripConfig: EventThresholdSet? = null,
+)
+
+data class PedometerSample(
+    val timestamp: Instant,
+    val steps: Int? = null,
+    val distanceM: Double? = null,
+    val cadence: Double? = null,
+    val pace: Double? = null,
+)
+
+data class AltimeterSample(
+    val timestamp: Instant,
+    val relativeAltitudeM: Double? = null,
+    val pressureKpa: Double? = null,
+)
+
+data class ScreenInteractionSample(
+    val timestamp: Instant,
+    val activeStartedAt: Instant? = null,
+    val activeEndedAt: Instant? = null,
 )

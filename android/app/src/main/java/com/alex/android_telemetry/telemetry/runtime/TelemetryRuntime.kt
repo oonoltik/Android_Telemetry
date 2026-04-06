@@ -47,6 +47,15 @@ import kotlinx.coroutines.sync.withLock
 import com.alex.android_telemetry.telemetry.domain.TripFinishResult
 import com.alex.android_telemetry.telemetry.domain.model.TripFinishUiState
 
+import com.alex.android_telemetry.telemetry.domain.model.AltimeterSample
+import com.alex.android_telemetry.telemetry.domain.model.PedometerSample
+import com.alex.android_telemetry.telemetry.domain.model.ScreenInteractionSample
+
+import com.alex.android_telemetry.sensors.api.ActivityRecognitionSource
+import com.alex.android_telemetry.sensors.api.AltimeterSource
+import com.alex.android_telemetry.sensors.api.PedometerSource
+import com.alex.android_telemetry.sensors.api.ScreenInteractionSource
+
 interface TripRuntimeStateStore {
     suspend fun save(state: TripRuntimeState)
     suspend fun restore(): TripRuntimeState?
@@ -109,6 +118,10 @@ class TelemetryOrchestrator(
     private val headingSource: HeadingSource?,
     private val deviceStateSource: DeviceStateSource,
     private val networkStateSource: NetworkStateSource,
+    private val activityRecognitionSource: ActivityRecognitionSource,
+    private val pedometerSource: PedometerSource,
+    private val altimeterSource: AltimeterSource,
+    private val screenInteractionSource: ScreenInteractionSource,
     private val thresholdResolver: EventThresholdResolver,
     private val frameAssembler: TelemetryFrameAssembler,
     private val motionVectorComputer: MotionVectorComputer,
@@ -138,6 +151,11 @@ class TelemetryOrchestrator(
     private var latestDeviceState: DeviceStateSnapshot? = null
     private var latestNetworkState: NetworkStateSnapshot? = null
     private var latestActivity: ActivitySample? = null
+
+    private var latestPedometer: PedometerSample? = null
+    private var latestAltimeter: AltimeterSample? = null
+    private var latestScreenInteraction: ScreenInteractionSample? = null
+
     private var collectionJob: Job? = null
     private val flushMutex = Mutex()
 
@@ -343,6 +361,11 @@ class TelemetryOrchestrator(
         latestDeviceState = null
         latestNetworkState = null
         latestActivity = null
+        latestPedometer = null
+        latestAltimeter = null
+        latestScreenInteraction = null
+
+        batchBuilder.resetWindow()
 
         batchSequenceStore.reset()
 
@@ -405,6 +428,15 @@ class TelemetryOrchestrator(
         gyroscopeSource.stop()
         locationSource.stop()
         headingSource?.stop()
+        activityRecognitionSource.stop()
+        pedometerSource.stop()
+        altimeterSource.stop()
+        screenInteractionSource.stop()
+
+        latestActivity = null
+        latestPedometer = null
+        latestAltimeter = null
+        latestScreenInteraction = null
 
         var finalUiState = TripFinishUiState.IDLE
         var finalPendingFinish = false
@@ -539,11 +571,35 @@ class TelemetryOrchestrator(
 
             Log.d(
                 "TelemetryTrip",
-                "flushNow(): enqueue batch sessionId=${batch.sessionId} batchId=${batch.batchId} batchSeq=${batch.batchSeq} frames=${batch.frames.size} events=${batch.events.size}"
+                "flushNow(): enqueue batch sessionId=${batch.sessionId} batchId=${batch.batchId} batchSeq=${batch.batchSeq} frames=${batch.frames.size} events=${batch.events.size} motionActivity=${batch.motionActivitySummary != null} activityContext=${batch.activityContextSummary != null} pedometer=${batch.pedometerSummary != null} altimeter=${batch.altimeterSummary != null} screen=${batch.screenInteractionContextSummary != null}"
             )
 
             batchEnqueuer.enqueue(batch)
         }
+    }
+
+    suspend fun recordActivitySample(sample: ActivitySample) {
+        latestActivity = sample
+        batchBuilder.addActivitySample(sample)
+
+        val updated = state.value.copy(lastSampleAt = sample.timestamp)
+        mutableState.emit(updated)
+        runtimeStateStore.save(updated)
+    }
+
+    suspend fun recordPedometerSample(sample: PedometerSample) {
+        latestPedometer = sample
+        batchBuilder.addPedometerSample(sample)
+    }
+
+    suspend fun recordAltimeterSample(sample: AltimeterSample) {
+        latestAltimeter = sample
+        batchBuilder.addAltimeterSample(sample)
+    }
+
+    suspend fun recordScreenInteractionSample(sample: ScreenInteractionSample) {
+        latestScreenInteraction = sample
+        batchBuilder.addScreenInteractionSample(sample)
     }
 
     private suspend fun startSourcesIfNeeded() {
@@ -551,6 +607,10 @@ class TelemetryOrchestrator(
         gyroscopeSource.start()
         locationSource.start()
         headingSource?.start()
+        activityRecognitionSource.start()
+        pedometerSource.start()
+        altimeterSource.start()
+        screenInteractionSource.start()
     }
 
     private fun subscribeIfNeeded() {
@@ -579,6 +639,22 @@ class TelemetryOrchestrator(
 
             deviceStateSource.snapshots.onEach { latestDeviceState = it }.launchIn(this)
             networkStateSource.snapshots.onEach { latestNetworkState = it }.launchIn(this)
+
+            activityRecognitionSource.samples.onEach { sample ->
+                recordActivitySample(sample)
+            }.launchIn(this)
+
+            pedometerSource.samples.onEach { sample ->
+                recordPedometerSample(sample)
+            }.launchIn(this)
+
+            altimeterSource.samples.onEach { sample ->
+                recordAltimeterSample(sample)
+            }.launchIn(this)
+
+            screenInteractionSource.samples.onEach { sample ->
+                recordScreenInteractionSample(sample)
+            }.launchIn(this)
         }
     }
 
@@ -656,6 +732,18 @@ class TelemetryFacade(
     suspend fun pauseCollection() = orchestrator.pauseCollection()
     suspend fun resumeCollection() = orchestrator.resumeCollection()
     suspend fun flushNow() = orchestrator.flushNow()
+
+    suspend fun recordActivitySample(sample: ActivitySample) =
+        orchestrator.recordActivitySample(sample)
+
+    suspend fun recordPedometerSample(sample: PedometerSample) =
+        orchestrator.recordPedometerSample(sample)
+
+    suspend fun recordAltimeterSample(sample: AltimeterSample) =
+        orchestrator.recordAltimeterSample(sample)
+
+    suspend fun recordScreenInteractionSample(sample: ScreenInteractionSample) =
+        orchestrator.recordScreenInteractionSample(sample)
 }
 
 private fun ImuSample?.merge(newValue: ImuSample): ImuSample =

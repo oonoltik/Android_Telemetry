@@ -9,18 +9,141 @@ import com.alex.android_telemetry.telemetry.domain.model.TelemetryEventType
 import java.time.Duration
 import kotlinx.datetime.Instant
 import kotlin.math.abs
+import kotlin.math.cos
 import kotlin.math.max
+import kotlin.math.sin
+import kotlin.math.sqrt
 
 class MotionVectorComputer {
+
     fun compute(imu: ImuSample?, location: LocationFix?): MotionVector {
-        if (imu == null && location == null) return MotionVector(speedMS = location?.speedMS)
-        return MotionVector(
-            aLongG = imu?.accelY,
-            aLatG = imu?.accelX,
-            aVertG = imu?.accelZ,
-            yawRate = imu?.gyroZ,
+        if (imu == null && location == null) {
+            return MotionVector(speedMS = location?.speedMS)
+        }
+
+        return computeProjected(
+            accelRefNorthG = imu?.accelX,
+            accelRefEastG = imu?.accelY,
+            accelRefUpG = imu?.accelZ,
             speedMS = location?.speedMS,
+            courseRad = null,
+            imuForwardAxisRefNorth = null,
+            imuForwardAxisRefEast = null,
+            preferGpsProjection = false,
         )
+    }
+
+    fun computeProjected(
+        accelRefNorthG: Double?,
+        accelRefEastG: Double?,
+        accelRefUpG: Double?,
+        speedMS: Double?,
+        courseRad: Double? = null,
+        imuForwardAxisRefNorth: Double? = null,
+        imuForwardAxisRefEast: Double? = null,
+        preferGpsProjection: Boolean = false,
+    ): MotionVector {
+        val aNorth = accelRefNorthG
+        val aEast = accelRefEastG
+        val aUp = accelRefUpG
+
+        if (aNorth == null && aEast == null && aUp == null) {
+            return MotionVector(
+                aLongG = null,
+                aLatG = null,
+                aVertG = null,
+                yawRate = null,
+                speedMS = speedMS,
+            )
+        }
+
+        val gpsProjection = if (preferGpsProjection && courseRad != null && aNorth != null && aEast != null) {
+            projectWithCourse(
+                aNorth = aNorth,
+                aEast = aEast,
+                courseRad = courseRad,
+            )
+        } else {
+            null
+        }
+
+        val imuProjection = if (aNorth != null && aEast != null) {
+            val axis = normalizeAxisOrNull(
+                north = imuForwardAxisRefNorth,
+                east = imuForwardAxisRefEast,
+            )
+
+            if (axis != null) {
+                projectWithAxis(
+                    aNorth = aNorth,
+                    aEast = aEast,
+                    axisNorth = axis.first,
+                    axisEast = axis.second,
+                )
+            } else {
+                projectFallback(
+                    aNorth = aNorth,
+                    aEast = aEast,
+                )
+            }
+        } else {
+            null
+        }
+
+        return MotionVector(
+            aLongG = gpsProjection?.first ?: imuProjection?.first,
+            aLatG = gpsProjection?.second ?: imuProjection?.second,
+            aVertG = aUp,
+            yawRate = null,
+            speedMS = speedMS,
+        )
+    }
+
+    private fun projectWithCourse(
+        aNorth: Double,
+        aEast: Double,
+        courseRad: Double,
+    ): Pair<Double, Double> {
+        val vHatNorth = cos(courseRad)
+        val vHatEast = sin(courseRad)
+
+        val vPerpNorth = -sin(courseRad)
+        val vPerpEast = cos(courseRad)
+
+        val aLong = (aNorth * vHatNorth) + (aEast * vHatEast)
+        val aLat = (aNorth * vPerpNorth) + (aEast * vPerpEast)
+        return aLong to aLat
+    }
+
+    private fun projectWithAxis(
+        aNorth: Double,
+        aEast: Double,
+        axisNorth: Double,
+        axisEast: Double,
+    ): Pair<Double, Double> {
+        val perpNorth = -axisEast
+        val perpEast = axisNorth
+
+        val aLong = (aNorth * axisNorth) + (aEast * axisEast)
+        val aLat = (aNorth * perpNorth) + (aEast * perpEast)
+        return aLong to aLat
+    }
+
+    private fun projectFallback(
+        aNorth: Double,
+        aEast: Double,
+    ): Pair<Double, Double> {
+        return aEast to aNorth
+    }
+
+    private fun normalizeAxisOrNull(
+        north: Double?,
+        east: Double?,
+    ): Pair<Double, Double>? {
+        if (north == null || east == null) return null
+        val norm = sqrt((north * north) + (east * east))
+        if (norm <= 1e-9) return null
+        return (north / norm) to (east / norm)
     }
 }
 

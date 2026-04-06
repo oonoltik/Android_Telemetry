@@ -6,26 +6,33 @@ import android.net.ConnectivityManager
 import android.os.PowerManager
 import android.os.SystemClock
 import com.alex.android_telemetry.sensors.platform.AndroidAccelerometerSource
+import com.alex.android_telemetry.sensors.platform.AndroidActivityRecognitionSource
+import com.alex.android_telemetry.sensors.platform.AndroidAltimeterSource
 import com.alex.android_telemetry.sensors.platform.AndroidDeviceStateSource
 import com.alex.android_telemetry.sensors.platform.AndroidGyroscopeSource
 import com.alex.android_telemetry.sensors.platform.AndroidHeadingSource
 import com.alex.android_telemetry.sensors.platform.AndroidLocationSource
 import com.alex.android_telemetry.sensors.platform.AndroidNetworkStateSource
+import com.alex.android_telemetry.sensors.platform.AndroidPedometerSource
+import com.alex.android_telemetry.sensors.platform.AndroidScreenInteractionSource
 import com.alex.android_telemetry.sensors.platform.AndroidSensorTimestampConverter
 import com.alex.android_telemetry.telemetry.auth.TelemetryAuthApi
 import com.alex.android_telemetry.telemetry.auth.TelemetryAuthManager
 import com.alex.android_telemetry.telemetry.auth.TelemetryDeviceIdProvider
 import com.alex.android_telemetry.telemetry.auth.TelemetryKeyIdStore
 import com.alex.android_telemetry.telemetry.auth.TelemetryTokenStore
+import com.alex.android_telemetry.telemetry.batching.BatchFlushPolicy
 import com.alex.android_telemetry.telemetry.batching.BatchIdGenerator
 import com.alex.android_telemetry.telemetry.batching.LegacyBatchSequenceStore
 import com.alex.android_telemetry.telemetry.batching.PersistentLegacyBatchSequenceStore
 import com.alex.android_telemetry.telemetry.batching.TelemetryBatchBuilder
 import com.alex.android_telemetry.telemetry.batching.TelemetryFrameAssembler
+import com.alex.android_telemetry.telemetry.daymonitoring.ActivityRecognitionTripGate
+import com.alex.android_telemetry.telemetry.daymonitoring.DayMonitoringManager
+import com.alex.android_telemetry.telemetry.daymonitoring.DayMonitoringStateStore
 import com.alex.android_telemetry.telemetry.delivery.TelemetryBackendConfig
 import com.alex.android_telemetry.telemetry.delivery.TelemetryDeliveryGraph
 import com.alex.android_telemetry.telemetry.delivery.TelemetryDeliveryScheduler
-import com.alex.android_telemetry.telemetry.domain.policy.BatchFlushPolicy
 import com.alex.android_telemetry.telemetry.driver.AccountDeleteManager
 import com.alex.android_telemetry.telemetry.driver.DriverIdStore
 import com.alex.android_telemetry.telemetry.driver.DriverLoginManager
@@ -40,6 +47,9 @@ import com.alex.android_telemetry.telemetry.runtime.PersistentTripRuntimeStateSt
 import com.alex.android_telemetry.telemetry.runtime.StaticThresholdResolver
 import com.alex.android_telemetry.telemetry.runtime.TelemetryFacade
 import com.alex.android_telemetry.telemetry.runtime.TelemetryOrchestrator
+import com.alex.android_telemetry.telemetry.service.TelemetryServiceStarter
+import com.alex.android_telemetry.telemetry.domain.FinishReason
+import com.alex.android_telemetry.telemetry.domain.TransportMode
 import com.google.android.gms.location.LocationServices
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -55,6 +65,7 @@ class TelemetryAppGraph private constructor(
     val driverLoginManager: DriverLoginManager,
     val accountDeleteManager: AccountDeleteManager,
     val deviceIdProvider: TelemetryDeviceIdProvider,
+    val dayMonitoringManager: DayMonitoringManager,
 ) {
     companion object {
         @Volatile
@@ -66,8 +77,11 @@ class TelemetryAppGraph private constructor(
             }
 
         private fun build(context: Context): TelemetryAppGraph {
+            val applicationScope = CoroutineScope(Dispatchers.Default)
+
             val database =
                 com.alex.android_telemetry.telemetry.delivery.storage.TelemetryDatabase.get(context)
+
             val repository = TelemetryOutboxRepository(database.telemetryOutboxDao())
             val scheduler = TelemetryDeliveryScheduler(context)
             val mapper = TelemetryBatchDtoMapper()
@@ -152,6 +166,24 @@ class TelemetryAppGraph private constructor(
                 nowElapsedRealtimeNsProvider = { SystemClock.elapsedRealtimeNanos() },
             )
 
+            val activityRecognitionSource = AndroidActivityRecognitionSource(
+                context = context,
+            )
+
+            val pedometerSource = AndroidPedometerSource(
+                sensorManager = sensorManager,
+                timestampConverter = timestampConverter,
+            )
+
+            val altimeterSource = AndroidAltimeterSource(
+                sensorManager = sensorManager,
+                timestampConverter = timestampConverter,
+            )
+
+            val screenInteractionSource = AndroidScreenInteractionSource(
+                context = context,
+            )
+
             val batchSequenceStore: LegacyBatchSequenceStore =
                 PersistentLegacyBatchSequenceStore(context)
 
@@ -164,7 +196,7 @@ class TelemetryAppGraph private constructor(
                 )
 
             val orchestrator = TelemetryOrchestrator(
-                scope = CoroutineScope(Dispatchers.Default),
+                scope = applicationScope,
                 deviceIdProvider = { telemetryDeviceIdProvider.get() },
                 driverIdProvider = { driverIdStore.get().orEmpty() },
                 transportModeProvider = { "unknown" },
@@ -191,6 +223,10 @@ class TelemetryAppGraph private constructor(
                 networkStateSource = AndroidNetworkStateSource(
                     connectivityManager = connectivityManager,
                 ),
+                activityRecognitionSource = activityRecognitionSource,
+                pedometerSource = pedometerSource,
+                altimeterSource = altimeterSource,
+                screenInteractionSource = screenInteractionSource,
                 thresholdResolver = StaticThresholdResolver(),
                 frameAssembler = TelemetryFrameAssembler(),
                 motionVectorComputer =
@@ -210,8 +246,37 @@ class TelemetryAppGraph private constructor(
                 runtimeStateStore = runtimeStateStore,
             )
 
+            val facade = TelemetryFacade(orchestrator)
+
+            val telemetryServiceStarter = TelemetryServiceStarter(context)
+
+            val dayMonitoringStateStore = DayMonitoringStateStore(context)
+
+            val dayMonitoringManager = DayMonitoringManager(
+                scope = applicationScope,
+                activityRecognitionSource = activityRecognitionSource,
+                telemetryFacade = facade,
+                stateStore = dayMonitoringStateStore,
+                tripGate = ActivityRecognitionTripGate(
+                    automotiveStartThresholdSec = 10L,
+                    nonAutomotiveStopThresholdSec = 80L,
+                ),
+                onAutoStartRequested = {
+                    telemetryServiceStarter.autoStartTrip(
+                        deviceId = telemetryDeviceIdProvider.get(),
+                        driverId = driverIdStore.get(),
+                        transportMode = TransportMode.CAR,
+                    )
+                },
+                onAutoStopRequested = {
+                    telemetryServiceStarter.autoStopTrip(
+                        finishReason = FinishReason.UNKNOWN,
+                    )
+                },
+            )
+
             return TelemetryAppGraph(
-                facade = TelemetryFacade(orchestrator),
+                facade = facade,
                 scheduler = scheduler,
                 driverRepository = driverRepository,
                 driverPrepareManager = driverPrepareManager,
@@ -219,6 +284,7 @@ class TelemetryAppGraph private constructor(
                 driverLoginManager = driverLoginManager,
                 accountDeleteManager = accountDeleteManager,
                 deviceIdProvider = telemetryDeviceIdProvider,
+                dayMonitoringManager = dayMonitoringManager,
             )
         }
     }

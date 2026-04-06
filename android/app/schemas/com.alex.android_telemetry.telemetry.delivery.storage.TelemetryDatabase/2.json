@@ -1,0 +1,203 @@
+{
+  "formatVersion": 1,
+  "database": {
+    "version": 2,
+    "identityHash": "66ab137958ca5c3a7c206b7c4cd0a621",
+    "entities": [
+      {
+        "tableName": "telemetry_outbox",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `batch_id` TEXT NOT NULL, `session_id` TEXT NOT NULL, `batch_seq` INTEGER NOT NULL, `status` TEXT NOT NULL, `payload_json` TEXT NOT NULL, `created_at_epoch_ms` INTEGER NOT NULL, `updated_at_epoch_ms` INTEGER NOT NULL, `attempt_count` INTEGER NOT NULL, `next_retry_at_epoch_ms` INTEGER, `last_http_code` INTEGER, `last_error` TEXT, `server_status` TEXT, `server_duplicate` INTEGER, `delivered_at_epoch_ms` INTEGER)",
+        "fields": [
+          {
+            "fieldPath": "id",
+            "columnName": "id",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "batchId",
+            "columnName": "batch_id",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "sessionId",
+            "columnName": "session_id",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "batchSeq",
+            "columnName": "batch_seq",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "status",
+            "columnName": "status",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "payloadJson",
+            "columnName": "payload_json",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "createdAtEpochMs",
+            "columnName": "created_at_epoch_ms",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "updatedAtEpochMs",
+            "columnName": "updated_at_epoch_ms",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "attemptCount",
+            "columnName": "attempt_count",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "nextRetryAtEpochMs",
+            "columnName": "next_retry_at_epoch_ms",
+            "affinity": "INTEGER"
+          },
+          {
+            "fieldPath": "lastHttpCode",
+            "columnName": "last_http_code",
+            "affinity": "INTEGER"
+          },
+          {
+            "fieldPath": "lastError",
+            "columnName": "last_error",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "serverStatus",
+            "columnName": "server_status",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "serverDuplicate",
+            "columnName": "server_duplicate",
+            "affinity": "INTEGER"
+          },
+          {
+            "fieldPath": "deliveredAtEpochMs",
+            "columnName": "delivered_at_epoch_ms",
+            "affinity": "INTEGER"
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": true,
+          "columnNames": [
+            "id"
+          ]
+        },
+        "indices": [
+          {
+            "name": "index_telemetry_outbox_batch_id",
+            "unique": true,
+            "columnNames": [
+              "batch_id"
+            ],
+            "orders": [],
+            "createSql": "CREATE UNIQUE INDEX IF NOT EXISTS `index_telemetry_outbox_batch_id` ON `${TABLE_NAME}` (`batch_id`)"
+          },
+          {
+            "name": "index_telemetry_outbox_status",
+            "unique": false,
+            "columnNames": [
+              "status"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_telemetry_outbox_status` ON `${TABLE_NAME}` (`status`)"
+          },
+          {
+            "name": "index_telemetry_outbox_next_retry_at_epoch_ms",
+            "unique": false,
+            "columnNames": [
+              "next_retry_at_epoch_ms"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_telemetry_outbox_next_retry_at_epoch_ms` ON `${TABLE_NAME}` (`next_retry_at_epoch_ms`)"
+          }
+        ]
+      },
+      {
+        "tableName": "active_trip",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`sessionId` TEXT NOT NULL, `deviceId` TEXT NOT NULL, `driverId` TEXT, `trackingMode` TEXT NOT NULL, `transportMode` TEXT NOT NULL, `startedAt` TEXT NOT NULL, `startedAtEpochMillis` INTEGER NOT NULL, `nextBatchSeq` INTEGER NOT NULL, `isActive` INTEGER NOT NULL, PRIMARY KEY(`sessionId`))",
+        "fields": [
+          {
+            "fieldPath": "sessionId",
+            "columnName": "sessionId",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "deviceId",
+            "columnName": "deviceId",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "driverId",
+            "columnName": "driverId",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "trackingMode",
+            "columnName": "trackingMode",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "transportMode",
+            "columnName": "transportMode",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "startedAt",
+            "columnName": "startedAt",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "startedAtEpochMillis",
+            "columnName": "startedAtEpochMillis",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "nextBatchSeq",
+            "columnName": "nextBatchSeq",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "isActive",
+            "columnName": "isActive",
+            "affinity": "INTEGER",
+            "notNull": true
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "sessionId"
+          ]
+        }
+      }
+    ],
+    "setupQueries": [
+      "CREATE TABLE IF NOT EXISTS room_master_table (id INTEGER PRIMARY KEY,identity_hash TEXT)",
+      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, '66ab137958ca5c3a7c206b7c4cd0a621')"
+    ]
+  }
+}
