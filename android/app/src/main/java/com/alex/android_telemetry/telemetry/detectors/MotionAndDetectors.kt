@@ -16,15 +16,19 @@ import kotlin.math.sqrt
 
 class MotionVectorComputer {
 
+    companion object {
+        private const val GRAVITY_MS2 = 9.80665
+    }
+
     fun compute(imu: ImuSample?, location: LocationFix?): MotionVector {
         if (imu == null && location == null) {
             return MotionVector(speedMS = location?.speedMS)
         }
 
         return computeProjected(
-            accelRefNorthG = imu?.accelX,
-            accelRefEastG = imu?.accelY,
-            accelRefUpG = imu?.accelZ,
+            accelRefNorthMs2 = imu?.accelX,
+            accelRefEastMs2 = imu?.accelY,
+            accelRefUpMs2 = imu?.accelZ,
             speedMS = location?.speedMS,
             courseRad = null,
             imuForwardAxisRefNorth = null,
@@ -34,20 +38,20 @@ class MotionVectorComputer {
     }
 
     fun computeProjected(
-        accelRefNorthG: Double?,
-        accelRefEastG: Double?,
-        accelRefUpG: Double?,
+        accelRefNorthMs2: Double?,
+        accelRefEastMs2: Double?,
+        accelRefUpMs2: Double?,
         speedMS: Double?,
         courseRad: Double? = null,
         imuForwardAxisRefNorth: Double? = null,
         imuForwardAxisRefEast: Double? = null,
         preferGpsProjection: Boolean = false,
     ): MotionVector {
-        val aNorth = accelRefNorthG
-        val aEast = accelRefEastG
-        val aUp = accelRefUpG
+        val aNorthG = accelRefNorthMs2?.div(GRAVITY_MS2)
+        val aEastG = accelRefEastMs2?.div(GRAVITY_MS2)
+        val aUpG = accelRefUpMs2?.div(GRAVITY_MS2)
 
-        if (aNorth == null && aEast == null && aUp == null) {
+        if (aNorthG == null && aEastG == null && aUpG == null) {
             return MotionVector(
                 aLongG = null,
                 aLatG = null,
@@ -57,17 +61,17 @@ class MotionVectorComputer {
             )
         }
 
-        val gpsProjection = if (preferGpsProjection && courseRad != null && aNorth != null && aEast != null) {
+        val gpsProjection = if (preferGpsProjection && courseRad != null && aNorthG != null && aEastG != null) {
             projectWithCourse(
-                aNorth = aNorth,
-                aEast = aEast,
+                aNorth = aNorthG,
+                aEast = aEastG,
                 courseRad = courseRad,
             )
         } else {
             null
         }
 
-        val imuProjection = if (aNorth != null && aEast != null) {
+        val imuProjection = if (aNorthG != null && aEastG != null) {
             val axis = normalizeAxisOrNull(
                 north = imuForwardAxisRefNorth,
                 east = imuForwardAxisRefEast,
@@ -75,15 +79,15 @@ class MotionVectorComputer {
 
             if (axis != null) {
                 projectWithAxis(
-                    aNorth = aNorth,
-                    aEast = aEast,
+                    aNorth = aNorthG,
+                    aEast = aEastG,
                     axisNorth = axis.first,
                     axisEast = axis.second,
                 )
             } else {
                 projectFallback(
-                    aNorth = aNorth,
-                    aEast = aEast,
+                    aNorth = aNorthG,
+                    aEast = aEastG,
                 )
             }
         } else {
@@ -93,7 +97,7 @@ class MotionVectorComputer {
         return MotionVector(
             aLongG = gpsProjection?.first ?: imuProjection?.first,
             aLatG = gpsProjection?.second ?: imuProjection?.second,
-            aVertG = aUp,
+            aVertG = aUpG,
             yawRate = null,
             speedMS = speedMS,
         )

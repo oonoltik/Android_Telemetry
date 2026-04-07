@@ -26,6 +26,8 @@ data class TripRuntimeState(
     val isTripActive: Boolean = false,
     val sessionId: String? = null,
     val driverId: String? = null,
+    val dayMonitoringEnabled: Boolean = false,
+
 
     val finishUiState: TripFinishUiState = TripFinishUiState.IDLE,
     val lastTripReport: TripReportDto? = null,
