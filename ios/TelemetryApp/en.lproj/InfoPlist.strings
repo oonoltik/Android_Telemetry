@@ -1,3 +1,6 @@
 "NSLocationWhenInUseUsageDescription" = "We use your location to record trips, calculate distance and speed, and show your trip summary.";
 "NSLocationAlwaysAndWhenInUseUsageDescription" = "Allow Always Location so trips can be detected and recorded reliably while the app is in the background.";
 "NSMotionUsageDescription" = "Motion data helps detect driving events such as braking, acceleration, and turns, and improves your driving score.";
+"NSCameraUsageDescription" = "The application uses the camera to record video during the trip (dashcam mode).";
+"NSMicrophoneUsageDescription" = "The application can record audio along with video upon your request.";
+"NSPhotoLibraryAddUsageDescription" = "The application saves video recordings to your device.";

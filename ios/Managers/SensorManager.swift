@@ -13,14 +13,36 @@ import Combine
 import simd
 import UIKit
 
-
-
 import Network
+
+
 
 
 final class SensorManager: NSObject, ObservableObject {
     
+    let crashEventSubject = PassthroughSubject<CrashEvent, Never>()
+
+    var crashEventPublisher: AnyPublisher<CrashEvent, Never> {
+        crashEventSubject.eraseToAnyPublisher()
+    }
+    func currentTripSessionId() -> String? {
+        let trimmed = currentSessionId.trimmingCharacters(in: .whitespacesAndNewlines)
+        return trimmed.isEmpty ? nil : trimmed
+    }
+    func startImplicitTrip() async throws {
+        if !isCollectingNow {
+            startCollecting()
+        }
+    }
+
+    func finishImplicitTrip() async {
+        if isCollectingNow {
+            stopAll()
+        }
+    }
     
+    
+
     
     // TEST ONLY: frozen config for current trip
     private var activeTripConfig: TripConfig?
@@ -74,11 +96,12 @@ final class SensorManager: NSObject, ObservableObject {
     let waterGameManager = WaterGameManager()
     
     // <-- включай для теста дома
+    
     // Indoor / home testing mode (tunes thresholds to be more sensitive and disables phone-moved suppression)
     private let indoorTestModeKey = "indoorTestMode_v1"
 
     @Published var indoorTestMode: Bool = {
-        (UserDefaults.standard.object(forKey: "indoorTestMode_v1") as? Bool) ?? false
+        (UserDefaults.standard.object(forKey: "indoorTestMode_v1") as? Bool) ?? true
     }() {
         didSet {
             UserDefaults.standard.set(indoorTestMode, forKey: indoorTestModeKey)
@@ -128,7 +151,7 @@ final class SensorManager: NSObject, ObservableObject {
     private var stopInProgress: Bool = false
     
     // Public Alpha additive fields
-    private let crashThresholdG: Double = 4.0
+    private let crashThresholdG: Double = 1.2
 
 
 
@@ -556,6 +579,7 @@ final class SensorManager: NSObject, ObservableObject {
     // фиксатор аварий
     @Published var crashDetected: Bool = false
     @Published var crashG: Double = 0
+    private var dashcamCrashEventSentForCurrentTrip: Bool = false
     
     // Public Alpha additive fields
     var currentSpeedKmhForAutoFinish: Double {
@@ -564,7 +588,23 @@ final class SensorManager: NSObject, ObservableObject {
         return kmh < 1.5 ? 0 : kmh
     }
     
+
+    
     private enum AggKind { case accel, brake, road, turn, accelInTurn, brakeInTurn }
+    
+    private func publishDashcamCrashEventIfNeeded() {
+        guard !dashcamCrashEventSentForCurrentTrip else { return }
+
+        dashcamCrashEventSentForCurrentTrip = true
+
+        let event = CrashEvent(
+            at: Date(),
+            gForce: crashG,
+            latitude: lastKnownLocation?.coordinate.latitude,
+            longitude: lastKnownLocation?.coordinate.longitude
+        )
+        crashEventSubject.send(event)
+    }
 
     private func recordAgg(_ kind: AggKind, intensity raw: Double) {
         let x = abs(raw)
@@ -572,10 +612,12 @@ final class SensorManager: NSObject, ObservableObject {
         // Crash detection
         // Public Alpha additive fields
         // Crash detection with max-G tracking
+        let threshold = indoorTestMode ? 1.2 : crashThresholdG
         if x > crashThresholdG {
             DispatchQueue.main.async {
-                self.crashDetected = true
+                self.crashDetected = true                                
                 self.crashG = Swift.max(self.crashG, x)
+                self.publishDashcamCrashEventIfNeeded()
             }
         }
         
@@ -1151,7 +1193,6 @@ if self.debugPrintsEnabled {
     func setDayMonitoringKeepAliveEnabled(_ enabled: Bool) {
         dayMonitoringKeepAliveEnabled = enabled
 
-        // Ensure we have the right permission for background work
         if enabled {
             requestAlwaysAuthorization()
         }
@@ -1206,7 +1247,7 @@ if self.debugPrintsEnabled {
         locationManager.desiredAccuracy = kCLLocationAccuracyBestForNavigation
         locationManager.activityType = .automotiveNavigation
         locationManager.pausesLocationUpdatesAutomatically = false
-        locationManager.allowsBackgroundLocationUpdates = true
+//        locationManager.allowsBackgroundLocationUpdates = true
         
         refreshLocationAuthText()
         applyBackgroundGpsPolicy()
@@ -1369,6 +1410,7 @@ if self.debugPrintsEnabled {
         
         crashDetected = false
         crashG = 0
+        dashcamCrashEventSentForCurrentTrip = false
         
         brakeCount = 0
         brakeSumIntensity = 0
@@ -1635,12 +1677,28 @@ if self.debugPrintsEnabled {
         }
         
     }
-
+    
+    private func applyStoppedStateImmediately() {
+        if Thread.isMainThread {
+            self.isCollectingNow = false
+            self.applyBackgroundGpsPolicy()
+            self.startIdleBackgroundLocationIfNeeded()
+            self.statusText = "Stopped"
+            self.appStateText = "Приложение в ожидании"
+        } else {
+            DispatchQueue.main.sync {
+                self.isCollectingNow = false
+                self.applyBackgroundGpsPolicy()
+                self.startIdleBackgroundLocationIfNeeded()
+                self.statusText = "Stopped"
+                self.appStateText = "Приложение в ожидании"
+            }
+        }
+    }
 
 
     /// UI currently calls stopAll() before NetworkManager.finishTrip(...)
     func stopAll() {
-        
         if !isCollectingNow {
             #if DEBUG
             print("[Session] Stop ignored: not collecting.")
@@ -1649,66 +1707,32 @@ if self.debugPrintsEnabled {
             return
         }
 
-        DispatchQueue.main.async {
-            self.isCollectingNow = false
-        }
-
-        
         stopLocation()
         stopMotion()
         stopBatchTimer()
 
         stopActivityUpdates()
         stopPedometerUpdates()
-        
         stopAltimeterUpdates()
         stopNetworkMonitor()
-        
         stopTripElapsedTimer()
-        
         manualAutoFinish.stop()
-        
         resetLiveServerMetrics()
 
-        
         let elapsedSnapshot = Double(currentTripElapsedSec)
 
         if let s = sessionStartedAt {
-            // Привязываем конец сессии к тому, что показывали пользователю на экране.
             sessionEndedAt = s.addingTimeInterval(elapsedSnapshot)
         } else {
-            let elapsedSnapshot = Double(currentTripElapsedSec)
-
-            if let s = sessionStartedAt {
-                sessionEndedAt = s.addingTimeInterval(elapsedSnapshot)
-            } else {
-                sessionEndedAt = Date()
-            }
-
+            sessionEndedAt = Date()
         }
 
-
-        
-        // 2) Принудительно сбрасываем текущий буфер в очередь NetworkManager
         flushBuffersNow(enqueueAndWait: true, waitTimeoutSec: 0.8)
 
+        applyStoppedStateImmediately()
 
-        
-        applyBackgroundGpsPolicy()
-        
-        // If day monitoring is enabled — keep app alive in background waiting for next trip
-        startIdleBackgroundLocationIfNeeded()
-
-
-
-        DispatchQueue.main.async {
-            self.statusText = "Stopped"
-            self.appStateText = "Приложение в ожидании"
-        }
-        
         tripStartedAt = nil
         lastDistanceLoc = nil
-
     }
 
     func stopAndDrainUploads(completion: @escaping (Bool) -> Void) {
@@ -1780,19 +1804,36 @@ if self.debugPrintsEnabled {
             locationManager.stopUpdatingHeading()
         }
     }
+//    старый вариант -он рабочий
+//    private func startIdleBackgroundLocationIfNeeded() {
+//        guard dayMonitoringKeepAliveEnabled else { return }
+//        guard !isCollectingNow else { return }
+//        guard locationManager.authorizationStatus == .authorizedAlways else { return }
+//
+//        // Low-power keep-alive: wakes app on movement
+//        locationManager.activityType = .automotiveNavigation
+//        locationManager.desiredAccuracy = kCLLocationAccuracyThreeKilometers
+//        locationManager.distanceFilter = 200
+//        locationManager.pausesLocationUpdatesAutomatically = false
+//
+//        // Important: significant-change is what keeps background wake-ups alive
+//        locationManager.startMonitoringSignificantLocationChanges()
+//    }
     
     private func startIdleBackgroundLocationIfNeeded() {
         guard dayMonitoringKeepAliveEnabled else { return }
         guard !isCollectingNow else { return }
         guard locationManager.authorizationStatus == .authorizedAlways else { return }
 
-        // Low-power keep-alive: wakes app on movement
         locationManager.activityType = .automotiveNavigation
         locationManager.desiredAccuracy = kCLLocationAccuracyThreeKilometers
         locationManager.distanceFilter = 200
         locationManager.pausesLocationUpdatesAutomatically = false
 
-        // Important: significant-change is what keeps background wake-ups alive
+        #if DEBUG
+        print("[GPS] startMonitoringSignificantLocationChanges")
+        #endif
+
         locationManager.startMonitoringSignificantLocationChanges()
     }
 
@@ -3546,14 +3587,16 @@ if debugPrintsEnabled && self.tripStartedAt != nil {
         DispatchQueue.main.async { self.locationAuthText = text }
     }
 
+        
     private func applyBackgroundGpsPolicy() {
         let st = locationManager.authorizationStatus
+        let wantsBackground = (isCollectingNow || dayMonitoringKeepAliveEnabled) && (st == .authorizedAlways)
 
-        // Allow background location when:
-        // - collecting trip OR day monitoring keep-alive is enabled
-        let shouldAllow = (isCollectingNow || dayMonitoringKeepAliveEnabled) && (st == .authorizedAlways)
+        #if DEBUG
+        print("[GPS] applyBackgroundGpsPolicy wantsBackground=\(wantsBackground) auth=\(st.rawValue)")
+        #endif
 
-        locationManager.allowsBackgroundLocationUpdates = shouldAllow
+        locationManager.allowsBackgroundLocationUpdates = wantsBackground
         locationManager.pausesLocationUpdatesAutomatically = false
     }
     

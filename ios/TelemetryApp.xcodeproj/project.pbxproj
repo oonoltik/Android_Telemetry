@@ -17,18 +17,35 @@
 		F532A1672F66A1ED0083C8BF /* LocalizationCatalog.swift in Sources */ = {isa = PBXBuildFile; fileRef = F532A1642F66A07D0083C8BF /* LocalizationCatalog.swift */; };
 		F532A1682F66A1F40083C8BF /* LocalizationKey.swift in Sources */ = {isa = PBXBuildFile; fileRef = F532A1632F66A0570083C8BF /* LocalizationKey.swift */; };
 		F532A1692F66A1FA0083C8BF /* AppLanguage.swift in Sources */ = {isa = PBXBuildFile; fileRef = F532A1622F66A02F0083C8BF /* AppLanguage.swift */; };
-		F532A16D2F6826720083C8BF /* DriverHomeResponse.swift in Sources */ = {isa = PBXBuildFile; fileRef = F532A16C2F6826710083C8BF /* DriverHomeResponse.swift */; };
 		F532A16F2F695D4F0083C8BF /* WaterGameManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = F532A16E2F695D4E0083C8BF /* WaterGameManager.swift */; };
 		F532A1712F6963220083C8BF /* _DriverScoreCardView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F532A1702F6963200083C8BF /* _DriverScoreCardView.swift */; };
 		F532A1732F6964A20083C8BF /* _TripStateBadgeView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F532A1722F6964A10083C8BF /* _TripStateBadgeView.swift */; };
 		F532A1752F6964C00083C8BF /* _TripSummaryCardView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F532A1742F6964BE0083C8BF /* _TripSummaryCardView.swift */; };
 		F532A1772F6964E00083C8BF /* _StartStopControlsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F532A1762F6964DF0083C8BF /* _StartStopControlsView.swift */; };
 		F532A1792F6965A00083C8BF /* CardStyle.swift in Sources */ = {isa = PBXBuildFile; fileRef = F532A1782F69659F0083C8BF /* CardStyle.swift */; };
-		F532A17B2F6ACA810083C8BF /* PermissionOnboardingView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F532A17A2F6ACA7F0083C8BF /* PermissionOnboardingView.swift */; };
 		F532A1942F6ADD960083C8BF /* TelemetryAppApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = F532A1922F6ADD960083C8BF /* TelemetryAppApp.swift */; };
 		F532A1952F6ADD960083C8BF /* FeatureFlags.swift in Sources */ = {isa = PBXBuildFile; fileRef = F532A18C2F6ADD960083C8BF /* FeatureFlags.swift */; };
 		F532A1962F6ADD960083C8BF /* InfoPlist.strings in Resources */ = {isa = PBXBuildFile; fileRef = F532A1902F6ADD960083C8BF /* InfoPlist.strings */; };
 		F532A1982F6ADD960083C8BF /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = F532A18B2F6ADD960083C8BF /* Assets.xcassets */; };
+		F552E9BF2F851BE000CBC4D3 /* DashcamModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = F552E9BD2F851BE000CBC4D3 /* DashcamModels.swift */; };
+		F552E9C02F851BE000CBC4D3 /* models+Dashcam.swift in Sources */ = {isa = PBXBuildFile; fileRef = F552E9BE2F851BE000CBC4D3 /* models+Dashcam.swift */; };
+		F552E9CA2F851C2100CBC4D3 /* NetworkManager+Dashcam.swift in Sources */ = {isa = PBXBuildFile; fileRef = F552E9C92F851C2100CBC4D3 /* NetworkManager+Dashcam.swift */; };
+		F552E9CC2F851C4700CBC4D3 /* TelemetryAppApp+DashcamPatch.swift in Sources */ = {isa = PBXBuildFile; fileRef = F552E9CB2F851C4700CBC4D3 /* TelemetryAppApp+DashcamPatch.swift */; };
+		F552E9E62F85206100CBC4D3 /* CameraCapabilityService.swift in Sources */ = {isa = PBXBuildFile; fileRef = F552E9CF2F85206100CBC4D3 /* CameraCapabilityService.swift */; };
+		F552E9F62F8520D500CBC4D3 /* VideoArchiveViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = F552E9F42F8520D500CBC4D3 /* VideoArchiveViewModel.swift */; };
+		F552E9F72F8520D500CBC4D3 /* VideoArchiveView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F552E9F32F8520D500CBC4D3 /* VideoArchiveView.swift */; };
+		F552E9F82F8520D500CBC4D3 /* CameraPreviewContainerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F552E9EF2F8520D500CBC4D3 /* CameraPreviewContainerView.swift */; };
+		F552E9F92F8520D500CBC4D3 /* VideoPlayerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F552E9F52F8520D500CBC4D3 /* VideoPlayerView.swift */; };
+		F552E9FA2F8520D500CBC4D3 /* DriverHomeResponse.swift in Sources */ = {isa = PBXBuildFile; fileRef = F552E9F02F8520D500CBC4D3 /* DriverHomeResponse.swift */; };
+		F552E9FB2F8520D500CBC4D3 /* DriverSetupView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F552E9F12F8520D500CBC4D3 /* DriverSetupView.swift */; };
+		F552E9FC2F8520D500CBC4D3 /* PermissionOnboardingView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F552E9F22F8520D500CBC4D3 /* PermissionOnboardingView.swift */; };
+		F552EA042F85226000CBC4D3 /* CrashClipCoordinator.swift in Sources */ = {isa = PBXBuildFile; fileRef = F552E9FE2F85226000CBC4D3 /* CrashClipCoordinator.swift */; };
+		F552EA052F85226000CBC4D3 /* DashcamTripCoordinator.swift in Sources */ = {isa = PBXBuildFile; fileRef = F552EA012F85226000CBC4D3 /* DashcamTripCoordinator.swift */; };
+		F552EA062F85226000CBC4D3 /* StorageQuotaManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = F552EA022F85226000CBC4D3 /* StorageQuotaManager.swift */; };
+		F552EA072F85226000CBC4D3 /* DashcamManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = F552E9FF2F85226000CBC4D3 /* DashcamManager.swift */; };
+		F552EA082F85226000CBC4D3 /* DashcamSettingsStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = F552EA002F85226000CBC4D3 /* DashcamSettingsStore.swift */; };
+		F552EA0A2F8524C000CBC4D3 /* VideoArchiveStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = F552EA092F8524C000CBC4D3 /* VideoArchiveStore.swift */; };
+		F552EA0C2F86880500CBC4D3 /* CrashClipExporter.swift in Sources */ = {isa = PBXBuildFile; fileRef = F552EA0B2F8687E600CBC4D3 /* CrashClipExporter.swift */; };
 		F55E1BCB2F4DBF4B00ED0E87 /* ManualTripAutoFinish.swift in Sources */ = {isa = PBXBuildFile; fileRef = F55E1BCA2F4DBF4800ED0E87 /* ManualTripAutoFinish.swift */; };
 		F5617FF92F01E5F7000889E0 /* Axis3.swift in Sources */ = {isa = PBXBuildFile; fileRef = F5617FF82F01E5EC000889E0 /* Axis3.swift */; };
 		F56722602EFEDF7700757F45 /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F567225B2EFEDF7700757F45 /* ContentView.swift */; };
@@ -44,7 +61,6 @@
 		F597ADF62F5AD4DC00A9DEDC /* NumericSanitizer.swift in Sources */ = {isa = PBXBuildFile; fileRef = F597ADF52F5AD4D900A9DEDC /* NumericSanitizer.swift */; };
 		F5A3AB482F1FD8CB00BBB788 /* TripsArchiveView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F5A3AB472F1FD8C500BBB788 /* TripsArchiveView.swift */; };
 		F5A3AB4A2F1FD91A00BBB788 /* TripSummary.swift in Sources */ = {isa = PBXBuildFile; fileRef = F5A3AB492F1FD90700BBB788 /* TripSummary.swift */; };
-		F5BBFDB32F47014000DC82C0 /* DriverSetupView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F5BBFDB22F47014000DC82C0 /* DriverSetupView.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -75,14 +91,12 @@
 		F532A1632F66A0570083C8BF /* LocalizationKey.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LocalizationKey.swift; sourceTree = "<group>"; };
 		F532A1642F66A07D0083C8BF /* LocalizationCatalog.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LocalizationCatalog.swift; sourceTree = "<group>"; };
 		F532A1652F66A0960083C8BF /* LanguageManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LanguageManager.swift; sourceTree = "<group>"; };
-		F532A16C2F6826710083C8BF /* DriverHomeResponse.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DriverHomeResponse.swift; sourceTree = "<group>"; };
 		F532A16E2F695D4E0083C8BF /* WaterGameManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WaterGameManager.swift; sourceTree = "<group>"; };
 		F532A1702F6963200083C8BF /* _DriverScoreCardView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = _DriverScoreCardView.swift; sourceTree = "<group>"; };
 		F532A1722F6964A10083C8BF /* _TripStateBadgeView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = _TripStateBadgeView.swift; sourceTree = "<group>"; };
 		F532A1742F6964BE0083C8BF /* _TripSummaryCardView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = _TripSummaryCardView.swift; sourceTree = "<group>"; };
 		F532A1762F6964DF0083C8BF /* _StartStopControlsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = _StartStopControlsView.swift; sourceTree = "<group>"; };
 		F532A1782F69659F0083C8BF /* CardStyle.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CardStyle.swift; sourceTree = "<group>"; };
-		F532A17A2F6ACA7F0083C8BF /* PermissionOnboardingView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PermissionOnboardingView.swift; sourceTree = "<group>"; };
 		F532A18B2F6ADD960083C8BF /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		F532A18C2F6ADD960083C8BF /* FeatureFlags.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FeatureFlags.swift; sourceTree = "<group>"; };
 		F532A18D2F6ADD960083C8BF /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
@@ -90,6 +104,25 @@
 		F532A18F2F6ADD960083C8BF /* ru */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = ru; path = ru.lproj/InfoPlist.strings; sourceTree = "<group>"; };
 		F532A1912F6ADD960083C8BF /* TelemetryApp.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = TelemetryApp.entitlements; sourceTree = "<group>"; };
 		F532A1922F6ADD960083C8BF /* TelemetryAppApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TelemetryAppApp.swift; sourceTree = "<group>"; };
+		F552E9BD2F851BE000CBC4D3 /* DashcamModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DashcamModels.swift; sourceTree = "<group>"; };
+		F552E9BE2F851BE000CBC4D3 /* models+Dashcam.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "models+Dashcam.swift"; sourceTree = "<group>"; };
+		F552E9C92F851C2100CBC4D3 /* NetworkManager+Dashcam.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "NetworkManager+Dashcam.swift"; sourceTree = "<group>"; };
+		F552E9CB2F851C4700CBC4D3 /* TelemetryAppApp+DashcamPatch.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "TelemetryAppApp+DashcamPatch.swift"; sourceTree = "<group>"; };
+		F552E9CF2F85206100CBC4D3 /* CameraCapabilityService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CameraCapabilityService.swift; sourceTree = "<group>"; };
+		F552E9EF2F8520D500CBC4D3 /* CameraPreviewContainerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CameraPreviewContainerView.swift; sourceTree = "<group>"; };
+		F552E9F02F8520D500CBC4D3 /* DriverHomeResponse.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DriverHomeResponse.swift; sourceTree = "<group>"; };
+		F552E9F12F8520D500CBC4D3 /* DriverSetupView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DriverSetupView.swift; sourceTree = "<group>"; };
+		F552E9F22F8520D500CBC4D3 /* PermissionOnboardingView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PermissionOnboardingView.swift; sourceTree = "<group>"; };
+		F552E9F32F8520D500CBC4D3 /* VideoArchiveView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VideoArchiveView.swift; sourceTree = "<group>"; };
+		F552E9F42F8520D500CBC4D3 /* VideoArchiveViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VideoArchiveViewModel.swift; sourceTree = "<group>"; };
+		F552E9F52F8520D500CBC4D3 /* VideoPlayerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VideoPlayerView.swift; sourceTree = "<group>"; };
+		F552E9FE2F85226000CBC4D3 /* CrashClipCoordinator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CrashClipCoordinator.swift; sourceTree = "<group>"; };
+		F552E9FF2F85226000CBC4D3 /* DashcamManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DashcamManager.swift; sourceTree = "<group>"; };
+		F552EA002F85226000CBC4D3 /* DashcamSettingsStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DashcamSettingsStore.swift; sourceTree = "<group>"; };
+		F552EA012F85226000CBC4D3 /* DashcamTripCoordinator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DashcamTripCoordinator.swift; sourceTree = "<group>"; };
+		F552EA022F85226000CBC4D3 /* StorageQuotaManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StorageQuotaManager.swift; sourceTree = "<group>"; };
+		F552EA092F8524C000CBC4D3 /* VideoArchiveStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VideoArchiveStore.swift; sourceTree = "<group>"; };
+		F552EA0B2F8687E600CBC4D3 /* CrashClipExporter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CrashClipExporter.swift; sourceTree = "<group>"; };
 		F55E1BCA2F4DBF4800ED0E87 /* ManualTripAutoFinish.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ManualTripAutoFinish.swift; sourceTree = "<group>"; };
 		F5617FF82F01E5EC000889E0 /* Axis3.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Axis3.swift; sourceTree = "<group>"; };
 		F567225B2EFEDF7700757F45 /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
@@ -108,7 +141,6 @@
 		F597ADF52F5AD4D900A9DEDC /* NumericSanitizer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NumericSanitizer.swift; sourceTree = "<group>"; };
 		F5A3AB472F1FD8C500BBB788 /* TripsArchiveView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TripsArchiveView.swift; sourceTree = "<group>"; };
 		F5A3AB492F1FD90700BBB788 /* TripSummary.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TripSummary.swift; sourceTree = "<group>"; };
-		F5BBFDB22F47014000DC82C0 /* DriverSetupView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DriverSetupView.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
@@ -170,8 +202,35 @@
 				F532A1902F6ADD960083C8BF /* InfoPlist.strings */,
 				F532A1912F6ADD960083C8BF /* TelemetryApp.entitlements */,
 				F532A1922F6ADD960083C8BF /* TelemetryAppApp.swift */,
+				F552E9CB2F851C4700CBC4D3 /* TelemetryAppApp+DashcamPatch.swift */,
 			);
 			path = TelemetryApp;
+			sourceTree = "<group>";
+		};
+		F552E9CD2F851C7D00CBC4D3 /* Dashcam */ = {
+			isa = PBXGroup;
+			children = (
+				F552E9EF2F8520D500CBC4D3 /* CameraPreviewContainerView.swift */,
+				F552E9F32F8520D500CBC4D3 /* VideoArchiveView.swift */,
+				F552E9F42F8520D500CBC4D3 /* VideoArchiveViewModel.swift */,
+				F552E9F52F8520D500CBC4D3 /* VideoPlayerView.swift */,
+			);
+			path = Dashcam;
+			sourceTree = "<group>";
+		};
+		F552E9CE2F851D5100CBC4D3 /* Dashcam */ = {
+			isa = PBXGroup;
+			children = (
+				F552EA0B2F8687E600CBC4D3 /* CrashClipExporter.swift */,
+				F552E9FE2F85226000CBC4D3 /* CrashClipCoordinator.swift */,
+				F552E9FF2F85226000CBC4D3 /* DashcamManager.swift */,
+				F552EA002F85226000CBC4D3 /* DashcamSettingsStore.swift */,
+				F552EA012F85226000CBC4D3 /* DashcamTripCoordinator.swift */,
+				F552EA092F8524C000CBC4D3 /* VideoArchiveStore.swift */,
+				F552EA022F85226000CBC4D3 /* StorageQuotaManager.swift */,
+				F552E9CF2F85206100CBC4D3 /* CameraCapabilityService.swift */,
+			);
+			path = Dashcam;
 			sourceTree = "<group>";
 		};
 		F57FB8D12EEAC360002BC621 = {
@@ -212,6 +271,7 @@
 			children = (
 				F532A16E2F695D4E0083C8BF /* WaterGameManager.swift */,
 				F55E1BCA2F4DBF4800ED0E87 /* ManualTripAutoFinish.swift */,
+				F552E9CE2F851D5100CBC4D3 /* Dashcam */,
 				F507E2DC2F224D5E00F8D50E /* DayMonitoringManager.swift */,
 				F57FB9192EEADC66002BC621 /* SensorManager.swift */,
 			);
@@ -224,6 +284,8 @@
 				F597ADF52F5AD4D900A9DEDC /* NumericSanitizer.swift */,
 				F56EE8472F2B54BE008E6576 /* TripConfigModels.swift */,
 				F507E2DA2F224D3F00F8D50E /* TrackingMode.swift */,
+				F552E9BD2F851BE000CBC4D3 /* DashcamModels.swift */,
+				F552E9BE2F851BE000CBC4D3 /* models+Dashcam.swift */,
 				F5A3AB492F1FD90700BBB788 /* TripSummary.swift */,
 				F5617FF82F01E5EC000889E0 /* Axis3.swift */,
 				F567226A2EFEF0AC00757F45 /* TripReport.swift */,
@@ -237,6 +299,7 @@
 			children = (
 				F51CC9752F178B2300926111 /* AuthManager.swift */,
 				F51CC9732F178AFA00926111 /* KeychainStore.swift */,
+				F552E9C92F851C2100CBC4D3 /* NetworkManager+Dashcam.swift */,
 				F57FB9172EEADBA5002BC621 /* NetworkManager.swift */,
 			);
 			path = Networking;
@@ -245,17 +308,18 @@
 		F57FB9222EEB258F002BC621 /* Views */ = {
 			isa = PBXGroup;
 			children = (
-				F532A17A2F6ACA7F0083C8BF /* PermissionOnboardingView.swift */,
 				F532A1782F69659F0083C8BF /* CardStyle.swift */,
 				F532A1762F6964DF0083C8BF /* _StartStopControlsView.swift */,
 				F532A1742F6964BE0083C8BF /* _TripSummaryCardView.swift */,
+				F552E9F22F8520D500CBC4D3 /* PermissionOnboardingView.swift */,
+				F552E9F02F8520D500CBC4D3 /* DriverHomeResponse.swift */,
+				F552E9F12F8520D500CBC4D3 /* DriverSetupView.swift */,
 				F532A1722F6964A10083C8BF /* _TripStateBadgeView.swift */,
 				F532A1702F6963200083C8BF /* _DriverScoreCardView.swift */,
-				F532A16C2F6826710083C8BF /* DriverHomeResponse.swift */,
+				F552E9CD2F851C7D00CBC4D3 /* Dashcam */,
 				F56EE8492F2B54FC008E6576 /* TripConfigView.swift */,
 				F507E2F62F24E3CE00F8D50E /* WaterGlassView.swift */,
 				F507E2F42F24E3A700F8D50E /* WaterGlassFullScreenView.swift */,
-				F5BBFDB22F47014000DC82C0 /* DriverSetupView.swift */,
 				F5A3AB472F1FD8C500BBB788 /* TripsArchiveView.swift */,
 				F57FB9232EEB259A002BC621 /* SettingsView.swift */,
 				F567225B2EFEDF7700757F45 /* ContentView.swift */,
@@ -416,8 +480,16 @@
 				F532A1942F6ADD960083C8BF /* TelemetryAppApp.swift in Sources */,
 				F532A1952F6ADD960083C8BF /* FeatureFlags.swift in Sources */,
 				F57FB9202EEAEC09002BC621 /* models.swift in Sources */,
+				F552EA0A2F8524C000CBC4D3 /* VideoArchiveStore.swift in Sources */,
+				F552E9BF2F851BE000CBC4D3 /* DashcamModels.swift in Sources */,
+				F552E9C02F851BE000CBC4D3 /* models+Dashcam.swift in Sources */,
 				F507E2DD2F224D6100F8D50E /* DayMonitoringManager.swift in Sources */,
-				F532A16D2F6826720083C8BF /* DriverHomeResponse.swift in Sources */,
+				F552E9E62F85206100CBC4D3 /* CameraCapabilityService.swift in Sources */,
+				F552EA042F85226000CBC4D3 /* CrashClipCoordinator.swift in Sources */,
+				F552EA052F85226000CBC4D3 /* DashcamTripCoordinator.swift in Sources */,
+				F552EA062F85226000CBC4D3 /* StorageQuotaManager.swift in Sources */,
+				F552EA072F85226000CBC4D3 /* DashcamManager.swift in Sources */,
+				F552EA082F85226000CBC4D3 /* DashcamSettingsStore.swift in Sources */,
 				F56EE84A2F2B54FC008E6576 /* TripConfigView.swift in Sources */,
 				F532A1732F6964A20083C8BF /* _TripStateBadgeView.swift in Sources */,
 				F532A1672F66A1ED0083C8BF /* LocalizationCatalog.swift in Sources */,
@@ -425,7 +497,6 @@
 				F507E2F52F24E3AA00F8D50E /* WaterGlassFullScreenView.swift in Sources */,
 				F56722692EFEEE5400757F45 /* TripReportView.swift in Sources */,
 				F57FB9242EEB2721002BC621 /* SettingsView.swift in Sources */,
-				F5BBFDB32F47014000DC82C0 /* DriverSetupView.swift in Sources */,
 				F532A16F2F695D4F0083C8BF /* WaterGameManager.swift in Sources */,
 				F5617FF92F01E5F7000889E0 /* Axis3.swift in Sources */,
 				F56EE8482F2B54BE008E6576 /* TripConfigModels.swift in Sources */,
@@ -433,18 +504,27 @@
 				F57FB91E2EEAE76D002BC621 /* NetworkManager.swift in Sources */,
 				F507E2F72F24E3D000F8D50E /* WaterGlassView.swift in Sources */,
 				F532A1662F66A1E60083C8BF /* LanguageManager.swift in Sources */,
+				F552E9F62F8520D500CBC4D3 /* VideoArchiveViewModel.swift in Sources */,
+				F552E9F72F8520D500CBC4D3 /* VideoArchiveView.swift in Sources */,
+				F552E9F82F8520D500CBC4D3 /* CameraPreviewContainerView.swift in Sources */,
+				F552E9F92F8520D500CBC4D3 /* VideoPlayerView.swift in Sources */,
+				F552E9FA2F8520D500CBC4D3 /* DriverHomeResponse.swift in Sources */,
+				F552E9FB2F8520D500CBC4D3 /* DriverSetupView.swift in Sources */,
+				F552E9FC2F8520D500CBC4D3 /* PermissionOnboardingView.swift in Sources */,
 				F5A3AB4A2F1FD91A00BBB788 /* TripSummary.swift in Sources */,
 				F532A1752F6964C00083C8BF /* _TripSummaryCardView.swift in Sources */,
 				F532A1772F6964E00083C8BF /* _StartStopControlsView.swift in Sources */,
+				F552E9CC2F851C4700CBC4D3 /* TelemetryAppApp+DashcamPatch.swift in Sources */,
 				F56722602EFEDF7700757F45 /* ContentView.swift in Sources */,
 				F597ADF62F5AD4DC00A9DEDC /* NumericSanitizer.swift in Sources */,
+				F552EA0C2F86880500CBC4D3 /* CrashClipExporter.swift in Sources */,
 				F51CC9762F178B2500926111 /* AuthManager.swift in Sources */,
 				F567226B2EFEF0BD00757F45 /* TripReport.swift in Sources */,
 				F507E2DB2F224D4200F8D50E /* TrackingMode.swift in Sources */,
 				F55E1BCB2F4DBF4B00ED0E87 /* ManualTripAutoFinish.swift in Sources */,
+				F552E9CA2F851C2100CBC4D3 /* NetworkManager+Dashcam.swift in Sources */,
 				F532A1692F66A1FA0083C8BF /* AppLanguage.swift in Sources */,
 				F532A1792F6965A00083C8BF /* CardStyle.swift in Sources */,
-				F532A17B2F6ACA810083C8BF /* PermissionOnboardingView.swift in Sources */,
 				F51CC9742F178AFE00926111 /* KeychainStore.swift in Sources */,
 				F532A1712F6963220083C8BF /* _DriverScoreCardView.swift in Sources */,
 			);

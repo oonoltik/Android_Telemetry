@@ -12,6 +12,7 @@ struct ContentView: View {
     
     @EnvironmentObject private var dayMonitoring: DayMonitoringManager
     @EnvironmentObject var languageManager: LanguageManager
+    @EnvironmentObject var dashcamManager: DashcamManager
     @AppStorage("trackingMode") private var trackingModeRaw: String = TrackingMode.singleTrip.rawValue
     
     @AppStorage("drivingTestMode") private var drivingTestMode: Bool = false
@@ -30,7 +31,7 @@ struct ContentView: View {
     @State private var showingSettings: Bool = false
     @State private var showingDriverSetup: Bool = false
     
-    @State private var showingDashcamTeaser: Bool = false
+//    @State private var showingDashcamTeaser: Bool = false
     
     // ===== Water glass visualization =====
         @State private var showWaterGlass: Bool = false
@@ -574,8 +575,8 @@ struct ContentView: View {
                         _StartStopControlsView(
                             startTitle: t(.start),
                             stopTitle: t(.stop),
-                            canStart: !sensorManager.isCollectingNow && !sensorManager.driverId.isEmpty,
-                            canStop: sensorManager.isCollectingNow && !isStopFlowActive && !stopLockedUntilNextStart,
+                            canStart: (!sensorManager.isCollectingNow || dashcamManager.allowsManualTripStartDuringVideo) && !sensorManager.driverId.isEmpty,
+                            canStop: sensorManager.isCollectingNow && !dashcamManager.shouldBlockTripStopButton && !isStopFlowActive && !stopLockedUntilNextStart,
                             onStart: {
                                 sensorManager.markScreenInteractionInApp()
 
@@ -595,7 +596,15 @@ struct ContentView: View {
                                 stopDeliveredBatches = 0
 
                                 sensorManager.setTripContext(trackingMode: "single_trip", transportMode: "unknown")
-                                sensorManager.startCollecting()
+
+                                if dashcamManager.allowsManualTripStartDuringVideo {
+                                    Task {
+                                        await dashcamManager.prepareManualTripStartDuringVideo()
+                                    }
+                                } else {
+                                    sensorManager.startCollecting()
+                                    dashcamManager.manualTripStartedOutsideVideo()
+                                }
                             },
                             onStop: {
                                 sensorManager.markScreenInteractionInApp()
@@ -616,17 +625,65 @@ struct ContentView: View {
                             }
                             .buttonStyle(.bordered)
 
-                            Button {
-                                sensorManager.markScreenInteractionInApp()
-                                showingDashcamTeaser = true
+                            NavigationLink {
+                                VideoArchiveView(
+                                    viewModel: VideoArchiveViewModel(
+                                        archiveStore: try! JSONVideoArchiveStore(),
+                                        settingsStore: UserDefaultsDashcamSettingsStore()
+                                    ),
+                                    isInteractionLocked: dashcamManager.isVideoModeActive
+                                )
                             } label: {
-                                Label(t(.dashcam), systemImage: "video")
+                                Label("Архив видео", systemImage: "internaldrive")
                                     .frame(maxWidth: .infinity)
                                     .padding(.vertical, 10)
                             }
                             .buttonStyle(.bordered)
                         }
                         .padding(.horizontal)
+
+                        Button {
+                            sensorManager.markScreenInteractionInApp()
+                            Task {
+                                do {
+                                    try await dashcamManager.requestPermissionsIfNeeded()
+                                    try await dashcamManager.startVideoMode(trigger: .userButton)
+                                } catch {
+                                    print("[DashcamUI] start error: \(error)")
+                                }
+                            }
+                        } label: {
+                            Label(t(.dashcam), systemImage: "video")
+                                .frame(maxWidth: .infinity)
+                                .padding(.vertical, 10)
+                        }
+                        .buttonStyle(.bordered)
+                        .padding(.horizontal)
+                        .disabled(dashcamManager.state == .recording || sensorManager.driverId.isEmpty)
+                       
+                        
+                        if dashcamManager.state == .recording || dashcamManager.state == .preparing || dashcamManager.state == .stopping {
+                            VStack(spacing: 12) {
+                                HStack {
+                                    Image(systemName: "record.circle.fill").foregroundColor(.red)
+                                    Text("Идет видеозапись").font(.headline)
+                                    Spacer()
+                                    Text(dashcamManager.timerText)
+                                        .font(.system(.body, design: .monospaced))
+                                }
+                                HStack(spacing: 12) {
+                                    Button(role: .destructive) {
+                                        Task { await dashcamManager.stopVideoMode(trigger: .userButton) }
+                                    } label: {
+                                        Label("Стоп видео", systemImage: "stop.fill")
+                                            .frame(maxWidth: .infinity)
+                                            .padding(.vertical, 10)
+                                    }
+                                    .buttonStyle(.borderedProminent)
+                                }
+                            }
+                            .padding(.horizontal)
+                        }
                     }
                     
                     // ===== Live visualization: glass of water =====
@@ -978,32 +1035,6 @@ struct ContentView: View {
                         .environmentObject(languageManager)
                 }
                 
-                .overlay {
-                    if showingDashcamTeaser {
-                        ZStack {
-                            Rectangle()
-                                .fill(.ultraThinMaterial.opacity(0.01))
-                                .contentShape(Rectangle())
-                                .ignoresSafeArea()
-                                .onTapGesture {
-                                    showingDashcamTeaser = false
-                                }
-
-                            VStack(spacing: 12) {
-                                Text(t(.dashcamTeaserMessage))
-                                    .font(.body)
-                                    .multilineTextAlignment(.center)
-                                    .foregroundColor(.primary)
-                            }
-                            .padding(16)
-                            .frame(maxWidth: 320)
-                            .background(.ultraThinMaterial)
-                            .clipShape(RoundedRectangle(cornerRadius: 16))
-                            .onTapGesture { }
-                        }
-                        .zIndex(1000)
-                    }
-                }
                 
                 // ===== Water glass (full screen) =====
                                 .fullScreenCover(isPresented: $showWaterGlass) {
@@ -1217,6 +1248,9 @@ struct ContentView: View {
     private func handleAutoStopTriggered(reason: String) {
         // то же, что Stop, но без haptic и без повторной блокировки, если уже стопимся
         guard !isStopFlowActive && !stopLockedUntilNextStart else { return }
+        if dashcamManager.shouldBlockTripStopButton {
+            return
+        }
         lastStopWasAutoFinish = true
         lastFinishReason = reason
         lastFinishWasAuto = true
@@ -1319,6 +1353,10 @@ case .failure(let error):
                         // На авто лучше без дополнительной вибрации (можно оставить success если хочешь)
                         saveTripReportToDisk(report)
                         self.tripReport = report
+                        Task { @MainActor in
+                            await dashcamManager.restoreImplicitTripAfterManualTripStopIfNeeded()
+                        }
+                        
                         Task { @MainActor in
                             sensorManager.finalizeTripOwnerAfterFinish()
                             sensorManager.applyPendingDriverIdIfNeeded()
@@ -1473,6 +1511,9 @@ case .failure(let error):
                         UINotificationFeedbackGenerator().notificationOccurred(.success)
                         saveTripReportToDisk(report)
                         self.tripReport = report
+                        Task { @MainActor in
+                            await dashcamManager.restoreImplicitTripAfterManualTripStopIfNeeded()
+                        }
                         Task { @MainActor in
                             sensorManager.finalizeTripOwnerAfterFinish()
                             sensorManager.applyPendingDriverIdIfNeeded()

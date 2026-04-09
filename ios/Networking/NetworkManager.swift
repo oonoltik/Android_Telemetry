@@ -48,10 +48,10 @@ final class NetworkManager {
     // MARK: - Config
 
     // EU — основной backend
-    private let euBaseURL = URL(string: "https://api.drivetelemetry.com")!
+    let euBaseURL = URL(string: "https://api.drivetelemetry.com")!
 
     // RU — ingress/proxy (fallback, если EU недоступен без VPN/по сети)
-    private let ruBaseURL = URL(string: "https://ru-api.drivetelemetry.com")!
+    let ruBaseURL = URL(string: "https://ru-api.drivetelemetry.com")!
 
     
     private let requestTimeout: TimeInterval  = 60
