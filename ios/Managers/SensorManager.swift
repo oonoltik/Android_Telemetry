@@ -3590,14 +3590,23 @@ if debugPrintsEnabled && self.tripStartedAt != nil {
         
     private func applyBackgroundGpsPolicy() {
         let st = locationManager.authorizationStatus
-        let wantsBackground = (isCollectingNow || dayMonitoringKeepAliveEnabled) && (st == .authorizedAlways)
 
-        #if DEBUG
-        print("[GPS] applyBackgroundGpsPolicy wantsBackground=\(wantsBackground) auth=\(st.rawValue)")
-        #endif
+        let shouldAllow =
+            (isCollectingNow || dayMonitoringKeepAliveEnabled) &&
+            (st == .authorizedAlways)
 
-        locationManager.allowsBackgroundLocationUpdates = wantsBackground
-        locationManager.pausesLocationUpdatesAutomatically = false
+        let apply = {
+            self.locationManager.allowsBackgroundLocationUpdates = shouldAllow
+            self.locationManager.pausesLocationUpdatesAutomatically = false
+        }
+
+        if Thread.isMainThread {
+            apply()
+        } else {
+            DispatchQueue.main.async {
+                apply()
+            }
+        }
     }
     
     // Public Alpha additive fields

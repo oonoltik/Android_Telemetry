@@ -13,6 +13,10 @@
 	<key>NSMicrophoneUsageDescription</key>
 	<string>The application can record audio along with video upon your request.</string>
 	<key>NSPhotoLibraryAddUsageDescription</key>
-	<string>The application saves videos to the device&apos;s memory.</string>
+	<string>The application saves selected dashcam videos to your photo library.</string>
+	<key>UIBackgroundModes</key>
+	<array>
+		<string>location</string>
+	</array>
 </dict>
 </plist>

@@ -10,7 +10,12 @@ protocol VideoArchiveStore {
     func createCrashClip(from segments: [VideoSegmentRecord], crashAt: Date, preSeconds: Int, postSeconds: Int, linkedTripSessionId: String?, latitude: Double?, longitude: Double?, maxG: Double?) throws -> CrashClipRecord
     func listArchiveItems() throws -> [DashcamArchiveItem]
     func deleteArchiveItems(ids: [String]) throws
+
     func totalUsageBytes() throws -> Int64
+    func totalArchiveUsageBytes() throws -> Int64
+    
+    func markAsSavedToPhotoLibrary(id: String) throws
+
     func oldestDeletableNormalSegmentIds(limitBytesToFree: Int64) throws -> [String]
     func urlForSession(sessionId: String) throws -> URL
     func archiveStats() throws -> (normalCount: Int, crashCount: Int, normalSizeBytes: Int64, crashSizeBytes: Int64)
@@ -23,7 +28,22 @@ final class JSONVideoArchiveStore: VideoArchiveStore {
         var segments: [VideoSegmentRecord] = []
         var crashClips: [CrashClipRecord] = []
     }
+    
+    func markAsSavedToPhotoLibrary(id: String) throws {
+        try queue.sync {
+            var idx = try readIndex()
 
+            if let i = idx.segments.firstIndex(where: { $0.id == id }) {
+                idx.segments[i].isSavedToPhotoLibrary = true
+            }
+
+            if let i = idx.crashClips.firstIndex(where: { $0.id == id }) {
+                idx.crashClips[i].isSavedToPhotoLibrary = true
+            }
+
+            try writeIndex(idx)
+        }
+    }
     private let fileManager = FileManager.default
     private let queue = DispatchQueue(label: "dashcam.archive.store")
     private let baseURL: URL
@@ -151,7 +171,8 @@ final class JSONVideoArchiveStore: VideoArchiveStore {
                 linkedTripSessionId: linkedTripSessionId,
                 latitude: latitude,
                 longitude: longitude,
-                maxG: maxG
+                maxG: maxG,
+                isSavedToPhotoLibrary: false
             )
 
             let crashFolder = crashURL.appendingPathComponent(clip.id, isDirectory: true)
@@ -213,7 +234,8 @@ final class JSONVideoArchiveStore: VideoArchiveStore {
                         segmentOrder: segment.order,
                         recordingNumber: recordingNumber,
                         fragmentNumber: segment.order,
-                        deletionGroupId: nil
+                        deletionGroupId: nil,
+                        isSavedToPhotoLibrary: segment.isSavedToPhotoLibrary
                     )
                 )
             }
@@ -256,7 +278,8 @@ final class JSONVideoArchiveStore: VideoArchiveStore {
                         playbackURL: playbackURL,
                         recordingNumber: nil,
                         fragmentNumber: nil,
-                        deletionGroupId: clip.id
+                        deletionGroupId: clip.id,
+                        isSavedToPhotoLibrary: clip.isSavedToPhotoLibrary
                     )
                 )
             
@@ -326,7 +349,28 @@ final class JSONVideoArchiveStore: VideoArchiveStore {
             try readIndex().segments.reduce(Int64(0)) { $0 + $1.sizeBytes }
         }
     }
+    
+    
 
+    func totalArchiveUsageBytes() throws -> Int64 {
+        try queue.sync {
+            let idx = try readIndex()
+
+            let segmentsBytes = idx.segments.reduce(Int64(0)) { $0 + $1.sizeBytes }
+
+            let crashClipBytes = idx.crashClips.reduce(Int64(0)) { partial, clip in
+                let crashFileURL = crashURL
+                    .appendingPathComponent(clip.id, isDirectory: true)
+                    .appendingPathComponent("crash.mov")
+
+                let attrs = try? fileManager.attributesOfItem(atPath: crashFileURL.path)
+                let size = (attrs?[.size] as? NSNumber)?.int64Value ?? 0
+                return partial + size
+            }
+
+            return segmentsBytes + crashClipBytes
+        }
+    }
     func oldestDeletableNormalSegmentIds(limitBytesToFree: Int64) throws -> [String] {
         try queue.sync {
             let candidates = try readIndex()

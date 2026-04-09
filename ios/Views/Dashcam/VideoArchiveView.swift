@@ -8,13 +8,18 @@ struct VideoArchiveView: View {
     let isInteractionLocked: Bool
 
     @State private var playbackItem: PlaybackItem?
-
+    
+    @State private var showSaveToLibraryConfirm = false
+    @State private var showSaveResultAlert = false
+    @State private var isSavingToLibrary = false
     @State private var showDeleteNormalConfirm = false
     @State private var showDeleteCrashConfirmStep1 = false
     @State private var showDeleteCrashConfirmStep2 = false
     @State private var showRecordingLockAlert = false
     @State private var showFileMissingAlert = false
     @State private var selectedFilter: ArchiveFilter = .all
+    
+    
 
     init(viewModel: VideoArchiveViewModel, isInteractionLocked: Bool = false) {
         _viewModel = StateObject(wrappedValue: viewModel)
@@ -112,7 +117,7 @@ struct VideoArchiveView: View {
                                 }
                             }
                         }
-
+                        
                         if !visibleNormalItems.isEmpty {
                             Section("Архив видео") {
                                 ForEach(visibleNormalItems) { item in
@@ -191,6 +196,25 @@ struct VideoArchiveView: View {
                 Button("OK", role: .cancel) {}
             } message: {
                 Text("Не удалось открыть запись. Возможно, файл сегмента отсутствует.")
+            }
+            .alert("Сохранить в медиатеку?", isPresented: $showSaveToLibraryConfirm) {
+                Button("Нет", role: .cancel) {}
+
+                Button("Да") {
+                    Task {
+                        isSavingToLibrary = true
+                        await viewModel.saveSelectedToPhotoLibrary()
+                        isSavingToLibrary = false
+                        showSaveResultAlert = true
+                    }
+                }
+            } message: {
+                Text("Вы хотите сохранить \(viewModel.selectedCount) записей общим размером \(viewModel.selectedTotalSizeMBText) МБ?")
+            }
+            .alert("Сохранение завершено", isPresented: $showSaveResultAlert) {
+                Button("OK", role: .cancel) {}
+            } message: {
+                Text(viewModel.saveResultText ?? "Готово.")
             }
         }
     }
@@ -410,6 +434,17 @@ struct VideoArchiveView: View {
                                     .foregroundColor(.red)
                                     .clipShape(Capsule())
                             }
+                            
+                            if item.isSavedToPhotoLibrary {
+                                Text("СОХРАНЕНО")
+                                    .font(.caption2)
+                                    .fontWeight(.bold)
+                                    .padding(.horizontal, 6)
+                                    .padding(.vertical, 3)
+                                    .background(Color.green.opacity(0.15))
+                                    .foregroundColor(.green)
+                                    .clipShape(Capsule())
+                            }
                         }
 
                         Text(item.startedAt.formatted(.dateTime.year().month().day().hour().minute().second()))
@@ -453,13 +488,31 @@ struct VideoArchiveView: View {
                         showRecordingLockAlert = true
                         return
                     }
+                    showSaveToLibraryConfirm = true
+                } label: {
+                    if isSavingToLibrary {
+                        ProgressView()
+                            .frame(maxWidth: .infinity)
+                    } else {
+                        Text("Сохранить в медиатеку")
+                            .frame(maxWidth: .infinity)
+                    }
+                }
+                .buttonStyle(.borderedProminent)
+                .disabled(!hasSelection || isSavingToLibrary)
+
+                Button {
+                    if isInteractionLocked {
+                        showRecordingLockAlert = true
+                        return
+                    }
                     showDeleteNormalConfirm = true
                 } label: {
                     Text("Удалить обычные")
                         .frame(maxWidth: .infinity)
                 }
                 .buttonStyle(.bordered)
-                .disabled(!hasNormalSelection)
+                .disabled(!hasNormalSelection || isSavingToLibrary)
 
                 Button {
                     if isInteractionLocked {
@@ -471,12 +524,12 @@ struct VideoArchiveView: View {
                     Text("Удалить аварийные")
                         .frame(maxWidth: .infinity)
                 }
-                .buttonStyle(.borderedProminent)
-                .disabled(!hasCrashSelection)
+                .buttonStyle(.bordered)
+                .disabled(!hasCrashSelection || isSavingToLibrary)
             }
 
             if hasSelection {
-                Text("Для аварийных записей требуется двойное подтверждение удаления.")
+                Text("Можно выбрать записи и сохранить их в медиатеку. Для аварийных записей удаление требует двойного подтверждения.")
                     .font(.caption)
                     .foregroundColor(.secondary)
                     .frame(maxWidth: .infinity, alignment: .leading)

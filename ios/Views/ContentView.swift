@@ -665,21 +665,43 @@ struct ContentView: View {
                         if dashcamManager.state == .recording || dashcamManager.state == .preparing || dashcamManager.state == .stopping {
                             VStack(spacing: 12) {
                                 HStack {
-                                    Image(systemName: "record.circle.fill").foregroundColor(.red)
-                                    Text("Идет видеозапись").font(.headline)
+                                    Image(systemName: "record.circle.fill")
+                                        .foregroundColor(dashcamManager.state == .stopping ? .orange : .red)
+
+                                    Text(dashcamManager.state == .stopping ? "Идет сохранение на устройство" : "Идет видеозапись")
+                                        .font(.headline)
+
                                     Spacer()
-                                    Text(dashcamManager.timerText)
-                                        .font(.system(.body, design: .monospaced))
-                                }
-                                HStack(spacing: 12) {
-                                    Button(role: .destructive) {
-                                        Task { await dashcamManager.stopVideoMode(trigger: .userButton) }
-                                    } label: {
-                                        Label("Стоп видео", systemImage: "stop.fill")
-                                            .frame(maxWidth: .infinity)
-                                            .padding(.vertical, 10)
+
+                                    if dashcamManager.state == .stopping {
+                                        Text("\(Int(dashcamManager.stopProgressValue * 100))%")
+                                            .font(.system(.body, design: .monospaced))
+                                    } else {
+                                        Text(dashcamManager.timerText)
+                                            .font(.system(.body, design: .monospaced))
                                     }
-                                    .buttonStyle(.borderedProminent)
+                                }
+
+                                if dashcamManager.state == .stopping {
+                                    VStack(spacing: 8) {
+                                        ProgressView(value: dashcamManager.stopProgressValue)
+                                            .progressViewStyle(.linear)
+
+                                        Text(dashcamManager.stopProgressText ?? "Идет сохранение на устройство")
+                                            .font(.caption)
+                                            .foregroundColor(.secondary)
+                                    }
+                                } else {
+                                    HStack(spacing: 12) {
+                                        Button(role: .destructive) {
+                                            Task { await dashcamManager.stopVideoMode(trigger: .userButton) }
+                                        } label: {
+                                            Label("Стоп видео", systemImage: "stop.fill")
+                                                .frame(maxWidth: .infinity)
+                                                .padding(.vertical, 10)
+                                        }
+                                        .buttonStyle(.borderedProminent)
+                                    }
                                 }
                             }
                             .padding(.horizontal)

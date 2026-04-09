@@ -48,6 +48,8 @@ enum DashcamError: Error, Equatable, LocalizedError {
     case cannotCreateOutput
     case cannotStartRecording
     case quotaExceeded
+    case archiveBlockedByCrashRecords
+    case insufficientSpaceForNextSegment
     case storageFailure(String)
     case interrupted
     case unknown(String)
@@ -72,6 +74,10 @@ enum DashcamError: Error, Equatable, LocalizedError {
             return "Не удалось начать запись видео."
         case .quotaExceeded:
             return "Превышен лимит локального архива."
+        case .archiveBlockedByCrashRecords:
+            return "Архив заполнен аварийными записями. Удалите часть аварийных записей вручную или сохраните их в медиатеку."
+        case .insufficientSpaceForNextSegment:
+            return "Недостаточно места для следующего сегмента. Текущая запись завершена."
         case .storageFailure(let message):
             return message
         case .interrupted:
@@ -98,8 +104,58 @@ struct VideoSegmentRecord: Codable, Identifiable {
     var isProtected: Bool
     let fileURL: URL
     let order: Int
-}
+    var isSavedToPhotoLibrary: Bool
 
+    enum CodingKeys: String, CodingKey {
+        case id
+        case sessionId
+        case startedAt
+        case endedAt
+        case sizeBytes
+        case isProtected
+        case fileURL
+        case order
+        case isSavedToPhotoLibrary
+    }
+
+    init(
+        id: String,
+        sessionId: String,
+        startedAt: Date,
+        endedAt: Date?,
+        sizeBytes: Int64,
+        isProtected: Bool,
+        fileURL: URL,
+        order: Int,
+        isSavedToPhotoLibrary: Bool = false
+    ) {
+        self.id = id
+        self.sessionId = sessionId
+        self.startedAt = startedAt
+        self.endedAt = endedAt
+        self.sizeBytes = sizeBytes
+        self.isProtected = isProtected
+        self.fileURL = fileURL
+        self.order = order
+        self.isSavedToPhotoLibrary = isSavedToPhotoLibrary
+    }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+
+        id = try container.decode(String.self, forKey: .id)
+        sessionId = try container.decode(String.self, forKey: .sessionId)
+        startedAt = try container.decode(Date.self, forKey: .startedAt)
+        endedAt = try container.decodeIfPresent(Date.self, forKey: .endedAt)
+        sizeBytes = try container.decode(Int64.self, forKey: .sizeBytes)
+        isProtected = try container.decode(Bool.self, forKey: .isProtected)
+        fileURL = try container.decode(URL.self, forKey: .fileURL)
+        order = try container.decode(Int.self, forKey: .order)
+
+        // backward compatibility for old archive_index.json
+        isSavedToPhotoLibrary = try container.decodeIfPresent(Bool.self, forKey: .isSavedToPhotoLibrary) ?? false
+    }
+}
 struct CrashClipRecord: Codable, Identifiable {
     let id: String
     let crashAt: Date
@@ -110,8 +166,59 @@ struct CrashClipRecord: Codable, Identifiable {
     let latitude: Double?
     let longitude: Double?
     let maxG: Double?
-}
+    var isSavedToPhotoLibrary: Bool
 
+    enum CodingKeys: String, CodingKey {
+        case id
+        case crashAt
+        case preSeconds
+        case postSeconds
+        case segmentIds
+        case linkedTripSessionId
+        case latitude
+        case longitude
+        case maxG
+        case isSavedToPhotoLibrary
+    }
+
+    init(
+        id: String,
+        crashAt: Date,
+        preSeconds: Int,
+        postSeconds: Int,
+        segmentIds: [String],
+        linkedTripSessionId: String?,
+        latitude: Double?,
+        longitude: Double?,
+        maxG: Double?,
+        isSavedToPhotoLibrary: Bool = false
+    ) {
+        self.id = id
+        self.crashAt = crashAt
+        self.preSeconds = preSeconds
+        self.postSeconds = postSeconds
+        self.segmentIds = segmentIds
+        self.linkedTripSessionId = linkedTripSessionId
+        self.latitude = latitude
+        self.longitude = longitude
+        self.maxG = maxG
+        self.isSavedToPhotoLibrary = isSavedToPhotoLibrary
+    }
+
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        id = try c.decode(String.self, forKey: .id)
+        crashAt = try c.decode(Date.self, forKey: .crashAt)
+        preSeconds = try c.decode(Int.self, forKey: .preSeconds)
+        postSeconds = try c.decode(Int.self, forKey: .postSeconds)
+        segmentIds = try c.decode([String].self, forKey: .segmentIds)
+        linkedTripSessionId = try c.decodeIfPresent(String.self, forKey: .linkedTripSessionId)
+        latitude = try c.decodeIfPresent(Double.self, forKey: .latitude)
+        longitude = try c.decodeIfPresent(Double.self, forKey: .longitude)
+        maxG = try c.decodeIfPresent(Double.self, forKey: .maxG)
+        isSavedToPhotoLibrary = try c.decodeIfPresent(Bool.self, forKey: .isSavedToPhotoLibrary) ?? false
+    }
+}
 
 enum DashcamArchiveItemKind: String, Codable {
     case normal
@@ -135,6 +242,7 @@ struct DashcamArchiveItem: Identifiable, Codable {
     let recordingNumber: Int?
     let fragmentNumber: Int?
     let deletionGroupId: String?
+    let isSavedToPhotoLibrary: Bool
 
     init(
         id: String,
@@ -150,7 +258,8 @@ struct DashcamArchiveItem: Identifiable, Codable {
         segmentOrder: Int? = nil,
         recordingNumber: Int? = nil,
         fragmentNumber: Int? = nil,
-        deletionGroupId: String? = nil
+        deletionGroupId: String? = nil,
+        isSavedToPhotoLibrary: Bool = false
         
     ) {
         self.id = id
@@ -167,6 +276,7 @@ struct DashcamArchiveItem: Identifiable, Codable {
         self.recordingNumber = recordingNumber
         self.fragmentNumber = fragmentNumber
         self.deletionGroupId = deletionGroupId
+        self.isSavedToPhotoLibrary = isSavedToPhotoLibrary
     }
 }
 

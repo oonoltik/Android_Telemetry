@@ -11,6 +11,9 @@ final class DashcamManager: NSObject, ObservableObject {
     @Published private(set) var activeVideoSessionId: String?
     @Published private(set) var lastError: DashcamError?
     
+    @Published private(set) var stopProgressText: String?
+    @Published private(set) var stopProgressValue: Double = 0
+    
     private let sensorManager: SensorManager
     private let networkManager: NetworkManager
     private let archiveStore: VideoArchiveStore
@@ -43,7 +46,11 @@ final class DashcamManager: NSObject, ObservableObject {
     private var sessionInterrupted = false
     private var backgroundTaskId: UIBackgroundTaskIdentifier = .invalid
     private var backgroundStopStartedAt: Date?
+    private var isFinalizingStop = false
+    private var shouldStopAfterCurrentSegment = false
+    private var quotaStopErrorMessage: String?
     
+    private var stopProgressTimer: Timer?
    
     
     init(
@@ -108,6 +115,53 @@ final class DashcamManager: NSObject, ObservableObject {
         }
     }
     
+    private func startStopProgressUI() {
+        stopStopProgressUI()
+
+        stopProgressText = "Идет сохранение на устройство"
+        stopProgressValue = 0.05
+
+        stopProgressTimer = Timer.scheduledTimer(withTimeInterval: 0.12, repeats: true) { [weak self] _ in
+            guard let self else { return }
+
+            // Плавно растем, но не доходим до 100%, пока реально не завершили запись
+            if self.stopProgressValue < 0.9 {
+                self.stopProgressValue += 0.04
+            } else {
+                self.stopProgressValue = 0.9
+            }
+        }
+    }
+
+    private func finishStopProgressUI() {
+        stopProgressTimer?.invalidate()
+        stopProgressTimer = nil
+        stopProgressValue = 1.0
+    }
+
+    private func stopStopProgressUI() {
+        stopProgressTimer?.invalidate()
+        stopProgressTimer = nil
+        stopProgressText = nil
+        stopProgressValue = 0
+    }
+    
+    private func finalizeStoppedSessionWithFallback(
+        trigger: DashcamStopTrigger,
+        fallbackMessage: String? = nil
+    ) async {
+        await finalizeStoppedSession(trigger: trigger)
+
+        // Если по какой-то причине после finalize состояние не сбросилось,
+        // значит cleanup не дошел до конца — уходим в аварийный reset.
+        if state != .idle {
+            if let fallbackMessage {
+                lastError = .unknown(fallbackMessage)
+            }
+            forceResetAfterInterruptedStop()
+        }
+    }
+    
     private func registerCaptureObservers() {
         guard !captureObserversInstalled else { return }
         captureObserversInstalled = true
@@ -141,8 +195,14 @@ final class DashcamManager: NSObject, ObservableObject {
             guard let self else { return }
 
             Task { @MainActor in
-                self.lastError = .unknown("Не удалось корректно завершить видеозапись в фоне")
-                self.forceResetAfterInterruptedStop()
+                if self.state == .stopping || self.state == .recording || self.state == .preparing {
+                    await self.finalizeStoppedSessionWithFallback(
+                        trigger: self.pendingStopTrigger ?? .appBackground,
+                        fallbackMessage: "Не удалось корректно завершить видеозапись в фоне"
+                    )
+                } else {
+                    self.forceResetAfterInterruptedStop()
+                }
             }
         }
     }
@@ -154,6 +214,7 @@ final class DashcamManager: NSObject, ObservableObject {
     }
 
     private func forceResetAfterInterruptedStop() {
+        stopStopProgressUI()
         timer?.invalidate()
         segmentCheckTimer?.invalidate()
         timer = nil
@@ -180,6 +241,9 @@ final class DashcamManager: NSObject, ObservableObject {
         lastCrashEvent = nil
         backgroundStopStartedAt = nil
         state = .idle
+        
+        shouldStopAfterCurrentSegment = false
+        quotaStopErrorMessage = nil
 
         endBackgroundTaskIfNeeded()
     }
@@ -197,14 +261,9 @@ final class DashcamManager: NSObject, ObservableObject {
         sessionInterrupted = false
         print("[DashcamCapture] session interruption ended")
 
-        guard state == .recording else { return }
-        guard !movieOutput.isRecording else { return }
-
-        do {
-            try startNextSegment()
-        } catch {
-            lastError = .unknown("Не удалось восстановить запись после interruption: \(error.localizedDescription)")
-        }
+        // После системного interruption (например, телефонного звонка)
+        // не пытаемся автоматически поднимать запись.
+        // Реальное завершение/финализация будет обработано в didFinishRecordingTo / runtimeError.
     }
 
     @objc private func handleCaptureSessionRuntimeError(_ notification: Notification) {
@@ -212,15 +271,15 @@ final class DashcamManager: NSObject, ObservableObject {
         let text = nsError?.localizedDescription ?? "Неизвестная ошибка камеры"
 
         print("[DashcamCapture] runtime error: \(text)")
+
+        // Если мы уже останавливаемся или уже idle — не запускаем повторный stop-цикл.
+        guard state == .recording || state == .preparing else { return }
+
         lastError = .unknown("Ошибка камеры: \(text)")
 
-        if UIApplication.shared.applicationState != .active {
-            forceResetAfterInterruptedStop()
-            return
-        }
-
         Task { @MainActor in
-            await stopVideoMode(trigger: .fatalError)
+            let trigger = self.pendingStopTrigger ?? .fatalError
+            await self.finalizeStoppedSession(trigger: trigger)
         }
     }
     
@@ -232,6 +291,8 @@ final class DashcamManager: NSObject, ObservableObject {
         pendingStopTrigger = nil
         crashHoldUntil = nil
         lastCrashEvent = nil
+        
+        try await quotaManager.ensureCanStartRecording()
         
         try capabilityService.validateRearCameraAvailable()
         try configureAudioSessionIfNeeded()
@@ -247,6 +308,7 @@ final class DashcamManager: NSObject, ObservableObject {
         
         activeVideoSessionId = sessionId
         recordingStartedAt = Date()
+        
         UIApplication.shared.isIdleTimerDisabled = true
         
         try await withCheckedThrowingContinuation { continuation in
@@ -280,23 +342,47 @@ final class DashcamManager: NSObject, ObservableObject {
         }
     }
     
+    private func evaluateQuotaForNextSegment() async {
+        guard state == .recording else { return }
+        guard !shouldStopAfterCurrentSegment else { return }
+
+        do {
+            let canContinue = try await quotaManager.canContinueRecordingAfterSegmentCommit()
+            if !canContinue {
+                shouldStopAfterCurrentSegment = true
+                quotaStopErrorMessage = DashcamError.insufficientSpaceForNextSegment.errorDescription
+            }
+        } catch let error as DashcamError {
+            shouldStopAfterCurrentSegment = true
+            quotaStopErrorMessage = error.errorDescription
+        } catch {
+            shouldStopAfterCurrentSegment = true
+            quotaStopErrorMessage = DashcamError.insufficientSpaceForNextSegment.errorDescription
+        }
+    }
+    
     func stopVideoMode(trigger: DashcamStopTrigger) async {
         guard state == .recording || state == .preparing else { return }
 
         state = .stopping
         pendingStopTrigger = trigger
+        startStopProgressUI()
 
         timer?.invalidate()
         segmentCheckTimer?.invalidate()
         timer = nil
         segmentCheckTimer = nil
 
+        // Если запись реально ещё идёт — просим завершить сегмент.
         if movieOutput.isRecording {
             requestSegmentFinish()
             startSegmentWatchdog()
-        } else {
-            await finalizeStoppedSession(trigger: trigger)
+            return
         }
+
+        // Если после interruption / phone call output уже не пишет,
+        // не ждём бесконечно, а сразу штатно финализируем.
+        await finalizeStoppedSession(trigger: trigger)
     }
     
     func prepareManualTripStartDuringVideo() async {
@@ -326,34 +412,29 @@ final class DashcamManager: NSObject, ObservableObject {
 
         beginBackgroundTaskIfNeeded()
         backgroundStopStartedAt = Date()
-
-        Task { @MainActor in
-            await stopVideoMode(trigger: .appBackground)
-        }
     }
-
+    
     func applicationDidBecomeActive() {
-        if state == .stopping {
-            let stuckTooLong: Bool
-            if let startedAt = backgroundStopStartedAt {
-                stuckTooLong = Date().timeIntervalSince(startedAt) > 2
-            } else {
-                stuckTooLong = true
-            }
+        backgroundStopStartedAt = nil
 
-            if stuckTooLong {
-                lastError = .unknown("Видеозапись была прервана при уходе приложения в фон")
-                forceResetAfterInterruptedStop()
-                return
-            }
+        if state == .stopping {
+            return
         }
 
-        if state == .recording && !movieOutput.isRecording && !sessionInterrupted {
-            do {
-                try startNextSegment()
-            } catch {
-                lastError = .unknown("Не удалось восстановить запись после возврата в приложение: \(error.localizedDescription)")
-            }
+        if state == .recording && !movieOutput.isRecording {
+            lastError = .unknown("Видеозапись была завершена при уходе приложения в фон")
+            forceResetAfterInterruptedStop()
+            return
+        }
+
+        if state == .preparing && !movieOutput.isRecording {
+            lastError = .unknown("Не удалось продолжить видеозапись после возврата в приложение")
+            forceResetAfterInterruptedStop()
+            return
+        }
+
+        if state == .recording && movieOutput.isRecording {
+            sessionInterrupted = false
         }
     }
     
@@ -529,6 +610,11 @@ final class DashcamManager: NSObject, ObservableObject {
         guard !isSegmentFinishing else { return }
         guard let segmentStarted = currentSegmentStartedAt else { return }
         
+        Task { @MainActor in
+                await self.evaluateQuotaForNextSegment()
+            }
+
+        
         let now = Date()
         
         if let holdUntil = crashHoldUntil, now < holdUntil {
@@ -611,8 +697,13 @@ final class DashcamManager: NSObject, ObservableObject {
     }
     
     private func finalizeStoppedSession(trigger: DashcamStopTrigger) async {
+        guard !isFinalizingStop else { return }
+        isFinalizingStop = true
+        defer { isFinalizingStop = false }
+
         let stopDate = Date()
 
+        finishStopProgressUI()
         UIApplication.shared.isIdleTimerDisabled = false
         stopSegmentWatchdog()
 
@@ -661,7 +752,12 @@ final class DashcamManager: NSObject, ObservableObject {
         isSegmentFinishing = false
         crashHoldUntil = nil
         lastCrashEvent = nil
+        backgroundStopStartedAt = nil
+        sessionInterrupted = false
+        shouldStopAfterCurrentSegment = false
+        quotaStopErrorMessage = nil
         state = .idle
+
         endBackgroundTaskIfNeeded()
     }
     
@@ -760,21 +856,36 @@ extension DashcamManager: AVCaptureFileOutputRecordingDelegate {
 
             if let error {
                 print("[Dashcam] didFinishRecordingTo error = \(error.localizedDescription)")
-            }
 
-            if state == .recording {
-                do {
-                    try startNextSegment()
-                } catch {
-                    lastError = .unknown("Не удалось запустить следующий сегмент: \(error.localizedDescription)")
-                    await stopVideoMode(trigger: .fatalError)
-                }
+                // Если запись завершилась с ошибкой, не пытаемся стартовать новый сегмент.
+                // Особенно важно после phone call / system interruption.
+                lastError = .unknown("Запись была прервана системой: \(error.localizedDescription)")
+
+                let trigger = pendingStopTrigger ?? .fatalError
+                await finalizeStoppedSession(trigger: trigger)
                 return
             }
 
             if state == .stopping {
                 let trigger = pendingStopTrigger ?? .userButton
                 await finalizeStoppedSession(trigger: trigger)
+                return
+            }
+
+            if state == .recording && UIApplication.shared.applicationState != .active {
+                let trigger = pendingStopTrigger ?? .appBackground
+                await finalizeStoppedSession(trigger: trigger)
+                return
+            }
+
+            if state == .recording && UIApplication.shared.applicationState == .active {
+                do {
+                    try startNextSegment()
+                } catch {
+                    lastError = .unknown("Не удалось запустить следующий сегмент: \(error.localizedDescription)")
+                    await finalizeStoppedSession(trigger: .fatalError)
+                }
+                return
             }
         }
     }
