@@ -716,7 +716,7 @@ final class NetworkManager {
 
 
 
-    private func ensureBearerWithFallback(deviceId: String) async throws -> String {
+    func ensureBearerWithFallback(deviceId: String) async throws -> String {
         do {
             self.logHandler?("[AUTH] bearer route=EU start")
             let token = try await AuthManager.shared.ensureToken(baseURL: euBaseURL, deviceId: deviceId)
