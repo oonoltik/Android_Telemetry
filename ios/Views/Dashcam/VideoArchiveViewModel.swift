@@ -158,6 +158,7 @@ final class VideoArchiveViewModel: ObservableObject {
         } else {
             saveResultText = "Сохранено: \(saved), не удалось сохранить: \(failed)"
         }
+
         reload()
     }
 

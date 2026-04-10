@@ -2,6 +2,7 @@ import Foundation
 import AVFoundation
 import UIKit
 import Combine
+import CoreLocation
 
 @MainActor
 final class DashcamManager: NSObject, ObservableObject {
@@ -34,6 +35,7 @@ final class DashcamManager: NSObject, ObservableObject {
     private var currentSegmentURL: URL?
     private var currentSegmentStartedAt: Date?
     private var recordingStartedAt: Date?
+    private var recordingStartCoordinate: CLLocationCoordinate2D?
     
     private var pendingStopTrigger: DashcamStopTrigger?
     private var isSegmentFinishing = false
@@ -51,6 +53,8 @@ final class DashcamManager: NSObject, ObservableObject {
     private var quotaStopErrorMessage: String?
     
     private var stopProgressTimer: Timer?
+    
+    private var currentCrashId: String?
    
     
     init(
@@ -308,6 +312,7 @@ final class DashcamManager: NSObject, ObservableObject {
         
         activeVideoSessionId = sessionId
         recordingStartedAt = Date()
+        recordingStartCoordinate = sensorManager.latestKnownLocationCoordinate()
         
         UIApplication.shared.isIdleTimerDisabled = true
         
@@ -450,9 +455,51 @@ final class DashcamManager: NSObject, ObservableObject {
             }
     }
     
+    private func postCrashSignal(_ event: CrashEvent) async {
+        guard let crashId = currentCrashId else { return }
+
+        let iso = ISO8601DateFormatter()
+
+        let nearestSample = sensorManager.latestSample()
+
+        let request = CrashLogRequest(
+            crash_id: crashId,
+            video_session_id: activeVideoSessionId,
+            trip_session_id: tripCoordinator.currentTripSessionId(),
+
+            crash_detected_at: iso.string(from: event.at),
+
+            latitude: event.latitude,
+            longitude: event.longitude,
+
+            max_g: event.gForce,
+
+            active_segment_id: currentSegmentId,
+
+            pre_window_sec: 30,
+            post_window_sec: 120,
+
+            nearest_sample_timestamp: nearestSample?.t,
+            nearest_speed_kmh: nearestSample.flatMap { sample in
+                sample.speed_m_s.map { $0 * 3.6 }
+            },
+            nearest_heading: nearestSample?.course,
+
+            event_types_nearby: sensorManager.recentEventTypes()
+        )
+
+        do {
+            try await networkManager.postCrashLog(request)
+        } catch {
+            print("❌ CrashLog failed: \(error)")
+        }
+    }
+    
     private func handleCrashEvent(_ event: CrashEvent) async {
         guard state == .recording else { return }
         
+        let crashId = UUID().uuidString
+        self.currentCrashId = crashId
         lastCrashEvent = event
         
         let holdUntil = event.at.addingTimeInterval(60)
@@ -463,6 +510,10 @@ final class DashcamManager: NSObject, ObservableObject {
         }
         
         await postInterimCrashLog(event)
+        
+        Task {
+            await self.postCrashSignal(event)
+        }
     }
     
     private func configureAudioSessionIfNeeded() throws {
@@ -747,6 +798,7 @@ final class DashcamManager: NSObject, ObservableObject {
         currentSegmentURL = nil
         currentSegmentStartedAt = nil
         recordingStartedAt = nil
+        recordingStartCoordinate = nil
         timerText = "00:00:00"
         pendingStopTrigger = nil
         isSegmentFinishing = false
@@ -774,6 +826,17 @@ final class DashcamManager: NSObject, ObservableObject {
             device_id: sensorManager.deviceIdForDisplay,
             started_at: ISO8601DateFormatter().string(from: started),
             ended_at: nil,
+            recording_start_lat: recordingStartCoordinate?.latitude,
+            recording_start_lon: recordingStartCoordinate?.longitude,
+            recording_end_lat: sensorManager.latestKnownLocationCoordinate()?.latitude,
+            recording_end_lon: sensorManager.latestKnownLocationCoordinate()?.longitude,
+            session_start_sample_t: nil,
+            session_end_sample_t: nil,
+            total_samples: nil,
+            total_events: nil,
+            session_start_speed_kmh: nil,
+            session_end_speed_kmh: nil,
+            session_event_types: nil,
             stop_reason: nil,
             camera_mode: "rear",
             audio_enabled: settingsStore.enableMicrophone,
@@ -787,7 +850,8 @@ final class DashcamManager: NSObject, ObservableObject {
             archive_normal_count: stats.0,
             archive_crash_count: stats.1,
             archive_normal_size_bytes: stats.2,
-            archive_crash_size_bytes: stats.3
+            archive_crash_size_bytes: stats.3,
+            
         )
         
         try? await networkManager.postDashcamCameraLog(payload)
@@ -799,6 +863,25 @@ final class DashcamManager: NSObject, ObservableObject {
         let stats = (try? archiveStore.archiveStats()) ?? (0, 0, 0, 0)
         let totalSize = try? archiveStore.totalUsageBytes()
         let segmentsCount = try? archiveStore.segmentsCount(for: sessionId)
+        let endCoordinate = sensorManager.latestKnownLocationCoordinate()
+        
+        let endedAt = Date()
+        let sessionRange = started...endedAt
+
+        let sessionSamples = sensorManager.samples(in: sessionRange)
+        let sessionEvents = sensorManager.events(in: sessionRange)
+
+        let sessionStartSample = sensorManager.nearestSample(to: started)
+        let sessionEndSample = sensorManager.nearestSample(to: endedAt)
+        let sessionStartSpeedKmh = sessionStartSample?.speed_m_s.flatMap { speed in
+            speed >= 0 ? speed * 3.6 : nil
+        }
+
+        let sessionEndSpeedKmh = sessionEndSample?.speed_m_s.flatMap { speed in
+            speed >= 0 ? speed * 3.6 : nil
+        }
+
+        let sessionEventTypes = Array(Set(sessionEvents.map { $0.type.rawValue })).sorted()
 
         let payload = DashcamCameraLogRequest(
             video_session_id: sessionId,
@@ -806,7 +889,21 @@ final class DashcamManager: NSObject, ObservableObject {
             driver_id: sensorManager.driverId,
             device_id: sensorManager.deviceIdForDisplay,
             started_at: ISO8601DateFormatter().string(from: started),
-            ended_at: ISO8601DateFormatter().string(from: Date()),
+            ended_at: ISO8601DateFormatter().string(from: endedAt),
+
+            recording_start_lat: recordingStartCoordinate?.latitude,
+            recording_start_lon: recordingStartCoordinate?.longitude,
+            recording_end_lat: endCoordinate?.latitude,
+            recording_end_lon: endCoordinate?.longitude,
+
+            session_start_sample_t: sessionStartSample?.t,
+            session_end_sample_t: sessionEndSample?.t,
+            total_samples: sessionSamples.count,
+            total_events: sessionEvents.count,
+            session_start_speed_kmh: sessionStartSpeedKmh,
+            session_end_speed_kmh: sessionEndSpeedKmh,
+            session_event_types: sessionEventTypes,
+
             stop_reason: trigger.rawValue,
             camera_mode: "rear",
             audio_enabled: settingsStore.enableMicrophone,
@@ -825,6 +922,8 @@ final class DashcamManager: NSObject, ObservableObject {
 
         try? await networkManager.postDashcamCameraLog(payload)
     }
+    
+    
 }
 
 extension DashcamManager: AVCaptureFileOutputRecordingDelegate {
@@ -837,11 +936,45 @@ extension DashcamManager: AVCaptureFileOutputRecordingDelegate {
         Task { @MainActor in
             if let segmentId = currentSegmentId {
                 let size = fileSize(outputFileURL)
+                let segmentEndedAt = Date()
+                let segmentStartedAt = currentSegmentStartedAt ?? segmentEndedAt
 
                 try? archiveStore.finalizeSegment(
                     id: segmentId,
-                    endedAt: Date(),
+                    endedAt: segmentEndedAt,
                     sizeBytes: size
+                )
+                
+                let range = segmentStartedAt...segmentEndedAt
+                let samplesInRange = sensorManager.samples(in: range)
+                let eventsInRange = sensorManager.events(in: range)
+
+                let startSample = sensorManager.nearestSample(to: segmentStartedAt)
+                let endSample = sensorManager.nearestSample(to: segmentEndedAt)
+
+                let startSpeedKmh = startSample?.speed_m_s.flatMap { speed in
+                    speed >= 0 ? speed * 3.6 : nil
+                }
+
+                let endSpeedKmh = endSample?.speed_m_s.flatMap { speed in
+                    speed >= 0 ? speed * 3.6 : nil
+                }
+
+                let eventTypesNearby = Array(Set(eventsInRange.map { $0.type.rawValue })).sorted()
+
+                try? archiveStore.updateSegmentTimelineMetadata(
+                    id: segmentId,
+                    timelineStartSampleT: startSample?.t,
+                    timelineEndSampleT: endSample?.t,
+                    startLat: startSample?.lat,
+                    startLon: startSample?.lon,
+                    endLat: endSample?.lat,
+                    endLon: endSample?.lon,
+                    startSpeedKmh: startSpeedKmh,
+                    endSpeedKmh: endSpeedKmh,
+                    samplesCount: samplesInRange.count,
+                    eventsCount: eventsInRange.count,
+                    eventTypesNearby: eventTypesNearby
                 )
 
                 await quotaManager.notifySegmentCommitted(sizeBytes: size)

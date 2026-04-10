@@ -32,4 +32,11 @@ extension NetworkManager {
             throw URLError(.badServerResponse)
         }
     }
+    
+    func postCrashLog(_ request: CrashLogRequest) async throws {
+        try await postDashcamJSON(
+            path: "/video/crash-log",
+            body: request
+        )
+    }
 }

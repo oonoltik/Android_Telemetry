@@ -105,6 +105,22 @@ struct VideoSegmentRecord: Codable, Identifiable {
     let fileURL: URL
     let order: Int
     var isSavedToPhotoLibrary: Bool
+    
+    var timeline_start_sample_t: String?
+    var timeline_end_sample_t: String?
+
+    var recording_start_lat: Double?
+    var recording_start_lon: Double?
+    var recording_end_lat: Double?
+    var recording_end_lon: Double?
+
+    var recording_start_speed_kmh: Double?
+    var recording_end_speed_kmh: Double?
+
+    var timeline_samples_count: Int?
+    var timeline_events_count: Int?
+
+    var event_types_nearby: [String]?
 
     enum CodingKeys: String, CodingKey {
         case id
@@ -116,8 +132,24 @@ struct VideoSegmentRecord: Codable, Identifiable {
         case fileURL
         case order
         case isSavedToPhotoLibrary
+        case timeline_start_sample_t
+        case timeline_end_sample_t
+
+        case recording_start_lat
+        case recording_start_lon
+        case recording_end_lat
+        case recording_end_lon
+
+        case recording_start_speed_kmh
+        case recording_end_speed_kmh
+
+        case timeline_samples_count
+        case timeline_events_count
+
+        case event_types_nearby
     }
 
+   
     init(
         id: String,
         sessionId: String,
@@ -138,22 +170,23 @@ struct VideoSegmentRecord: Codable, Identifiable {
         self.fileURL = fileURL
         self.order = order
         self.isSavedToPhotoLibrary = isSavedToPhotoLibrary
-    }
 
-    init(from decoder: Decoder) throws {
-        let container = try decoder.container(keyedBy: CodingKeys.self)
+        // 👇 ВАЖНО: явно инициализируем nil
+        self.timeline_start_sample_t = nil
+        self.timeline_end_sample_t = nil
 
-        id = try container.decode(String.self, forKey: .id)
-        sessionId = try container.decode(String.self, forKey: .sessionId)
-        startedAt = try container.decode(Date.self, forKey: .startedAt)
-        endedAt = try container.decodeIfPresent(Date.self, forKey: .endedAt)
-        sizeBytes = try container.decode(Int64.self, forKey: .sizeBytes)
-        isProtected = try container.decode(Bool.self, forKey: .isProtected)
-        fileURL = try container.decode(URL.self, forKey: .fileURL)
-        order = try container.decode(Int.self, forKey: .order)
+        self.recording_start_lat = nil
+        self.recording_start_lon = nil
+        self.recording_end_lat = nil
+        self.recording_end_lon = nil
 
-        // backward compatibility for old archive_index.json
-        isSavedToPhotoLibrary = try container.decodeIfPresent(Bool.self, forKey: .isSavedToPhotoLibrary) ?? false
+        self.recording_start_speed_kmh = nil
+        self.recording_end_speed_kmh = nil
+
+        self.timeline_samples_count = nil
+        self.timeline_events_count = nil
+
+        self.event_types_nearby = nil
     }
 }
 struct CrashClipRecord: Codable, Identifiable {

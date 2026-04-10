@@ -195,7 +195,10 @@ final class SensorManager: NSObject, ObservableObject {
     @Published var currentTripDistanceKm: Double = 0
     
     
-   
+    private var timelineSamples: [TelemetrySample] = []
+    private var timelineEvents: [TelemetryEvent] = []
+    private let timelineRetentionSec: TimeInterval = 180
+    
     // MARK: - DriverId enforcement
     /// DriverId is mandatory. If empty — app must block Start and show onboarding.
     /// Server must never receive anon_* driver ids.
@@ -858,6 +861,10 @@ if self.debugPrintsEnabled {
 
     private var sampleBuffer: [TelemetrySample] = []
     private var eventsBuffer: [TelemetryEvent] = []
+    
+    private var lastSampleSnapshot: TelemetrySample?
+    private var recentEventSnapshots: [TelemetryEvent] = []
+    private let recentEventSnapshotsLimit: Int = 10
 
     // MARK: - Batch timer
 
@@ -1488,10 +1495,15 @@ if self.debugPrintsEnabled {
         bufferQueue.sync {
             sampleBuffer.removeAll()
             eventsBuffer.removeAll()
+            lastSampleSnapshot = nil
+            recentEventSnapshots.removeAll()
+            timelineSamples.removeAll()
+            timelineEvents.removeAll()
             lastKnownLocation = nil
             lastKnownSpeedMS = nil
             lastCourseRad = nil
             lastCourseAt = nil
+            
 
             batchSeq = 0   // reset batch sequence
             
@@ -2535,6 +2547,55 @@ if self.debugPrintsEnabled {
     }
     
     
+    func samples(in range: ClosedRange<Date>) -> [TelemetrySample] {
+        bufferQueue.sync {
+            timelineSamples.filter { sample in
+                guard let d = isoFormatter.date(from: sample.t) else { return false }
+                return range.contains(d)
+            }
+        }
+    }
+
+    func events(in range: ClosedRange<Date>) -> [TelemetryEvent] {
+        bufferQueue.sync {
+            timelineEvents.filter { event in
+                guard let d = isoFormatter.date(from: event.t) else { return false }
+                return range.contains(d)
+            }
+        }
+    }
+
+    func nearestSample(to date: Date) -> TelemetrySample? {
+        bufferQueue.sync {
+            timelineSamples.min { lhs, rhs in
+                guard
+                    let ld = isoFormatter.date(from: lhs.t),
+                    let rd = isoFormatter.date(from: rhs.t)
+                else { return false }
+
+                return abs(ld.timeIntervalSince(date)) < abs(rd.timeIntervalSince(date))
+            }
+        }
+    }
+    
+    private func trimTimelineSamples(nowISO: String) {
+        guard let now = isoFormatter.date(from: nowISO) else { return }
+        let cutoff = now.addingTimeInterval(-timelineRetentionSec)
+        timelineSamples.removeAll {
+            guard let d = isoFormatter.date(from: $0.t) else { return true }
+            return d < cutoff
+        }
+    }
+
+    private func trimTimelineEvents(nowISO: String) {
+        guard let now = isoFormatter.date(from: nowISO) else { return }
+        let cutoff = now.addingTimeInterval(-timelineRetentionSec)
+        timelineEvents.removeAll {
+            guard let d = isoFormatter.date(from: $0.t) else { return true }
+            return d < cutoff
+        }
+    }
+    
 
     // MARK: - Main motion handler
 
@@ -2820,6 +2881,9 @@ if debugPrintsEnabled && self.tripStartedAt != nil {
 
 
             self.sampleBuffer.append(sample)
+            self.lastSampleSnapshot = sample
+            self.timelineSamples.append(sample)
+            self.trimTimelineSamples(nowISO: tISO)
 
             // suppression for EVENTS only
             let suppress2 = suppressEventsOnly || (now < self.suppressEventsUntil)
@@ -2903,8 +2967,7 @@ if debugPrintsEnabled && self.tripStartedAt != nil {
                                 self.currentTripRoadAnomalyDeviceCount += 1
                             }
 
-                            self.eventsBuffer.append(
-                                TelemetryEvent(
+                            let event = TelemetryEvent(
                                     type: .roadAnomaly,
                                     t: tISO,
                                     intensity: NumericSanitizer.metric(p2p),
@@ -2917,7 +2980,15 @@ if debugPrintsEnabled && self.tripStartedAt != nil {
                                     severity: severity,
                                     meta_json: meta
                                 )
-                            )
+                            self.eventsBuffer.append(event)
+
+                            self.recentEventSnapshots.append(event)
+                            self.timelineEvents.append(event)
+                            self.trimTimelineEvents(nowISO: tISO)
+                            if self.recentEventSnapshots.count > self.recentEventSnapshotsLimit {
+                                self.recentEventSnapshots.removeFirst()
+                            }
+                            
                             self.recordAgg(.road, intensity: p2p)
                             
                             #if DEBUG
@@ -2988,8 +3059,7 @@ if debugPrintsEnabled && self.tripStartedAt != nil {
 
                             let intensity = NumericSanitizer.metric(aLatAbs ?? yawAbs)
 
-                            self.eventsBuffer.append(
-                                TelemetryEvent(
+                            let event = TelemetryEvent(
                                     type: .turn,
                                     t: tISO,
                                     intensity: NumericSanitizer.metric(intensity),
@@ -3002,8 +3072,17 @@ if debugPrintsEnabled && self.tripStartedAt != nil {
                                     severity: nil,
                                     meta_json: nil
                                 )
-                            )
-                            
+                            // основной pipeline (НЕ ТРОГАЕМ)
+                            self.eventsBuffer.append(event)
+
+                            // snapshot (НОВОЕ)
+                            self.recentEventSnapshots.append(event)
+                            self.timelineEvents.append(event)
+                            self.trimTimelineEvents(nowISO: tISO)
+                            if self.recentEventSnapshots.count > self.recentEventSnapshotsLimit {
+                                self.recentEventSnapshots.removeFirst()
+                            }
+                                                       
                             self.recordAgg(.turn, intensity: intensity)
 
                             DispatchQueue.main.async {
@@ -3048,8 +3127,7 @@ if debugPrintsEnabled && self.tripStartedAt != nil {
                             if mag >= brakeEmergencyLongG { brakeCls = "emergency" }
                             else { brakeCls = "sharp" }
 
-                            self.eventsBuffer.append(
-                                TelemetryEvent(
+                            let event = TelemetryEvent(
                                     type: .brake,
                                     t: tISO,
                                     intensity: NumericSanitizer.metric(mag),
@@ -3062,8 +3140,14 @@ if debugPrintsEnabled && self.tripStartedAt != nil {
                                     severity: nil,
                                     meta_json: nil
                                 )
-                            
-                            )
+                            self.eventsBuffer.append(event)
+
+                            self.recentEventSnapshots.append(event)
+                            self.timelineEvents.append(event)
+                            self.trimTimelineEvents(nowISO: tISO)
+                            if self.recentEventSnapshots.count > self.recentEventSnapshotsLimit {
+                                self.recentEventSnapshots.removeFirst()
+                            }
                             
                             self.recordAgg(.brake, intensity: mag)
 
@@ -3106,8 +3190,7 @@ if debugPrintsEnabled && self.tripStartedAt != nil {
                                 return "sharp"
                             }()
 
-                            self.eventsBuffer.append(
-                                TelemetryEvent(
+                            let event = TelemetryEvent(
                                     type: .accel,
                                     t: tISO,
                                     intensity: mag,
@@ -3120,7 +3203,15 @@ if debugPrintsEnabled && self.tripStartedAt != nil {
                                     severity: nil,
                                     meta_json: nil
                                 )
-                            )
+                            self.eventsBuffer.append(event)
+
+                            self.recentEventSnapshots.append(event)
+                            self.timelineEvents.append(event)
+                            self.trimTimelineEvents(nowISO: tISO)
+                            if self.recentEventSnapshots.count > self.recentEventSnapshotsLimit {
+                                self.recentEventSnapshots.removeFirst()
+                            }
+                            
                             
                             self.recordAgg(.accel, intensity: mag)
 
@@ -3176,8 +3267,7 @@ if debugPrintsEnabled && self.tripStartedAt != nil {
                                 .replacingOccurrences(of: "\n", with: "")
                                 .replacingOccurrences(of: " ", with: "")
                                 
-                                self.eventsBuffer.append(
-                                    TelemetryEvent(
+                                let event = TelemetryEvent(
                                         type: .brakeInTurn,
                                         t: tISO,
                                         intensity: NumericSanitizer.metric(abs(aLong)),
@@ -3190,7 +3280,15 @@ if debugPrintsEnabled && self.tripStartedAt != nil {
                                         severity: nil,
                                         meta_json: meta
                                     )
-                                )
+                                self.eventsBuffer.append(event)
+
+                                self.recentEventSnapshots.append(event)
+                                self.timelineEvents.append(event)
+                                self.trimTimelineEvents(nowISO: tISO)
+                                if self.recentEventSnapshots.count > self.recentEventSnapshotsLimit {
+                                    self.recentEventSnapshots.removeFirst()
+                                }
+                                
                                 
                                 self.recordAgg(.brakeInTurn, intensity: abs(aLong))
                                 
@@ -3217,8 +3315,7 @@ if debugPrintsEnabled && self.tripStartedAt != nil {
                                  "lat_min_g":\(String(format: "%.3f", combinedLatMinG))}
                                 """.replacingOccurrences(of: "\n", with: "").replacingOccurrences(of: " ", with: "")
 
-                                self.eventsBuffer.append(
-                                    TelemetryEvent(
+                                let event = TelemetryEvent(
                                         type: .accelInTurn,
                                         t: tISO,
                                         intensity: NumericSanitizer.metric(abs(aLong)),
@@ -3231,7 +3328,15 @@ if debugPrintsEnabled && self.tripStartedAt != nil {
                                         severity: nil,
                                         meta_json: meta
                                     )
-                                )
+                                self.eventsBuffer.append(event)
+
+                                self.recentEventSnapshots.append(event)
+                                self.timelineEvents.append(event)
+                                self.trimTimelineEvents(nowISO: tISO)
+                                if self.recentEventSnapshots.count > self.recentEventSnapshotsLimit {
+                                    self.recentEventSnapshots.removeFirst()
+                                }
+                                
                                 
                                 self.recordAgg(.accelInTurn, intensity: abs(aLong))
                             }
@@ -3310,6 +3415,31 @@ if debugPrintsEnabled && self.tripStartedAt != nil {
             }
         }
 
+    }
+    
+    func latestSample() -> TelemetrySample? {
+        bufferQueue.sync {
+            lastSampleSnapshot
+        }
+    }
+
+    func recentEventTypes() -> [String] {
+        bufferQueue.sync {
+            recentEventSnapshots.map { $0.type.rawValue }
+        }
+    }
+
+    func latestKnownLocationCoordinate() -> CLLocationCoordinate2D? {
+        bufferQueue.sync {
+            lastKnownLocation?.coordinate
+        }
+    }
+
+    func latestKnownSpeedMetersPerSecond() -> Double? {
+        bufferQueue.sync {
+            guard let speed = lastKnownSpeedMS, speed >= 0 else { return nil }
+            return speed
+        }
     }
 
     // MARK: - Batching

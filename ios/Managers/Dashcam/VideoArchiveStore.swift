@@ -13,13 +13,28 @@ protocol VideoArchiveStore {
 
     func totalUsageBytes() throws -> Int64
     func totalArchiveUsageBytes() throws -> Int64
-    
+
     func markAsSavedToPhotoLibrary(id: String) throws
 
     func oldestDeletableNormalSegmentIds(limitBytesToFree: Int64) throws -> [String]
     func urlForSession(sessionId: String) throws -> URL
     func archiveStats() throws -> (normalCount: Int, crashCount: Int, normalSizeBytes: Int64, crashSizeBytes: Int64)
     func segmentsCount(for sessionId: String) throws -> Int
+
+    func updateSegmentTimelineMetadata(
+        id: String,
+        timelineStartSampleT: String?,
+        timelineEndSampleT: String?,
+        startLat: Double?,
+        startLon: Double?,
+        endLat: Double?,
+        endLon: Double?,
+        startSpeedKmh: Double?,
+        endSpeedKmh: Double?,
+        samplesCount: Int,
+        eventsCount: Int,
+        eventTypesNearby: [String]
+    ) throws
 }
 
 final class JSONVideoArchiveStore: VideoArchiveStore {
@@ -66,7 +81,48 @@ final class JSONVideoArchiveStore: VideoArchiveStore {
             try data.write(to: indexURL, options: .atomic)
         }
     }
+    
+    func updateSegmentTimelineMetadata(
+        id: String,
+        timelineStartSampleT: String?,
+        timelineEndSampleT: String?,
+        startLat: Double?,
+        startLon: Double?,
+        endLat: Double?,
+        endLon: Double?,
+        startSpeedKmh: Double?,
+        endSpeedKmh: Double?,
+        samplesCount: Int,
+        eventsCount: Int,
+        eventTypesNearby: [String]
+    ) throws {
+        try queue.sync {
+            var idx = try readIndex()
 
+            guard let i = idx.segments.firstIndex(where: { $0.id == id }) else {
+                return
+            }
+
+            idx.segments[i].timeline_start_sample_t = timelineStartSampleT
+            idx.segments[i].timeline_end_sample_t = timelineEndSampleT
+
+            idx.segments[i].recording_start_lat = startLat
+            idx.segments[i].recording_start_lon = startLon
+            idx.segments[i].recording_end_lat = endLat
+            idx.segments[i].recording_end_lon = endLon
+
+            idx.segments[i].recording_start_speed_kmh = startSpeedKmh
+            idx.segments[i].recording_end_speed_kmh = endSpeedKmh
+
+            idx.segments[i].timeline_samples_count = samplesCount
+            idx.segments[i].timeline_events_count = eventsCount
+
+            idx.segments[i].event_types_nearby = eventTypesNearby
+
+            try writeIndex(idx)
+        }
+    }
+    
     func createVideoSession(startedAt: Date, linkedTripSessionId: String?) throws -> String {
         try queue.sync {
             var idx = try readIndex()
@@ -351,6 +407,7 @@ final class JSONVideoArchiveStore: VideoArchiveStore {
     }
     
     
+    
 
     func totalArchiveUsageBytes() throws -> Int64 {
         try queue.sync {
@@ -436,6 +493,8 @@ final class JSONVideoArchiveStore: VideoArchiveStore {
         try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
         return root
     }
+    
+    
 }
 
 private extension JSONEncoder {
