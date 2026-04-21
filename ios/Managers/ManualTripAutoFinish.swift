@@ -15,6 +15,7 @@ extension Notification.Name {
 
 @MainActor
 final class ManualTripAutoFinish {
+    var suppressAutoFinishWhileDashcamActive: Bool = false
     private let motion = CMMotionActivityManager()
     private let queue = OperationQueue()
        
@@ -23,7 +24,7 @@ final class ManualTripAutoFinish {
     private var isAutoStoppingNow = false
 
     // Подберите: 60–120 сек. Я бы оставил 80 как в DayMonitoringManager.
-    var stopConfirmSec: TimeInterval = 120
+    var stopConfirmSec: TimeInterval = 999999
     
     
 
@@ -71,6 +72,16 @@ final class ManualTripAutoFinish {
 
                     if elapsed >= self.stopConfirmSec && currentSpeed < 5 {
                         if self.isAutoStoppingNow { return }
+
+                                                
+                        if self.suppressAutoFinishWhileDashcamActive {
+                            #if DEBUG
+                            print("[AUTO_FINISH] suppressed: dashcam/video mode active")
+                            #endif
+
+                            self.nonAutomotiveSince = nil
+                            return
+                        }
 
                         self.isAutoStoppingNow = true
                         self.nonAutomotiveSince = nil

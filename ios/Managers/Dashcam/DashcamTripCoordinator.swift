@@ -25,10 +25,10 @@ final class DashcamTripCoordinator: ObservableObject {
         return .videoImplicit
     }
 
-    func handleVideoStop() async {
+    func handleVideoStop(reason: String = "video_stop") async {
         switch tripOwnership {
         case .videoImplicit:
-            await sensorManager.finishImplicitTrip()
+            await sensorManager.finishImplicitTrip(reason: reason)
             tripOwnership = .none
 
         case .manual:
@@ -41,7 +41,7 @@ final class DashcamTripCoordinator: ObservableObject {
 
     func beginManualTripDuringVideo() async {
         if tripOwnership == .videoImplicit {
-            await sensorManager.finishImplicitTrip()
+            await sensorManager.finishImplicitTrip(reason: TripFinishReason.manualTakeover.rawValue)
         }
         tripOwnership = .manual
     }

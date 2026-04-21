@@ -759,11 +759,11 @@ if attempt == 0 {
     if let json = String(data: bodyData, encoding: .utf8) {
         let message = "[INGEST] batch payload:\n\(json)"
         
-        print(message)          // <-- вывод в консоль
+//        print(message)          // <-- вывод в консоль
         logHandler?(message)    // <-- если где-то подключён UI лог
     } else {
         let message = "[INGEST] batch payload: <non-utf8 \(bodyData.count) bytes>"
-        print(message)
+//        print(message)
         logHandler?(message)
     }
 }

@@ -29,7 +29,7 @@ struct UserDefaultsDashcamSettingsStore: DashcamSettingsStore {
     }
     var maxSegmentDurationSeconds: Int {
         let value = defaults.integer(forKey: "dashcam.maxSegmentDurationSeconds")
-        return value > 0 ? value : 120
+        return value > 0 ? value : 15
     }
     var exportToPhotosEnabled: Bool { defaults.bool(forKey: "dashcam.exportToPhotos") }
     var previewEnabledByDefault: Bool { defaults.bool(forKey: "dashcam.previewByDefault") }

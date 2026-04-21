@@ -399,7 +399,14 @@ struct VideoArchiveView: View {
                 }
                 let url = item.playbackURL
 
-                if FileManager.default.fileExists(atPath: url.path) {
+                let exists = FileManager.default.fileExists(atPath: url.path)
+                print("[ArchiveDebug] open item id=\(item.id)")
+                print("[ArchiveDebug] open item title=\(item.title)")
+                print("[ArchiveDebug] open item url=\(url.absoluteString)")
+                print("[ArchiveDebug] open item path=\(url.path)")
+                print("[ArchiveDebug] open item exists=\(exists)")
+
+                if exists {
                     playbackItem = PlaybackItem(url: url)
                 } else {
                     showFileMissingAlert = true

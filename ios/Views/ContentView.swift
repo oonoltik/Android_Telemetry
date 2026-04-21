@@ -489,7 +489,11 @@ struct ContentView: View {
                                 .foregroundColor(.white)
 
                             VStack(alignment: .leading, spacing: 2) {
-                                Text(t(.crashDetected))
+                                Text("\(t(.crashDetected)) - \(sensorManager.crashCount)")
+                                    .onAppear {
+                                                print("[CRASH_BANNER_APPEAR] at=\(Date()) count=\(sensorManager.crashCount)")
+                                            }
+                                
                                     .font(.headline)
 
                                 Text(String(format: t(.crashImpactFormat), sensorManager.crashG))
@@ -668,7 +672,7 @@ struct ContentView: View {
                                     Image(systemName: "record.circle.fill")
                                         .foregroundColor(dashcamManager.state == .stopping ? .orange : .red)
 
-                                    Text(dashcamManager.state == .stopping ? "Идет сохранение на устройство" : "Идет видеозапись")
+                                    Text(dashcamManager.state == .stopping ? "Идет сохранение записи" : "Идет видеозапись")
                                         .font(.headline)
 
                                     Spacer()
@@ -687,7 +691,7 @@ struct ContentView: View {
                                         ProgressView(value: dashcamManager.stopProgressValue)
                                             .progressViewStyle(.linear)
 
-                                        Text(dashcamManager.stopProgressText ?? "Идет сохранение на устройство")
+                                        Text(dashcamManager.stopProgressText ?? "Идет сохранение записи")
                                             .font(.caption)
                                             .foregroundColor(.secondary)
                                     }

@@ -33,6 +33,17 @@ enum DashcamStopTrigger: String, Codable {
     case appBackground = "app_background"
 }
 
+enum TripFinishReason: String, Codable {
+    case userStop = "user_stop"
+    case backgroundStop = "background_stop"
+    case lifecycleStop = "lifecycle_stop"
+    case captureInterrupted = "capture_interrupted"
+    case diskLimit = "disk_limit"
+    case fatalError = "fatal_error"
+    case manualTakeover = "manual_takeover"
+    case serverIdleTimeout = "server_idle_timeout"
+}
+
 enum ArchiveKind: String, Codable {
     case normal
     case crash
@@ -200,6 +211,8 @@ struct CrashClipRecord: Codable, Identifiable {
     let longitude: Double?
     let maxG: Double?
     var isSavedToPhotoLibrary: Bool
+    let videoSessionId: String?
+    let fileURL: URL?
 
     enum CodingKeys: String, CodingKey {
         case id
@@ -212,6 +225,8 @@ struct CrashClipRecord: Codable, Identifiable {
         case longitude
         case maxG
         case isSavedToPhotoLibrary
+        case videoSessionId
+        case fileURL
     }
 
     init(
@@ -224,6 +239,8 @@ struct CrashClipRecord: Codable, Identifiable {
         latitude: Double?,
         longitude: Double?,
         maxG: Double?,
+        videoSessionId: String?,
+        fileURL: URL?,
         isSavedToPhotoLibrary: Bool = false
     ) {
         self.id = id
@@ -236,6 +253,8 @@ struct CrashClipRecord: Codable, Identifiable {
         self.longitude = longitude
         self.maxG = maxG
         self.isSavedToPhotoLibrary = isSavedToPhotoLibrary
+        self.videoSessionId = videoSessionId
+        self.fileURL = fileURL
     }
 
     init(from decoder: Decoder) throws {
@@ -250,6 +269,24 @@ struct CrashClipRecord: Codable, Identifiable {
         longitude = try c.decodeIfPresent(Double.self, forKey: .longitude)
         maxG = try c.decodeIfPresent(Double.self, forKey: .maxG)
         isSavedToPhotoLibrary = try c.decodeIfPresent(Bool.self, forKey: .isSavedToPhotoLibrary) ?? false
+        videoSessionId = try c.decodeIfPresent(String.self, forKey: .videoSessionId)
+        fileURL = try c.decodeIfPresent(URL.self, forKey: .fileURL)
+    }
+
+    func encode(to encoder: Encoder) throws {
+        var c = encoder.container(keyedBy: CodingKeys.self)
+        try c.encode(id, forKey: .id)
+        try c.encode(crashAt, forKey: .crashAt)
+        try c.encode(preSeconds, forKey: .preSeconds)
+        try c.encode(postSeconds, forKey: .postSeconds)
+        try c.encode(segmentIds, forKey: .segmentIds)
+        try c.encodeIfPresent(linkedTripSessionId, forKey: .linkedTripSessionId)
+        try c.encodeIfPresent(latitude, forKey: .latitude)
+        try c.encodeIfPresent(longitude, forKey: .longitude)
+        try c.encodeIfPresent(maxG, forKey: .maxG)
+        try c.encode(isSavedToPhotoLibrary, forKey: .isSavedToPhotoLibrary)
+        try c.encodeIfPresent(videoSessionId, forKey: .videoSessionId)
+        try c.encodeIfPresent(fileURL, forKey: .fileURL)
     }
 }
 

@@ -4,9 +4,26 @@
 //
 
 import SwiftUI
+import UIKit
+
+final class AppDelegate: NSObject, UIApplicationDelegate {
+    func application(
+        _ application: UIApplication,
+        handleEventsForBackgroundURLSession identifier: String,
+        completionHandler: @escaping () -> Void
+    ) {
+        if identifier == "com.telemetryapp.dashcam.crashupload" {
+            DashcamBackgroundSessionBridge.shared.completionHandler = completionHandler
+        } else {
+            completionHandler()
+        }
+    }
+}
 
 @main
 struct TelemetryAppApp: App {
+    
+    @UIApplicationDelegateAdaptor(AppDelegate.self) var appDelegate
 
     @StateObject private var sensorManager = SensorManager.shared
     @StateObject private var dayMonitoring = DayMonitoringManager(sensorManager: SensorManager.shared)

@@ -1,5 +1,6 @@
 import Foundation
 import Combine
+import AVFoundation
 
 protocol VideoArchiveStore {
     func createVideoSession(startedAt: Date, linkedTripSessionId: String?) throws -> String
@@ -7,7 +8,36 @@ protocol VideoArchiveStore {
     func createSegment(sessionId: String, fileURL: URL, startedAt: Date) throws -> VideoSegmentRecord
     func finalizeSegment(id: String, endedAt: Date, sizeBytes: Int64) throws
     func protectSegmentsForCrash(from start: Date, to end: Date) throws -> [VideoSegmentRecord]
-    func createCrashClip(from segments: [VideoSegmentRecord], crashAt: Date, preSeconds: Int, postSeconds: Int, linkedTripSessionId: String?, latitude: Double?, longitude: Double?, maxG: Double?) throws -> CrashClipRecord
+    func addCompletedSegment(
+        sessionId: String,
+        fileURL: URL,
+        startedAt: Date,
+        endedAt: Date,
+        sizeBytes: Int64,
+        timelineStartSampleT: String?,
+        timelineEndSampleT: String?,
+        startLat: Double?,
+        startLon: Double?,
+        endLat: Double?,
+        endLon: Double?,
+        startSpeedKmh: Double?,
+        endSpeedKmh: Double?,
+        samplesCount: Int,
+        eventsCount: Int,
+        eventTypesNearby: [String]
+    ) throws -> VideoSegmentRecord
+    func createCrashClip(
+        from segments: [VideoSegmentRecord],
+        crashClipId: String,
+        videoSessionId: String,
+        crashAt: Date,
+        preSeconds: Int,
+        postSeconds: Int,
+        linkedTripSessionId: String?,
+        latitude: Double?,
+        longitude: Double?,
+        maxG: Double?
+    ) throws -> CrashClipRecord
     func listArchiveItems() throws -> [DashcamArchiveItem]
     func deleteArchiveItems(ids: [String]) throws
 
@@ -35,13 +65,162 @@ protocol VideoArchiveStore {
         eventsCount: Int,
         eventTypesNearby: [String]
     ) throws
+    
+    func currentActiveVideoSessionId() throws -> String?
+    func discardSegment(id: String) throws
 }
 
 final class JSONVideoArchiveStore: VideoArchiveStore {
+    
+    func addCompletedSegment(
+        sessionId: String,
+        fileURL: URL,
+        startedAt: Date,
+        endedAt: Date,
+        sizeBytes: Int64,
+        timelineStartSampleT: String?,
+        timelineEndSampleT: String?,
+        startLat: Double?,
+        startLon: Double?,
+        endLat: Double?,
+        endLon: Double?,
+        startSpeedKmh: Double?,
+        endSpeedKmh: Double?,
+        samplesCount: Int,
+        eventsCount: Int,
+        eventTypesNearby: [String]
+    ) throws -> VideoSegmentRecord {
+        var result: VideoSegmentRecord?
+        var capturedError: Error?
+
+        let workItem = DispatchWorkItem {
+            do {
+                var idx = try self.readIndex()
+                let order = idx.segments.filter { $0.sessionId == sessionId }.count + 1
+
+                var item = VideoSegmentRecord(
+                    id: "seg_" + UUID().uuidString,
+                    sessionId: sessionId,
+                    startedAt: startedAt,
+                    endedAt: endedAt,
+                    sizeBytes: sizeBytes,
+                    isProtected: false,
+                    fileURL: fileURL,
+                    order: order
+                )
+
+                item.timeline_start_sample_t = timelineStartSampleT
+                item.timeline_end_sample_t = timelineEndSampleT
+                item.recording_start_lat = startLat
+                item.recording_start_lon = startLon
+                item.recording_end_lat = endLat
+                item.recording_end_lon = endLon
+                item.recording_start_speed_kmh = startSpeedKmh
+                item.recording_end_speed_kmh = endSpeedKmh
+                item.timeline_samples_count = samplesCount
+                item.timeline_events_count = eventsCount
+                item.event_types_nearby = eventTypesNearby
+                item.isSavedToPhotoLibrary = false
+
+                idx.segments.append(item)
+
+                if let i = idx.sessions.firstIndex(where: { $0.id == sessionId }) {
+                    idx.sessions[i].segmentIds.append(item.id)
+                }
+
+                try self.writeIndex(idx)
+                result = item
+            } catch {
+                capturedError = error
+            }
+        }
+
+        queue.sync(execute: workItem)
+
+        if let capturedError {
+            throw capturedError
+        }
+
+        guard let result else {
+            throw DashcamError.unknown("Не удалось добавить завершённый сегмент в архив")
+        }
+
+        return result
+    }
+    
+    private func resolvedURL(for segment: VideoSegmentRecord) -> URL {
+        if fileManager.fileExists(atPath: segment.fileURL.path) {
+            return segment.fileURL
+        }
+
+        let sessionFolder = sessionsURL.appendingPathComponent(segment.sessionId, isDirectory: true)
+        return sessionFolder.appendingPathComponent(segment.fileURL.lastPathComponent)
+    }
+
+    private func segmentFileExists(_ segment: VideoSegmentRecord) -> Bool {
+        let resolved = resolvedURL(for: segment)
+        return fileManager.fileExists(atPath: resolved.path)
+    }
+    
+    func discardSegment(id: String) throws {
+        try queue.sync {
+            var idx = try readIndex()
+
+            guard let segmentIndex = idx.segments.firstIndex(where: { $0.id == id }) else {
+                return
+            }
+
+            let segment = idx.segments[segmentIndex]
+
+            if segmentFileExists(segment) {
+                let url = resolvedURL(for: segment)
+                try? fileManager.removeItem(at: url)
+            }
+
+            idx.segments.remove(at: segmentIndex)
+
+            if let sessionIndex = idx.sessions.firstIndex(where: { $0.id == segment.sessionId }) {
+                idx.sessions[sessionIndex].segmentIds.removeAll { $0 == id }
+            }
+
+            try writeIndex(idx)
+        }
+    }
+    
     private struct ArchiveIndex: Codable {
         var sessions: [DashcamVideoSessionRecord] = []
         var segments: [VideoSegmentRecord] = []
         var crashClips: [CrashClipRecord] = []
+    }
+    
+    private func debugLogFileState(prefix: String, url: URL) {
+        let exists = fileManager.fileExists(atPath: url.path)
+
+        let sizeBytes: Int64 = {
+            guard exists,
+                  let attrs = try? fileManager.attributesOfItem(atPath: url.path),
+                  let value = attrs[.size] as? NSNumber else {
+                return -1
+            }
+            return value.int64Value
+        }()
+
+        print("[ArchiveDebug] \(prefix)")
+        print("[ArchiveDebug] url = \(url.absoluteString)")
+        print("[ArchiveDebug] path = \(url.path)")
+        print("[ArchiveDebug] exists = \(exists)")
+        print("[ArchiveDebug] sizeBytes = \(sizeBytes)")
+    }
+    
+    func currentActiveVideoSessionId() throws -> String? {
+        try queue.sync {
+            let idx = try readIndex()
+            return idx.sessions
+                .filter { $0.endedAt == nil }
+                .sorted { $0.startedAt > $1.startedAt }
+                .first?
+                .id
+        }
     }
     
     func markAsSavedToPhotoLibrary(id: String) throws {
@@ -58,6 +237,16 @@ final class JSONVideoArchiveStore: VideoArchiveStore {
 
             try writeIndex(idx)
         }
+    }
+    private func actualDurationSeconds(for url: URL) -> Int {
+        let asset = AVURLAsset(url: url)
+        let seconds = CMTimeGetSeconds(asset.duration)
+
+        guard seconds.isFinite, seconds > 0 else {
+            return 1
+        }
+
+        return max(1, Int(seconds.rounded()))
     }
     private let fileManager = FileManager.default
     private let queue = DispatchQueue(label: "dashcam.archive.store")
@@ -184,6 +373,9 @@ final class JSONVideoArchiveStore: VideoArchiveStore {
                 idx.sessions[i].segmentIds.append(item.id)
             }
 
+            print("[ArchiveDebug] createSegment id=\(item.id) sessionId=\(item.sessionId)")
+            debugLogFileState(prefix: "createSegment before writeIndex", url: item.fileURL)
+
             try writeIndex(idx)
             return item
         }
@@ -192,14 +384,20 @@ final class JSONVideoArchiveStore: VideoArchiveStore {
     func finalizeSegment(id: String, endedAt: Date, sizeBytes: Int64) throws {
         try queue.sync {
             var idx = try readIndex()
+
             if let i = idx.segments.firstIndex(where: { $0.id == id }) {
                 idx.segments[i].endedAt = endedAt
                 idx.segments[i].sizeBytes = sizeBytes
+
+                print("[ArchiveDebug] finalizeSegment id=\(idx.segments[i].id)")
+                debugLogFileState(prefix: "finalizeSegment before writeIndex", url: idx.segments[i].fileURL)
+            } else {
+                print("[ArchiveDebug] finalizeSegment missing id=\(id)")
             }
+
             try writeIndex(idx)
         }
     }
-
     func protectSegmentsForCrash(from start: Date, to end: Date) throws -> [VideoSegmentRecord] {
         try queue.sync {
             let idx = try readIndex()
@@ -209,40 +407,155 @@ final class JSONVideoArchiveStore: VideoArchiveStore {
                 let e = segment.endedAt ?? Date()
                 return s <= end && e >= start
             }
+            
+            print("[CRASH_SEGMENTS] protectSegmentsForCrash at=\(Date()) windowStart=\(start.formatted(.iso8601)) windowEnd=\(end.formatted(.iso8601)) found=\(result.count)")
+            for segment in result.sorted(by: { $0.startedAt < $1.startedAt }) {
+                print("[CRASH_SEGMENTS] candidate id=\(segment.id) sessionId=\(segment.sessionId) startedAt=\(segment.startedAt.formatted(.iso8601)) endedAt=\(segment.endedAt?.formatted(.iso8601) ?? "nil") exists=\(segmentFileExists(segment))")
+            }
 
             return result.sorted { $0.startedAt < $1.startedAt }
         }
     }
+    
+    private func stabilizedSegmentsForCrashExport(
+        _ segments: [VideoSegmentRecord]
+    ) -> [VideoSegmentRecord] {
+        
+        print("[CRASH_STABILIZE] enter at=\(Date()) inputCount=\(segments.count)")
+        for segment in segments.sorted(by: { $0.startedAt < $1.startedAt }) {
+            print("[CRASH_STABILIZE] input id=\(segment.id) startedAt=\(segment.startedAt.formatted(.iso8601)) endedAt=\(segment.endedAt?.formatted(.iso8601) ?? "nil") exists=\(segmentFileExists(segment))")
+        }
+        let existing = segments
+            .filter { segment in
+                segmentFileExists(segment)
+            }
+            .sorted { $0.startedAt < $1.startedAt }
 
-    func createCrashClip(from segments: [VideoSegmentRecord], crashAt: Date, preSeconds: Int, postSeconds: Int, linkedTripSessionId: String?, latitude: Double?, longitude: Double?, maxG: Double?) throws -> CrashClipRecord {
+        guard !existing.isEmpty else {
+            return []
+        }
+
+        let finished = existing.filter { $0.endedAt != nil }
+        print("[CRASH_STABILIZE] existingCount=\(existing.count) finishedCount=\(finished.count)")
+
+        if !finished.isEmpty {
+            return finished
+        }
+
+        if existing.count >= 2 {
+            print("[CRASH_STABILIZE] using dropLast fallback because no finished segments")
+            return Array(existing.dropLast())
+        }
+
+        return existing
+    }
+
+    private func crashExportCandidates(
+        from segments: [VideoSegmentRecord],
+        crashAt: Date,
+        preSeconds: Int,
+        postSeconds: Int
+    ) -> [VideoSegmentRecord] {
+        let windowStart = crashAt.addingTimeInterval(TimeInterval(-preSeconds))
+        let windowEnd = crashAt.addingTimeInterval(TimeInterval(postSeconds))
+
+        let overlapped = segments
+            .filter { segment in
+                let start = segment.startedAt
+                let end = segment.endedAt ?? Date()
+                return start <= windowEnd && end >= windowStart
+            }
+            .sorted { $0.startedAt < $1.startedAt }
+
+        let stabilized = stabilizedSegmentsForCrashExport(overlapped)
+
+        print("[CrashExport] total=\(segments.count) overlapped=\(overlapped.count) stabilized=\(stabilized.count)")
+        
+        for segment in stabilized {
+            let endedText = segment.endedAt?.formatted(.iso8601) ?? "nil"
+            let exists = segmentFileExists(segment)
+            let url = resolvedURL(for: segment)
+            print("[CrashExport] segment id=\(segment.id) startedAt=\(segment.startedAt.formatted(.iso8601)) endedAt=\(endedText) exists=\(exists) url=\(url.path) size=\(segment.sizeBytes)")
+        }
+
+        if !stabilized.isEmpty {
+            return stabilized
+        }
+
+        let existingOverlapped = overlapped.filter { segment in
+            segmentFileExists(segment)
+        }
+
+        print("[CrashExport] fallback existingOverlapped=\(existingOverlapped.count)")
+
+        if existingOverlapped.count >= 2 {
+            let fallback = Array(existingOverlapped.dropLast())
+            print("[CrashExport] fallback dropLast count=\(fallback.count)")
+            return fallback
+        }
+
+        return existingOverlapped
+    }
+    func createCrashClip(
+        from segments: [VideoSegmentRecord],
+        crashClipId: String,
+        videoSessionId: String,
+        crashAt: Date,
+        preSeconds: Int,
+        postSeconds: Int,
+        linkedTripSessionId: String?,
+        latitude: Double?,
+        longitude: Double?,
+        maxG: Double?
+    ) throws -> CrashClipRecord {
         try queue.sync {
             var idx = try readIndex()
+            let clipId = crashClipId
 
-            let clip = CrashClipRecord(
-                id: "crash_" + UUID().uuidString,
-                crashAt: crashAt,
-                preSeconds: preSeconds,
-                postSeconds: postSeconds,
-                segmentIds: segments.map(\.id),
-                linkedTripSessionId: linkedTripSessionId,
-                latitude: latitude,
-                longitude: longitude,
-                maxG: maxG,
-                isSavedToPhotoLibrary: false
-            )
-
-            let crashFolder = crashURL.appendingPathComponent(clip.id, isDirectory: true)
+            let crashFolder = crashURL.appendingPathComponent(clipId, isDirectory: true)
             try? fileManager.removeItem(at: crashFolder)
             try fileManager.createDirectory(at: crashFolder, withIntermediateDirectories: true)
 
             let outputURL = crashFolder.appendingPathComponent("crash.mov")
 
-            try CrashClipExporter.exportCrashClip(
+            let exportSegments = crashExportCandidates(
                 from: segments,
+                crashAt: crashAt,
+                preSeconds: preSeconds,
+                postSeconds: postSeconds
+            )
+
+            guard !exportSegments.isEmpty else {
+                throw NSError(
+                    domain: "DashcamCrashClip",
+                    code: 1001,
+                    userInfo: [NSLocalizedDescriptionKey: "No stabilized segments for crash export"]
+                )
+            }
+
+            try CrashClipExporter.exportCrashClip(
+                from: exportSegments,
                 crashAt: crashAt,
                 preSeconds: preSeconds,
                 postSeconds: postSeconds,
                 outputURL: outputURL
+            )
+
+            idx.crashClips.removeAll { $0.id == clipId }
+
+            let clip = CrashClipRecord(
+                id: clipId,
+                crashAt: crashAt,
+                preSeconds: preSeconds,
+                postSeconds: postSeconds,
+                segmentIds: exportSegments.map(\.id),
+                linkedTripSessionId: linkedTripSessionId,
+                latitude: latitude,
+                longitude: longitude,
+                maxG: maxG,
+                videoSessionId: videoSessionId,
+                fileURL: outputURL,
+                isSavedToPhotoLibrary: false
             )
 
             idx.crashClips.append(clip)
@@ -250,6 +563,7 @@ final class JSONVideoArchiveStore: VideoArchiveStore {
             return clip
         }
     }
+            
     func listArchiveItems() throws -> [DashcamArchiveItem] {
         try queue.sync {
             let idx = try readIndex()
@@ -272,6 +586,17 @@ final class JSONVideoArchiveStore: VideoArchiveStore {
                 }
 
             for segment in normalSegments {
+                
+                guard segmentFileExists(segment) else {
+                    continue
+                }
+
+                let playbackURL = resolvedURL(for: segment)
+                
+                print("[ArchiveDebug] listArchiveItems normal id=\(segment.id)")
+                debugLogFileState(prefix: "listArchiveItems normal", url: segment.fileURL)
+
+                
                 let ended = segment.endedAt ?? segment.startedAt
                 let recordingNumber = sessionNumberMap[segment.sessionId]
 
@@ -285,7 +610,7 @@ final class JSONVideoArchiveStore: VideoArchiveStore {
                         isProtected: segment.isProtected,
                         title: "Запись №\(recordingNumber ?? 0)",
                         segmentLabel: "Фрагмент \(segment.order)",
-                        playbackURL: segment.fileURL,
+                        playbackURL: playbackURL,
                         sessionId: segment.sessionId,
                         segmentOrder: segment.order,
                         recordingNumber: recordingNumber,
@@ -296,16 +621,13 @@ final class JSONVideoArchiveStore: VideoArchiveStore {
                 )
             }
             
-            let crashClipsSorted = idx.crashClips.sorted { $0.crashAt < $1.crashAt }
-            let crashNumberMap = Dictionary(
-                uniqueKeysWithValues: crashClipsSorted.enumerated().map { index, clip in
-                    (clip.id, index + 1)
-                }
-            )
-
+        
             for clip in idx.crashClips {
                 let crashFolder = crashURL.appendingPathComponent(clip.id, isDirectory: true)
                 let playbackURL = crashFolder.appendingPathComponent("crash.mov")
+                
+                print("[ArchiveDebug] listArchiveItems crash id=\(clip.id)")
+                debugLogFileState(prefix: "listArchiveItems crash", url: playbackURL)
 
                 guard fileManager.fileExists(atPath: playbackURL.path) else { continue }
 
@@ -319,7 +641,7 @@ final class JSONVideoArchiveStore: VideoArchiveStore {
                     return n.int64Value
                 }()
 
-                let durationSeconds = max(1, clip.preSeconds + clip.postSeconds)
+                let durationSeconds = actualDurationSeconds(for: playbackURL)
 
                 items.append(
                     DashcamArchiveItem(
@@ -343,13 +665,8 @@ final class JSONVideoArchiveStore: VideoArchiveStore {
 
             let crashItems = items
                 .filter { $0.kind == .crash }
-                .sorted {
-                    if $0.recordingNumber == $1.recordingNumber {
-                        return ($0.fragmentNumber ?? 0) < ($1.fragmentNumber ?? 0)
-                    }
-                    return ($0.recordingNumber ?? 0) > ($1.recordingNumber ?? 0)
-                }
-
+                .sorted { $0.startedAt > $1.startedAt }
+            
             let normalItemsOnly = items
                 .filter { $0.kind == .normal }
                 .sorted {
@@ -375,7 +692,10 @@ final class JSONVideoArchiveStore: VideoArchiveStore {
             }
 
             for item in normalSegmentsToDelete {
-                try? fileManager.removeItem(at: item.fileURL)
+                if segmentFileExists(item) {
+                    let url = resolvedURL(for: item)
+                    try? fileManager.removeItem(at: url)
+                }
             }
 
             for clipId in crashClipIds {

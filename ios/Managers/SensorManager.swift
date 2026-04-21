@@ -35,11 +35,74 @@ final class SensorManager: NSObject, ObservableObject {
         }
     }
 
-    func finishImplicitTrip() async {
-        if isCollectingNow {
-            stopAll()
+    func finishImplicitTrip(reason: String = TripFinishReason.userStop.rawValue) async {
+        let sessionIdSnapshot = currentSessionId.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !sessionIdSnapshot.isEmpty else { return }
+
+        let driverIdSnapshot = currentTripOwnerDriverId
+        let deviceIdSnapshot = deviceIdForDisplay
+        let deviceContextSnapshot = makeDeviceContextPayload()
+        let tailActivityContextSnapshot = makeTailActivityContext(windowSec: 120.0)
+
+        if !isCollectingNow {
+            let endedAtISO = ISO8601DateFormatter().string(from: Date())
+            let durationSnapshot = Double(currentTripElapsedSec)
+            let clientMetrics = makeClientTripMetricsForFinish(durationSec: durationSnapshot)
+
+            await withCheckedContinuation { continuation in
+                NetworkManager.shared.finishTrip(
+                    sessionId: sessionIdSnapshot,
+                    driverId: driverIdSnapshot,
+                    deviceId: deviceIdSnapshot,
+                    trackingMode: "single_trip",
+                    transportMode: nil,
+                    clientEndedAt: endedAtISO,
+                    tripDurationSec: durationSnapshot,
+                    finishReason: reason,
+                    clientMetrics: clientMetrics,
+                    deviceContext: deviceContextSnapshot,
+                    tailActivityContext: tailActivityContextSnapshot
+                ) { _ in
+                    Task { @MainActor in
+                        self.finalizeTripOwnerAfterFinish()
+                        self.applyPendingDriverIdIfNeeded()
+                        continuation.resume()
+                    }
+                }
+            }
+            return
+        }
+
+        await withCheckedContinuation { continuation in
+            self.stopAndDrainUploads { _ in
+                let endedAtISO = ISO8601DateFormatter().string(from: Date())
+                let durationSnapshot = Double(self.currentTripElapsedSec)
+                let clientMetrics = self.makeClientTripMetricsForFinish(durationSec: durationSnapshot)
+
+                NetworkManager.shared.finishTrip(
+                    sessionId: sessionIdSnapshot,
+                    driverId: driverIdSnapshot,
+                    deviceId: deviceIdSnapshot,
+                    trackingMode: "single_trip",
+                    transportMode: nil,
+                    clientEndedAt: endedAtISO,
+                    tripDurationSec: durationSnapshot,
+                    finishReason: reason,
+                    clientMetrics: clientMetrics,
+                    deviceContext: deviceContextSnapshot,
+                    tailActivityContext: tailActivityContextSnapshot
+                ) { _ in
+                    Task { @MainActor in
+                        self.finalizeTripOwnerAfterFinish()
+                        self.applyPendingDriverIdIfNeeded()
+                        continuation.resume()
+                    }
+                }
+            }
         }
     }
+    
+    
     
     
 
@@ -149,10 +212,16 @@ final class SensorManager: NSObject, ObservableObject {
     private var lastBrakeInTurnAt: Date? = nil
     
     private var stopInProgress: Bool = false
+    var suppressAutoFinishWhileDashcamActive: Bool = false {
+        didSet {
+            manualAutoFinish.suppressAutoFinishWhileDashcamActive = suppressAutoFinishWhileDashcamActive
+        }
+    }
     
     // Public Alpha additive fields
     private let crashThresholdG: Double = 1.2
 
+    private let crashLogsEnabled = false
 
 
 
@@ -213,6 +282,57 @@ final class SensorManager: NSObject, ObservableObject {
 
     private func isAutoDriverId(_ value: String) -> Bool {
         value == defaultAutoDriverId()
+    }
+    
+    func makeClientTripMetricsForFinish(durationSec: Double) -> ClientTripMetrics {
+        let rawDistKm = currentTripDistanceKm
+
+        let distKm: Double = {
+            guard rawDistKm.isFinite else { return 0.0 }
+            return max(0.0, rawDistKm)
+        }()
+
+        let distM = NumericSanitizer.metric(distKm * 1000.0)
+
+        func perKm(_ value: Double) -> Double {
+            guard distKm > 0.000001 else { return 0.0 }
+            return NumericSanitizer.metric(value / distKm)
+        }
+
+        func agg(count: Int, sum: Double, maxVal: Double) -> ClientAgg {
+            ClientAgg(
+                count: count,
+                sum_intensity: NumericSanitizer.metric(sum),
+                max_intensity: NumericSanitizer.metric(maxVal),
+                count_per_km: perKm(Double(count)),
+                sum_per_km: perKm(sum)
+            )
+        }
+
+        return ClientTripMetrics(
+            trip_distance_m: distM,
+            trip_distance_km_from_gps: NumericSanitizer.metric(distKm),
+            brake: agg(
+                count: brakeCount,
+                sum: brakeSumIntensity,
+                maxVal: brakeMaxIntensity
+            ),
+            accel: agg(
+                count: accelCount,
+                sum: accelSumIntensity,
+                maxVal: accelMaxIntensity
+            ),
+            road: agg(
+                count: roadCount,
+                sum: roadSumIntensity,
+                maxVal: roadMaxIntensity
+            ),
+            turn: agg(
+                count: turnCount,
+                sum: turnSumIntensity,
+                maxVal: turnMaxIntensity
+            )
+        )
     }
 
     private func loadOrCreateAutoDriverPassword() -> String {
@@ -582,7 +702,10 @@ final class SensorManager: NSObject, ObservableObject {
     // фиксатор аварий
     @Published var crashDetected: Bool = false
     @Published var crashG: Double = 0
-    private var dashcamCrashEventSentForCurrentTrip: Bool = false
+    @Published var crashCount: Int = 0
+
+    private var lastCrashDetectionAt: Date?
+    private let crashDetectionCooldownSec: TimeInterval = 2.0
     
     // Public Alpha additive fields
     var currentSpeedKmhForAutoFinish: Double {
@@ -595,35 +718,61 @@ final class SensorManager: NSObject, ObservableObject {
     
     private enum AggKind { case accel, brake, road, turn, accelInTurn, brakeInTurn }
     
-    private func publishDashcamCrashEventIfNeeded() {
-        guard !dashcamCrashEventSentForCurrentTrip else { return }
+    private func publishDashcamCrashEvent(_ gForce: Double) {
+        let now = Date()
 
-        dashcamCrashEventSentForCurrentTrip = true
+        if crashLogsEnabled {
+            print("[CRASH_PUBLISH] publishedAt=\(now) g=\(gForce) threadMain=\(Thread.isMainThread)")
+        }
+        print("[CRASH_PUBLISH] publishedAt=\(now) g=\(gForce) threadMain=\(Thread.isMainThread)")
+
+        if let lastCrashDetectionAt,
+           now.timeIntervalSince(lastCrashDetectionAt) < crashDetectionCooldownSec {
+            if crashLogsEnabled {
+                print("[CRASH_PUBLISH] cooldown_local_skip delta=\(now.timeIntervalSince(lastCrashDetectionAt))")
+            }
+            print("[CRASH_PUBLISH] cooldown_local_skip delta=\(now.timeIntervalSince(lastCrashDetectionAt))")
+            return
+        }
+
+        lastCrashDetectionAt = now
+
+        let latitude = lastKnownLocation?.coordinate.latitude
+        let longitude = lastKnownLocation?.coordinate.longitude
+
+        DispatchQueue.main.async {
+            self.crashCount += 1
+            self.crashDetected = true
+            self.crashG = gForce
+        }
 
         let event = CrashEvent(
-            at: Date(),
-            gForce: crashG,
-            latitude: lastKnownLocation?.coordinate.latitude,
-            longitude: lastKnownLocation?.coordinate.longitude
+            at: now,
+            gForce: gForce,
+            latitude: latitude,
+            longitude: longitude
         )
+
+        if crashLogsEnabled {
+            print("[SENSOR][CRASH] crash detected, g=\(gForce)")
+        }
+
         crashEventSubject.send(event)
     }
 
     private func recordAgg(_ kind: AggKind, intensity raw: Double) {
         let x = abs(raw)
-        
-        // Crash detection
-        // Public Alpha additive fields
-        // Crash detection with max-G tracking
+
         let threshold = indoorTestMode ? 1.2 : crashThresholdG
-        if x > crashThresholdG {
-            DispatchQueue.main.async {
-                self.crashDetected = true                                
-                self.crashG = Swift.max(self.crashG, x)
-                self.publishDashcamCrashEventIfNeeded()
+        if x > threshold {
+            if crashLogsEnabled {
+                let detectedAt = Date()
+                print("[CRASH_DETECTED] at=\(detectedAt) g=\(x) threadMain=\(Thread.isMainThread)")
             }
+
+            self.publishDashcamCrashEvent(x)
         }
-        
+
         if x < aggMinEventG { return }
 
         let isExtreme = x > aggMaxReasonableG
@@ -632,6 +781,7 @@ final class SensorManager: NSObject, ObservableObject {
             count += 1
             sum += x
         }
+
         func updExtreme(count: inout Int, sum: inout Double, max: inout Double?) {
             count += 1
             sum += x
@@ -641,34 +791,52 @@ final class SensorManager: NSObject, ObservableObject {
         DispatchQueue.main.async {
             switch kind {
             case .brake:
-                if isExtreme { updExtreme(count: &self.brakeExtremeCount, sum: &self.brakeExtremeSumIntensity, max: &self.brakeExtremeMaxIntensity) }
-                else { updNormal(count: &self.brakeCount, sum: &self.brakeSumIntensity)
-                    self.brakeMaxIntensity = max(self.brakeMaxIntensity, x) }
+                if isExtreme {
+                    updExtreme(count: &self.brakeExtremeCount, sum: &self.brakeExtremeSumIntensity, max: &self.brakeExtremeMaxIntensity)
+                } else {
+                    updNormal(count: &self.brakeCount, sum: &self.brakeSumIntensity)
+                    self.brakeMaxIntensity = max(self.brakeMaxIntensity, x)
+                }
 
             case .accel:
-                if isExtreme { updExtreme(count: &self.accelExtremeCount, sum: &self.accelExtremeSumIntensity, max: &self.accelExtremeMaxIntensity) }
-                else { updNormal(count: &self.accelCount, sum: &self.accelSumIntensity)
-                    self.accelMaxIntensity = max(self.accelMaxIntensity, x) }
+                if isExtreme {
+                    updExtreme(count: &self.accelExtremeCount, sum: &self.accelExtremeSumIntensity, max: &self.accelExtremeMaxIntensity)
+                } else {
+                    updNormal(count: &self.accelCount, sum: &self.accelSumIntensity)
+                    self.accelMaxIntensity = max(self.accelMaxIntensity, x)
+                }
 
             case .road:
-                if isExtreme { updExtreme(count: &self.roadExtremeCount, sum: &self.roadExtremeSumIntensity, max: &self.roadExtremeMaxIntensity) }
-                else { updNormal(count: &self.roadCount, sum: &self.roadSumIntensity)
-                    self.roadMaxIntensity = max(self.roadMaxIntensity, x) }
+                if isExtreme {
+                    updExtreme(count: &self.roadExtremeCount, sum: &self.roadExtremeSumIntensity, max: &self.roadExtremeMaxIntensity)
+                } else {
+                    updNormal(count: &self.roadCount, sum: &self.roadSumIntensity)
+                    self.roadMaxIntensity = max(self.roadMaxIntensity, x)
+                }
 
             case .turn:
-                if isExtreme { updExtreme(count: &self.turnExtremeCount, sum: &self.turnExtremeSumIntensity, max: &self.turnExtremeMaxIntensity) }
-                else { updNormal(count: &self.turnCount, sum: &self.turnSumIntensity)
-                    self.turnMaxIntensity = max(self.turnMaxIntensity, x) }
+                if isExtreme {
+                    updExtreme(count: &self.turnExtremeCount, sum: &self.turnExtremeSumIntensity, max: &self.turnExtremeMaxIntensity)
+                } else {
+                    updNormal(count: &self.turnCount, sum: &self.turnSumIntensity)
+                    self.turnMaxIntensity = max(self.turnMaxIntensity, x)
+                }
 
             case .accelInTurn:
-                if isExtreme { updExtreme(count: &self.accelInTurnExtremeCount, sum: &self.accelInTurnExtremeSumIntensity, max: &self.accelInTurnExtremeMaxIntensity) }
-                else { updNormal(count: &self.accelInTurnCount, sum: &self.accelInTurnSumIntensity)
-                    self.accelInTurnMaxIntensity = max(self.accelInTurnMaxIntensity, x) }
+                if isExtreme {
+                    updExtreme(count: &self.accelInTurnExtremeCount, sum: &self.accelInTurnExtremeSumIntensity, max: &self.accelInTurnExtremeMaxIntensity)
+                } else {
+                    updNormal(count: &self.accelInTurnCount, sum: &self.accelInTurnSumIntensity)
+                    self.accelInTurnMaxIntensity = max(self.accelInTurnMaxIntensity, x)
+                }
 
             case .brakeInTurn:
-                if isExtreme { updExtreme(count: &self.brakeInTurnExtremeCount, sum: &self.brakeInTurnExtremeSumIntensity, max: &self.brakeInTurnExtremeMaxIntensity) }
-                else { updNormal(count: &self.brakeInTurnCount, sum: &self.brakeInTurnSumIntensity)
-                    self.brakeInTurnMaxIntensity = max(self.brakeInTurnMaxIntensity, x) }
+                if isExtreme {
+                    updExtreme(count: &self.brakeInTurnExtremeCount, sum: &self.brakeInTurnExtremeSumIntensity, max: &self.brakeInTurnExtremeMaxIntensity)
+                } else {
+                    updNormal(count: &self.brakeInTurnCount, sum: &self.brakeInTurnSumIntensity)
+                    self.brakeInTurnMaxIntensity = max(self.brakeInTurnMaxIntensity, x)
+                }
             }
         }
     }
@@ -1386,6 +1554,8 @@ if self.debugPrintsEnabled {
         resetLiveServerMetrics()
         // 🔹 Автофиниш для manual режимов
         manualAutoFinish.stop()
+        manualAutoFinish.suppressAutoFinishWhileDashcamActive = suppressAutoFinishWhileDashcamActive
+
         if self.trackingMode != "auto" {
             manualAutoFinish.start(
                 currentSpeedKmh: { [weak self] in
@@ -1417,7 +1587,8 @@ if self.debugPrintsEnabled {
         
         crashDetected = false
         crashG = 0
-        dashcamCrashEventSentForCurrentTrip = false
+        crashCount = 0
+        lastCrashDetectionAt = nil
         
         brakeCount = 0
         brakeSumIntensity = 0
@@ -1908,6 +2079,9 @@ if self.debugPrintsEnabled {
                 return
             }
             guard let motion else { return }
+            if crashLogsEnabled {
+                    print("[MOTION_RAW] tick=\(Date())")
+                }
             self.handleDeviceMotion(motion)
         }
     }
@@ -2596,10 +2770,38 @@ if self.debugPrintsEnabled {
         }
     }
     
+    private func appendEventToBuffers(_ event: TelemetryEvent) {
+        self.eventsBuffer.append(event)
+        self.recentEventSnapshots.append(event)
+        self.timelineEvents.append(event)
+
+        if self.recentEventSnapshots.count > self.recentEventSnapshotsLimit {
+            self.recentEventSnapshots.removeFirst(self.recentEventSnapshots.count - self.recentEventSnapshotsLimit)
+        }
+
+        if self.timelineEvents.count > self.maxEvents {
+            self.timelineEvents.removeFirst(self.timelineEvents.count - self.maxEvents)
+        }
+    }
+    
 
     // MARK: - Main motion handler
+    
+    private let maxSamples = 900
+    private let maxEvents = 200
 
     private func handleDeviceMotion(_ motion: CMDeviceMotion) {
+        //        if crashLogsEnabled {
+        //                print("[HANDLE_DM_ENTER] tick=\(Date())")
+        //            }
+        let callbackAt = Date()
+        let sensorLag = ProcessInfo.processInfo.systemUptime - motion.timestamp
+        let eventDate = callbackAt.addingTimeInterval(-sensorLag)
+
+        if sensorLag > 1.0 {
+            print("[MOTION_BACKLOG] eventAt=\(eventDate) callbackAt=\(callbackAt) lag=\(sensorLag)s")
+        }
+
         let accel = motion.userAcceleration
         let rot = motion.rotationRate
         let att = motion.attitude
@@ -2607,7 +2809,11 @@ if self.debugPrintsEnabled {
 
         let now = Date()
         let tISO = isoFormatter.string(from: now)
-        
+
+        //        if crashLogsEnabled {
+        //            print("[CRASH_RAW_DEVICE] tick=\(now) userAccX=\(accel.x) userAccY=\(accel.y) userAccZ=\(accel.z) rotZ=\(rot.z)")
+        //        }
+
         // === Live «water glass» params (updated regardless of telemetry suppression) ===
         if wantsWaterRate {
             waterGameManager.process(
@@ -2616,8 +2822,7 @@ if self.debugPrintsEnabled {
                 rotationRate: rot
             )
         }
-        
-        
+
         // --- Heavy work throttle (samples/events/UI debug) ---
         let dueForTelemetry: Bool = {
             let dt = now.timeIntervalSince(lastTelemetryTickAt)
@@ -2628,14 +2833,9 @@ if self.debugPrintsEnabled {
             return false
         }()
 
-        // Если не пришло время — НЕ делаем тяжелый bufferQueue.async / эвенты / строки
-        // Но “воду” ты уже обновил выше, так что UX живой.
         if !dueForTelemetry {
             return
         }
-
-
-        
 
         // Snapshot shared state
         let snapshot: (loc: CLLocation?, speedMS: Double?, mode: TelemetryMode, suppressUntil: Date, courseRad: Double?) = bufferQueue.sync {
@@ -2656,30 +2856,32 @@ if self.debugPrintsEnabled {
         let speedMS = snapshot.speedMS
         let mode = snapshot.mode
         let suppressNow = (now < snapshot.suppressUntil)
-        
+
         // NOTE: suppressNow applies only to telemetry EVENTS, not samples.
         let suppressEventsOnly = suppressNow
 
-
-        
         let gpsOK: Bool = {
             guard let l = loc else { return false }
             if now.timeIntervalSince(l.timestamp) > self.maxLocationAge { return false }
             if l.horizontalAccuracy < 0 || l.horizontalAccuracy > self.maxHorizontalAccuracy { return false }
             return true
         }()
-        
+
+        let uiDueNow = self.shouldUpdateUI(now: now)
         
         bufferQueue.async { [weak self] in
             guard let self else { return }
 
+            let uiDue = uiDueNow
+
+            var uiLastProjString: String? = nil
+            var uiLastFiredEventString: String? = nil
+            var uiStatusText: String? = nil
+            var uiTelemetryModeText: String? = nil
+
             // Detect phone moved -> suppress events + reset IMU calibration
             let gDev = SIMD3<Double>(grav.x, grav.y, grav.z)
-//            if self.detectPhoneMovedSignificantly(gravityDev: gDev) {
-//                print("[PHONE_MOVED] now=\(tISO) suppressUntil=\(self.suppressEventsUntil)")
-//                self.suppressEventsUntil = max(self.suppressEventsUntil, now.addingTimeInterval(self.phoneMoveSuppressSec))
-//                self.resetIMUCalibration(reason: "phoneMoved")
-//            }
+
             if !self.indoorTestMode {
                 if self.detectPhoneMovedSignificantly(gravityDev: gDev) {
                     self.suppressEventsUntil = max(
@@ -2690,17 +2892,6 @@ if self.debugPrintsEnabled {
                 }
             }
 
-//            // iOS 15+: speed/course accuracy
-//            var speedAcc: Double? = nil
-//            var courseAcc: Double? = nil
-//            if let loc = loc {
-//                if #available(iOS 15.0, *) {
-//                    if loc.speedAccuracy >= 0 { speedAcc = loc.speedAccuracy }
-//                    if loc.courseAccuracy >= 0 { courseAcc = loc.courseAccuracy }
-//                }
-//            }
-            
-            // iOS can return negative accuracies to indicate "invalid"
             let speedAccToSend: Double? = {
                 guard let l = loc else { return nil }
                 if #available(iOS 10.0, *) {
@@ -2718,7 +2909,6 @@ if self.debugPrintsEnabled {
                 }
                 return nil
             }()
-            
 
             // --- Speed selection logic ---
             let gpsSpeed: Double? = {
@@ -2726,35 +2916,23 @@ if self.debugPrintsEnabled {
                 return s
             }()
 
- 
-            
-            // If GPS speed is bad or missing — fallback to IMU speed
-                   
             let speedToSend: Double? = {
-                // Prefer GPS when available, otherwise fallback to IMU-estimated speed
                 if let gps = gpsSpeed { return gps }
                 if let s = speedMS, s > 0 { return s }
                 return nil
             }()
-            
-            // V2: speed_m_s is MUST for every event -> never send nil
-            // Samples: keep "unknown" as -1.0 (server should treat as unknown)
-            let speedForSample: Double = speedToSend ?? -1.0
-            
-            // Events: must be present; if unknown keep 0.0 (or switch to -1.0 if server supports it)
-            let speedForEvent: Double = speedToSend ?? 0.0
-            
-            // Unified speed gate for all detectors (use -1 when unknown)
-            let speedGateMS: Double = speedToSend ?? -1.0
-            
-            
 
-            
+            // V2: speed_m_s is MUST for every event -> never send nil
+            let speedForSample: Double = speedToSend ?? -1.0
+            let speedForEvent: Double = speedToSend ?? 0.0
+
+            // Unified speed gate for all detectors
+            let speedGateMS: Double = speedToSend ?? -1.0
 
             // Orientation-robust accelerations (compute ONCE)
             let proj = self.computeProjectedAccelerations(motion: motion, courseRad: snapshot.courseRad)
-            
-            // Seed IMU forward axis from GPS course once (so IMU projection works even if ref-frame later becomes non-north)
+
+            // Seed IMU forward axis from GPS course once
             do {
                 let rf = motionReferenceFrame
                 let okFrame = (rf == .xTrueNorthZVertical) || (rf == .xArbitraryCorrectedZVertical)
@@ -2764,13 +2942,11 @@ if self.debugPrintsEnabled {
                    let sp = speedMS,
                    sp >= self.minSpeedForAccelBrakeMS {
 
-                    let vHat = SIMD2<Double>(cos(cr), sin(cr))  // GPS forward in reference plane
+                    let vHat = SIMD2<Double>(cos(cr), sin(cr))
 
                     if let v = self.forwardAxisRef2D {
-                        // мягкая коррекция оси GPS'ом
                         self.forwardAxisRef2D = normalize2(v * 0.9 + vHat * 0.1)
                     } else {
-                        // initial seed
                         self.forwardAxisRef2D = vHat
                         self.signScore = 1.0
                         self.imuCalibState = .ready
@@ -2778,66 +2954,75 @@ if self.debugPrintsEnabled {
                 }
             }
 
-            //калибруемся всегда, независимо от режима, просто не во время suppress. Это обычно и есть “IMU-first”
+            // calibrate always except during suppress
             if !(now < self.suppressEventsUntil) {
                 self.updateIMUCalibration(aH: proj.aRefH, yawRateZ: rot.z, speedMS: speedMS)
             }
 
-            // Compute aLong/aLat for IMU-only using calibrated axis (compute ONCE)
+            let calibratedAxis = self.calibratedAxisWithSign()
+
+            // Compute aLong/aLat for IMU-only using calibrated axis
             var aLongIMU: Double? = nil
             var aLatIMU: Double? = nil
-            // IMU projection is valuable as a fallback even in gpsAssisted mode
-            if let axis = self.calibratedAxisWithSign() {
-                 let vPerp = SIMD2<Double>(-axis.y, axis.x)
-                 aLongIMU = Double(proj.aRefH.x * axis.x + proj.aRefH.y * axis.y)
-                 aLatIMU  = Double(proj.aRefH.x * vPerp.x + proj.aRefH.y * vPerp.y)
-            }
-            else {
-                // fallback until axis calibration happens
+
+            if let axis = calibratedAxis {
+                let vPerp = SIMD2<Double>(-axis.y, axis.x)
+                aLongIMU = Double(proj.aRefH.x * axis.x + proj.aRefH.y * axis.y)
+                aLatIMU  = Double(proj.aRefH.x * vPerp.x + proj.aRefH.y * vPerp.y)
+            } else {
                 aLongIMU = Double(proj.aRefH.y)
                 aLatIMU  = Double(proj.aRefH.x)
             }
-             
 
             // Trust GPS-assisted projection ONLY when course is trustworthy
             let gpsCourseTrusted: Bool = {
                 guard mode == .gpsAssisted else { return false }
                 guard snapshot.courseRad != nil else { return false }
-                // Require non-trivial speed (course at low speed is noisy)
                 if speedGateMS >= 0 && speedGateMS < self.gpsqMinSpeedForCourse { return false }
-                // If courseAccuracy is available, require it to be reasonable
-                if let ca = courseAccToSend, ca > 15 { return false } // degrees
+                if let ca = courseAccToSend, ca > 15 { return false }
                 return true
             }()
-            
-            // Canonical values to send (V2): prefer GPS projection if trusted, else IMU projection
-            let aLongToSend: Double? = ((gpsCourseTrusted) ? proj.aLong : nil) ?? aLongIMU
-#if DEBUG
-if debugPrintsEnabled && self.tripStartedAt != nil {
-    print("[DBG] gpsTrusted=\(gpsCourseTrusted) axis=\(self.calibratedAxisWithSign() != nil) aLongIMU=\(aLongIMU.map{String(format:"%.3f",$0)} ?? "nil") proj.aLong=\(String(describing: proj.aLong)) aLongToSend=\(aLongToSend.map{String(format:"%.3f",$0)} ?? "nil") speed=\(String(format:"%.2f", speedGateMS))")
-}
-#endif
-            let aLatToSend: Double?  = ((gpsCourseTrusted) ? proj.aLat  : nil) ?? aLatIMU
-            
-            let aVertToSend: Double? = proj.aVert
-            
-            let src = gpsCourseTrusted ? "GPS_proj" : (self.calibratedAxisWithSign() != nil ? "IMU_proj" : "no_axis")
 
-            if self.shouldUpdateUI(now: now) {
-                DispatchQueue.main.async {
-                    self.lastProjString = String(
-                        format: "%@ | aLong: %.2f  aLat: %.2f  aVert: %.2f",
-                        src,
-                        aLongToSend ?? 0.0,
-                        aLatToSend ?? 0.0,
-                        aVertToSend ?? 0.0
-                    )
-                }
+            let aLongToSend: Double? = ((gpsCourseTrusted) ? proj.aLong : nil) ?? aLongIMU
+            let aLatToSend: Double?  = ((gpsCourseTrusted) ? proj.aLat  : nil) ?? aLatIMU
+            let aVertToSend: Double? = proj.aVert
+
+            let src = gpsCourseTrusted ? "GPS_proj" : (calibratedAxis != nil ? "IMU_proj" : "no_axis")
+
+            if uiDue {
+                uiLastProjString = String(
+                    format: "%@ | aLong: %.2f  aLat: %.2f  aVert: %.2f",
+                    src,
+                    aLongToSend ?? 0.0,
+                    aLatToSend ?? 0.0,
+                    aVertToSend ?? 0.0
+                )
             }
-            
+
+            let crashMagnitude = max(
+                abs(aVertToSend ?? 0),
+                abs(aLatToSend ?? 0),
+                abs(aLongToSend ?? 0)
+            )
+
+            let threshold = indoorTestMode ? 1.2 : crashThresholdG
+
+            if crashMagnitude > threshold {
+                let now2 = Date()
+                let uptime = ProcessInfo.processInfo.systemUptime
+                let eventDate2 = now2.addingTimeInterval(motion.timestamp - uptime)
+                let lag = now2.timeIntervalSince(eventDate2)
+
+                print("""
+                [CRASH_TIMING]
+                eventAt=\(eventDate2)
+                callbackAt=\(now2)
+                lag=\(lag)s
+                """)
+            }
+
             let safeSpeedForSample = NumericSanitizer.raw(speedForSample)
             let safeSpeedForEvent = NumericSanitizer.metric(speedForEvent)
-            
 
             let safeSpeedAccToSend  = NumericSanitizer.metricOptional(speedAccToSend)
             let safeCourseAccToSend = NumericSanitizer.metricOptional(courseAccToSend)
@@ -2845,70 +3030,74 @@ if debugPrintsEnabled && self.tripStartedAt != nil {
             let safeALongToSend = NumericSanitizer.rawOptional(aLongToSend)
             let safeALatToSend  = NumericSanitizer.rawOptional(aLatToSend)
             let safeAVertToSend = NumericSanitizer.rawOptional(aVertToSend)
-            
+
             let safeHAcc = NumericSanitizer.metricOptional(loc?.horizontalAccuracy)
             let safeVAcc = NumericSanitizer.metricOptional(loc?.verticalAccuracy)
 
-
-
-            // V2: speed_m_s MUST be present in every sample.
-            // If unknown, send sentinel -1.0 (server should treat as "unknown").
-            
-
-           
-            
             let sample = TelemetrySample(
                 t: tISO,
                 lat: loc?.coordinate.latitude,
                 lon: loc?.coordinate.longitude,
                 hAcc: safeHAcc,
                 vAcc: safeVAcc,
-
                 speed_m_s: safeSpeedForSample,
                 speedAcc: safeSpeedAccToSend,
-
                 course: (loc?.course ?? -1) >= 0 ? loc?.course : nil,
                 courseAcc: safeCourseAccToSend,
-
                 accel: Accel(x: accel.x, y: accel.y, z: accel.z),
                 rotation: Rotation(x: rot.x, y: rot.y, z: rot.z),
                 attitude: Attitude(yaw: att.yaw, pitch: att.pitch, roll: att.roll),
-
                 a_long_g: safeALongToSend,
                 a_lat_g: safeALatToSend,
                 a_vert_g: safeAVertToSend
             )
 
-
             self.sampleBuffer.append(sample)
             self.lastSampleSnapshot = sample
             self.timelineSamples.append(sample)
-            self.trimTimelineSamples(nowISO: tISO)
+
+            if self.timelineSamples.count > self.maxSamples {
+                self.timelineSamples.removeFirst(self.timelineSamples.count - self.maxSamples)
+            }
+
+            let appendEvent: (TelemetryEvent) -> Void = { event in
+                self.eventsBuffer.append(event)
+                self.recentEventSnapshots.append(event)
+                self.timelineEvents.append(event)
+
+                if self.recentEventSnapshots.count > self.recentEventSnapshotsLimit {
+                    self.recentEventSnapshots.removeFirst(self.recentEventSnapshots.count - self.recentEventSnapshotsLimit)
+                }
+
+                if self.timelineEvents.count > self.maxEvents {
+                    self.timelineEvents.removeFirst(self.timelineEvents.count - self.maxEvents)
+                }
+            }
 
             // suppression for EVENTS only
             let suppress2 = suppressEventsOnly || (now < self.suppressEventsUntil)
 
-            // --- V2 per-tick gating flags (prevents combined-risk from double-classifying) ---
+            // --- V2 per-tick gating flags ---
             var firedV2AccelThisTick = false
             var firedV2BrakeThisTick = false
-            var firedV2TurnThisTick  = false   // если хочешь, отмечай в turn-блоке
+            var firedV2TurnThisTick  = false
 
-            
             // ===== V2 road anomaly (vertical) =====
             if !suppress2,
-               // road anomalies считаем даже на малой скорости; но если speed неизвестна (-1) — разрешаем
-                  (speedGateMS < 0 || speedGateMS >= self.minSpeedForRoadMS),
-            let aVert = aVertToSend {
+               (speedGateMS < 0 || speedGateMS >= self.minSpeedForRoadMS),
+               let aVert = aVertToSend {
 
-                // 1) maintain rolling buffer
                 vertBuffer.append(VertPoint(t: now, aVertG: aVert))
 
                 let cutoff = now.addingTimeInterval(-roadWindowS)
-                while let first = vertBuffer.first, first.t < cutoff {
-                    vertBuffer.removeFirst()
+                if let firstValidIdx = vertBuffer.firstIndex(where: { $0.t >= cutoff }) {
+                    if firstValidIdx > 0 {
+                        vertBuffer.removeFirst(firstValidIdx)
+                    }
+                } else {
+                    vertBuffer.removeAll(keepingCapacity: true)
                 }
 
-                // 2) compute metrics within window
                 if vertBuffer.count >= 3 {
                     var maxAbs: Double = 0
                     var maxVal: Double = -Double.greatestFiniteMagnitude
@@ -2923,20 +3112,16 @@ if debugPrintsEnabled && self.tripStartedAt != nil {
 
                     let p2p = maxVal - minVal
 
-                    // 3) severity thresholds
                     let severity: String?
                     if p2p >= roadHighP2PG || maxAbs >= roadHighAbsG { severity = "high" }
                     else if p2p >= roadLowP2PG || maxAbs >= roadLowAbsG { severity = "low" }
                     else { severity = nil }
 
                     if let severity {
-
-                        // 4) cooldown
                         let canFire = (lastRoadEventAt == nil) || (now.timeIntervalSince(lastRoadEventAt!) >= roadCooldownS)
                         if canFire {
                             lastRoadEventAt = now
 
-                            // 5) subtype heuristic (placeholder)
                             let subtype: String
                             let hasDip = (minVal <= -0.35)
                             let hasBump = (maxVal >= 0.35)
@@ -2946,104 +3131,69 @@ if debugPrintsEnabled && self.tripStartedAt != nil {
                                 subtype = windowIsFull ? "speed_bump" : "bump"
                             }
 
-                            // 6) meta_json
                             let safeMaxAbs = NumericSanitizer.metric(maxAbs, digits: 3)
                             let safeP2P    = NumericSanitizer.metric(p2p, digits: 3)
                             let safeWindow = NumericSanitizer.metric(roadWindowS, digits: 2)
                             let safeMaxVal = NumericSanitizer.metric(maxVal, digits: 3)
                             let safeMinVal = NumericSanitizer.metric(minVal, digits: 3)
 
-                            let meta = """
-                            {"peak_abs_vert_g":\(String(format: "%.3f", safeMaxAbs)),
-                             "peak_p2p_vert_g":\(String(format: "%.3f", safeP2P)),
-                             "window_s":\(String(format: "%.2f", safeWindow)),
-                             "max_vert_g":\(String(format: "%.3f", safeMaxVal)),
-                             "min_vert_g":\(String(format: "%.3f", safeMinVal))}
-                            """
-                            .replacingOccurrences(of: "\n", with: "")
-                            .replacingOccurrences(of: " ", with: "")
-                            
+                            let meta = String(
+                                format: #"{"peak_abs_vert_g":%.3f,"peak_p2p_vert_g":%.3f,"window_s":%.2f,"max_vert_g":%.3f,"min_vert_g":%.3f}"#,
+                                safeMaxAbs, safeP2P, safeWindow, safeMaxVal, safeMinVal
+                            )
+
                             DispatchQueue.main.async {
                                 self.currentTripRoadAnomalyDeviceCount += 1
                             }
 
                             let event = TelemetryEvent(
-                                    type: .roadAnomaly,
-                                    t: tISO,
-                                    intensity: NumericSanitizer.metric(p2p),
-                                    details: "v2 road_anomaly subtype=\(subtype) severity=\(severity)",
-                                    origin: "client",
-                                    algo_version: "v2",
-                                    speed_m_s: safeSpeedForEvent,
-                                    eventClass: nil,
-                                    subtype: subtype,
-                                    severity: severity,
-                                    meta_json: meta
-                                )
-                            self.eventsBuffer.append(event)
+                                type: .roadAnomaly,
+                                t: tISO,
+                                intensity: NumericSanitizer.metric(p2p),
+                                details: "v2 road_anomaly subtype=\(subtype) severity=\(severity)",
+                                origin: "client",
+                                algo_version: "v2",
+                                speed_m_s: safeSpeedForEvent,
+                                eventClass: nil,
+                                subtype: subtype,
+                                severity: severity,
+                                meta_json: meta
+                            )
 
-                            self.recentEventSnapshots.append(event)
-                            self.timelineEvents.append(event)
-                            self.trimTimelineEvents(nowISO: tISO)
-                            if self.recentEventSnapshots.count > self.recentEventSnapshotsLimit {
-                                self.recentEventSnapshots.removeFirst()
-                            }
-                            
+                            appendEvent(event)
                             self.recordAgg(.road, intensity: p2p)
-                            
-                            #if DEBUG
-                            print("[V2][ROAD] t=\(tISO) aVert=\(String(format: "%.3f", aVert)) speed=\(String(format: "%.1f", speedForEvent))")
-                            #endif
-                            
                         }
                     }
                 }
             }
 
-
-
-            // IMPORTANT: do not recompute aLongIMU/aLatIMU here.
-            // Reuse values computed above (before building the sample).
-            
             // ===== V2 turn (gyro-first; lateral used for severity when available) =====
             if !suppress2,
                (speedGateMS < 0 || speedGateMS >= self.minSpeedForTurnMS) {
 
-                // Optional suppression: don't classify a turn immediately after a strong brake/accel
                 let recentlyBraked = (self.lastBrakeEventAt != nil) && (now.timeIntervalSince(self.lastBrakeEventAt!) < 0.4)
                 let recentlyAccel  = (self.lastAccelEventAt != nil) && (now.timeIntervalSince(self.lastAccelEventAt!) < 0.4)
 
                 if !(recentlyBraked || recentlyAccel) {
-
                     let yawAbsRaw = abs(rot.z)
                     let yawAbs = min(yawAbsRaw, 3.0)
-                   
+
                     if yawAbsRaw > gyroSpikeThreshold {
                         if let last = lastGyroSpikeAt, now.timeIntervalSince(last) < 2.0 {
-                            // уже недавно сбрасывали — не делаем reset снова
+                            // no-op
                         } else {
                             lastGyroSpikeAt = now
                             self.suppressEventsUntil = now.addingTimeInterval(2.0)
                             self.resetIMUCalibration(reason: "gyro spike (phone moved)")
-#if DEBUG
-
-                            print("[GYRO_SPIKE] raw=\(yawAbsRaw) thr=\(gyroSpikeThreshold) -> suppress 2s + resetIMUCalibration")
-
-#endif
                         }
                     }
-                    
 
-                    // Primary detection: yaw rate
                     if yawAbs >= self.turnYawThreshold {
-
-                        // Cooldown gate
                         let canFire = (self.lastTurnEventAt == nil) || (now.timeIntervalSince(self.lastTurnEventAt!) >= self.turnCooldown)
                         if canFire {
                             self.lastTurnEventAt = now
                             firedV2TurnThisTick = true
 
-                            // classify by aLat if present; otherwise classify by yaw rate
                             let aLatAbs: Double? = aLatToSend.map { abs($0) }
 
                             let turnCls: String = {
@@ -3060,126 +3210,87 @@ if debugPrintsEnabled && self.tripStartedAt != nil {
                             let intensity = NumericSanitizer.metric(aLatAbs ?? yawAbs)
 
                             let event = TelemetryEvent(
-                                    type: .turn,
-                                    t: tISO,
-                                    intensity: NumericSanitizer.metric(intensity),
-                                    details: "v2 turn gyro-first cls=\(turnCls) yawAbs=\(String(format: "%.3f", yawAbs)) a_lat_g=\(aLatAbs != nil ? String(format: "%.3f", aLatAbs!) : "—")",
-                                    origin: "client",
-                                    algo_version: "v2",
-                                    speed_m_s: safeSpeedForEvent,
-                                    eventClass: turnCls,
-                                    subtype: nil,
-                                    severity: nil,
-                                    meta_json: nil
-                                )
-                            // основной pipeline (НЕ ТРОГАЕМ)
-                            self.eventsBuffer.append(event)
+                                type: .turn,
+                                t: tISO,
+                                intensity: NumericSanitizer.metric(intensity),
+                                details: "v2 turn gyro-first cls=\(turnCls) yawAbs=\(String(format: "%.3f", yawAbs)) a_lat_g=\(aLatAbs != nil ? String(format: "%.3f", aLatAbs!) : "—")",
+                                origin: "client",
+                                algo_version: "v2",
+                                speed_m_s: safeSpeedForEvent,
+                                eventClass: turnCls,
+                                subtype: nil,
+                                severity: nil,
+                                meta_json: nil
+                            )
 
-                            // snapshot (НОВОЕ)
-                            self.recentEventSnapshots.append(event)
-                            self.timelineEvents.append(event)
-                            self.trimTimelineEvents(nowISO: tISO)
-                            if self.recentEventSnapshots.count > self.recentEventSnapshotsLimit {
-                                self.recentEventSnapshots.removeFirst()
-                            }
-                                                       
+                            appendEvent(event)
                             self.recordAgg(.turn, intensity: intensity)
 
                             DispatchQueue.main.async {
                                 self.currentTripSuddenTurnDeviceCount += 1
                             }
-                            
-                            #if DEBUG
-                            print("[V2][TURN] t=\(tISO) yaw=\(String(format: "%.3f", abs(rot.z))) aLat=\(aLatToSend != nil ? String(format: "%.3f", abs(aLatToSend!)) : "—") speed=\(String(format: "%.1f", speedForEvent))")
-                            #endif
                         }
                     }
                 }
             }
-            
 
-
-            // ===== V2 brake (a_long_g negative; guarded vs turn + per-tick gating) =====
-            
+            // ===== V2 brake =====
             if !suppress2,
-               (speedGateMS < 0 || speedGateMS >= self.minSpeedForAccelBrakeMS)
-,
+               (speedGateMS < 0 || speedGateMS >= self.minSpeedForAccelBrakeMS),
                !firedV2BrakeThisTick,
                !firedV2AccelThisTick,
                let aLong = aLongToSend {
 
-                // brake is negative longitudinal acceleration
                 if aLong <= -brakeSharpLongG {
-
-                    // don't classify brake right after a turn (reduces mislabels)
                     let recentlyTurned = (self.lastTurnEventAt != nil) && (now.timeIntervalSince(self.lastTurnEventAt!) < 0.35)
                     if !recentlyTurned {
-
-                        // keep your existing cooldown
                         let canFire = (self.lastBrakeEventAt == nil) || (now.timeIntervalSince(self.lastBrakeEventAt!) >= self.accelBrakeCooldown)
                         if canFire {
                             self.lastBrakeEventAt = now
                             firedV2BrakeThisTick = true
-                           
-                            let mag = abs(aLong)
 
+                            let mag = abs(aLong)
                             let brakeCls: String
                             if mag >= brakeEmergencyLongG { brakeCls = "emergency" }
                             else { brakeCls = "sharp" }
 
                             let event = TelemetryEvent(
-                                    type: .brake,
-                                    t: tISO,
-                                    intensity: NumericSanitizer.metric(mag),
-                                    details: "v2 brake cls=\(brakeCls) a_long_g=\(String(format: "%.3f", aLong))",
-                                    origin: "client",
-                                    algo_version: "v2",
-                                    speed_m_s: safeSpeedForEvent,
-                                    eventClass: brakeCls,
-                                    subtype: nil,
-                                    severity: nil,
-                                    meta_json: nil
-                                )
-                            self.eventsBuffer.append(event)
+                                type: .brake,
+                                t: tISO,
+                                intensity: NumericSanitizer.metric(mag),
+                                details: "v2 brake cls=\(brakeCls) a_long_g=\(String(format: "%.3f", aLong))",
+                                origin: "client",
+                                algo_version: "v2",
+                                speed_m_s: safeSpeedForEvent,
+                                eventClass: brakeCls,
+                                subtype: nil,
+                                severity: nil,
+                                meta_json: nil
+                            )
 
-                            self.recentEventSnapshots.append(event)
-                            self.timelineEvents.append(event)
-                            self.trimTimelineEvents(nowISO: tISO)
-                            if self.recentEventSnapshots.count > self.recentEventSnapshotsLimit {
-                                self.recentEventSnapshots.removeFirst()
-                            }
-                            
+                            appendEvent(event)
                             self.recordAgg(.brake, intensity: mag)
 
                             DispatchQueue.main.async {
                                 self.currentTripSuddenBrakeDeviceCount += 1
                             }
-                            #if DEBUG
-                            print("[V2][BRAKE] t=\(tISO) aLong=\(String(format: "%.3f", aLong)) speed=\(String(format: "%.1f", speedForEvent)) firedTurn=\(firedV2TurnThisTick)")
-                            #endif
                         }
                     }
                 }
             }
-            
 
-            // ===== V2 accel (a_long_g positive; mutual exclusion + cooldown) =====
+            // ===== V2 accel =====
             if !suppress2,
                (speedGateMS < 0 || speedGateMS >= self.minSpeedForAccelBrakeMS),
-               !firedV2AccelThisTick,                       // don't fire twice in one tick
-               !firedV2BrakeThisTick,                       // mutual exclusion within tick
+               !firedV2AccelThisTick,
+               !firedV2BrakeThisTick,
                let aLong = aLongToSend {
 
-                // accel is positive longitudinal acceleration
                 if aLong >= self.accelSharpLongG {
-
-                    // Optional suppression window: don't classify accel right after a turn
                     let recentlyTurned = (self.lastTurnEventAt != nil) && (now.timeIntervalSince(self.lastTurnEventAt!) < 0.35)
                     if !recentlyTurned {
-
                         let canFire = (self.lastAccelEventAt == nil) || (now.timeIntervalSince(self.lastAccelEventAt!) >= self.accelBrakeCooldown)
                         if canFire {
-                            
                             self.lastAccelEventAt = now
                             firedV2AccelThisTick = true
 
@@ -3191,47 +3302,31 @@ if debugPrintsEnabled && self.tripStartedAt != nil {
                             }()
 
                             let event = TelemetryEvent(
-                                    type: .accel,
-                                    t: tISO,
-                                    intensity: mag,
-                                    details: "v2 accel cls=\(cls) a_long_g=\(String(format: "%.3f", aLong))",
-                                    origin: "client",
-                                    algo_version: "v2",
-                                    speed_m_s: safeSpeedForEvent,
-                                    eventClass: cls,
-                                    subtype: nil,
-                                    severity: nil,
-                                    meta_json: nil
-                                )
-                            self.eventsBuffer.append(event)
+                                type: .accel,
+                                t: tISO,
+                                intensity: mag,
+                                details: "v2 accel cls=\(cls) a_long_g=\(String(format: "%.3f", aLong))",
+                                origin: "client",
+                                algo_version: "v2",
+                                speed_m_s: safeSpeedForEvent,
+                                eventClass: cls,
+                                subtype: nil,
+                                severity: nil,
+                                meta_json: nil
+                            )
 
-                            self.recentEventSnapshots.append(event)
-                            self.timelineEvents.append(event)
-                            self.trimTimelineEvents(nowISO: tISO)
-                            if self.recentEventSnapshots.count > self.recentEventSnapshotsLimit {
-                                self.recentEventSnapshots.removeFirst()
-                            }
-                            
-                            
+                            appendEvent(event)
                             self.recordAgg(.accel, intensity: mag)
 
                             DispatchQueue.main.async {
                                 self.currentTripSuddenAccelDeviceCount += 1
                             }
-                            
-                            #if DEBUG
-                            print("[V2][ACCEL] t=\(tISO) aLong=\(String(format: "%.3f", aLong)) speed=\(String(format: "%.1f", speedForEvent)) firedTurn=\(firedV2TurnThisTick)")
-                            #endif
                         }
                     }
                 }
             }
-            
 
-
-
-            
-            // ===== V2 combined risk (skid risk) =====
+            // ===== V2 combined risk =====
             let primaryFired = firedV2BrakeThisTick || firedV2AccelThisTick || firedV2TurnThisTick
 
             if !suppress2,
@@ -3239,7 +3334,6 @@ if debugPrintsEnabled && self.tripStartedAt != nil {
                !primaryFired {
 
                 if let aLong = aLongToSend, let aLat = aLatToSend {
-
                     let aLatAbs = abs(aLat)
 
                     if aLatAbs >= combinedLatMinG {
@@ -3254,47 +3348,32 @@ if debugPrintsEnabled && self.tripStartedAt != nil {
                             let canFireBrake = (lastBrakeInTurnAt == nil) || (now.timeIntervalSince(lastBrakeInTurnAt!) >= combinedCooldownS)
                             if canFireBrake {
                                 lastBrakeInTurnAt = now
-                                
+
                                 let safeALong = NumericSanitizer.metric(aLong, digits: 3)
                                 let safeALat  = NumericSanitizer.metric(aLat, digits: 3)
                                 let safeLatMin = NumericSanitizer.metric(combinedLatMinG, digits: 3)
-                                
-                                let meta = """
-                                {"a_long_g":\(String(format: "%.3f", safeALong)),
-                                 "a_lat_g":\(String(format: "%.3f", safeALat)),
-                                 "lat_min_g":\(String(format: "%.3f", safeLatMin))}
-                                """
-                                .replacingOccurrences(of: "\n", with: "")
-                                .replacingOccurrences(of: " ", with: "")
-                                
-                                let event = TelemetryEvent(
-                                        type: .brakeInTurn,
-                                        t: tISO,
-                                        intensity: NumericSanitizer.metric(abs(aLong)),
-                                        details: "v2 brake_in_turn cls=\(brakeCls)",
-                                        origin: "client",
-                                        algo_version: "v2",
-                                        speed_m_s: safeSpeedForEvent,
-                                        eventClass: brakeCls,
-                                        subtype: nil,
-                                        severity: nil,
-                                        meta_json: meta
-                                    )
-                                self.eventsBuffer.append(event)
 
-                                self.recentEventSnapshots.append(event)
-                                self.timelineEvents.append(event)
-                                self.trimTimelineEvents(nowISO: tISO)
-                                if self.recentEventSnapshots.count > self.recentEventSnapshotsLimit {
-                                    self.recentEventSnapshots.removeFirst()
-                                }
-                                
-                                
+                                let meta = String(
+                                    format: #"{"a_long_g":%.3f,"a_lat_g":%.3f,"lat_min_g":%.3f}"#,
+                                    safeALong, safeALat, safeLatMin
+                                )
+
+                                let event = TelemetryEvent(
+                                    type: .brakeInTurn,
+                                    t: tISO,
+                                    intensity: NumericSanitizer.metric(abs(aLong)),
+                                    details: "v2 brake_in_turn cls=\(brakeCls)",
+                                    origin: "client",
+                                    algo_version: "v2",
+                                    speed_m_s: safeSpeedForEvent,
+                                    eventClass: brakeCls,
+                                    subtype: nil,
+                                    severity: nil,
+                                    meta_json: meta
+                                )
+
+                                appendEvent(event)
                                 self.recordAgg(.brakeInTurn, intensity: abs(aLong))
-                                
-                                #if DEBUG
-                                print("[V2][COMBINED] t=\(tISO) aLong=\(String(format: "%.3f", aLong)) aLat=\(String(format: "%.3f", aLat)) speed=\(String(format: "%.1f", speedForEvent)) primaryFired=\(firedV2BrakeThisTick || firedV2AccelThisTick || firedV2TurnThisTick)")
-                                #endif
                             }
                         }
 
@@ -3309,49 +3388,42 @@ if debugPrintsEnabled && self.tripStartedAt != nil {
                             if canFireAccel {
                                 lastAccelInTurnAt = now
 
-                                let meta = """
-                                {"a_long_g":\(String(format: "%.3f", aLong)),
-                                 "a_lat_g":\(String(format: "%.3f", aLat)),
-                                 "lat_min_g":\(String(format: "%.3f", combinedLatMinG))}
-                                """.replacingOccurrences(of: "\n", with: "").replacingOccurrences(of: " ", with: "")
+                                let safeALong = NumericSanitizer.metric(aLong, digits: 3)
+                                let safeALat  = NumericSanitizer.metric(aLat, digits: 3)
+                                let safeLatMin = NumericSanitizer.metric(combinedLatMinG, digits: 3)
+
+                                let meta = String(
+                                    format: #"{"a_long_g":%.3f,"a_lat_g":%.3f,"lat_min_g":%.3f}"#,
+                                    safeALong, safeALat, safeLatMin
+                                )
 
                                 let event = TelemetryEvent(
-                                        type: .accelInTurn,
-                                        t: tISO,
-                                        intensity: NumericSanitizer.metric(abs(aLong)),
-                                        details: "v2 accel_in_turn cls=\(accelCls)",
-                                        origin: "client",
-                                        algo_version: "v2",
-                                        speed_m_s: safeSpeedForEvent,
-                                        eventClass: accelCls,
-                                        subtype: nil,
-                                        severity: nil,
-                                        meta_json: meta
-                                    )
-                                self.eventsBuffer.append(event)
+                                    type: .accelInTurn,
+                                    t: tISO,
+                                    intensity: NumericSanitizer.metric(abs(aLong)),
+                                    details: "v2 accel_in_turn cls=\(accelCls)",
+                                    origin: "client",
+                                    algo_version: "v2",
+                                    speed_m_s: safeSpeedForEvent,
+                                    eventClass: accelCls,
+                                    subtype: nil,
+                                    severity: nil,
+                                    meta_json: meta
+                                )
 
-                                self.recentEventSnapshots.append(event)
-                                self.timelineEvents.append(event)
-                                self.trimTimelineEvents(nowISO: tISO)
-                                if self.recentEventSnapshots.count > self.recentEventSnapshotsLimit {
-                                    self.recentEventSnapshots.removeFirst()
-                                }
-                                
-                                
+                                appendEvent(event)
                                 self.recordAgg(.accelInTurn, intensity: abs(aLong))
                             }
                         }
                     }
-
                 }
             }
-
 
             // safety cap for RAM
             if self.sampleBuffer.count > 5000 {
                 self.sampleBuffer.removeFirst(1000)
             }
-            
+
             // DEBUG: last fired event
             if self.eventsBuffer.count > self.lastDebugEventIndex {
                 self.lastDebugEventIndex = self.eventsBuffer.count
@@ -3360,35 +3432,51 @@ if debugPrintsEnabled && self.tripStartedAt != nil {
                     let sub = e.subtype ?? "—"
                     let sev = e.severity ?? "—"
 
-                    if self.shouldUpdateUI(now: now) {
-                        DispatchQueue.main.async {
-                            self.lastFiredEventString =
-                                "\(e.type.rawValue) | cls=\(cls) sub=\(sub) sev=\(sev) int=\(String(format: "%.3f", e.intensity))"
-                        }
+                    if uiDue {
+                        uiLastFiredEventString =
+                            "\(e.type.rawValue) | cls=\(cls) sub=\(sub) sev=\(sev) int=\(String(format: "%.3f", e.intensity))"
                     }
-
                 }
             }
-
 
             // Status hint
-            if self.shouldUpdateUI(now: now) {
-                DispatchQueue.main.async {
-                    let gpsOrImu = self.currentTelemetryModeString()
-                    if suppress2 {
-                        self.statusText = "Running (\(mode.rawValue)) [\(gpsOrImu)] — stabilizing…"
-                    } else {
-                        self.statusText = "Running (\(mode.rawValue)) [\(gpsOrImu)] calib=\(self.imuCalibState.rawValue)"
-                    }
-                    self.telemetryModeText = gpsOrImu
+            if uiDue {
+                let gpsOrImu = self.currentTelemetryModeString()
+                uiTelemetryModeText = gpsOrImu
+
+                if suppress2 {
+                    uiStatusText = "Running (\(mode.rawValue)) [\(gpsOrImu)] — stabilizing…"
+                } else {
+                    uiStatusText = "Running (\(mode.rawValue)) [\(gpsOrImu)] calib=\(self.imuCalibState.rawValue)"
                 }
             }
 
+            if uiDue {
+                DispatchQueue.main.async {
+                    if let v = uiLastProjString {
+                        self.lastProjString = v
+                    }
+                    if let v = uiLastFiredEventString {
+                        self.lastFiredEventString = v
+                    }
+                    if let v = uiStatusText {
+                        self.statusText = v
+                    }
+                    if let v = uiTelemetryModeText {
+                        self.telemetryModeText = v
+                    }
+                }
+            }
         }
 
         // UI numbers
         let mag = sqrt(accel.x * accel.x + accel.y * accel.y + accel.z * accel.z)
-        if self.shouldUpdateUI(now: now) {
+
+        //        if crashLogsEnabled {
+        //            print("[CRASH_RAW_MAG] tick=\(now) mag=\(mag)")
+        //        }
+
+        if uiDueNow {
             DispatchQueue.main.async {
                 self.lastUserAccelString = String(
                     format: "ua  x: %.2f  y: %.2f  z: %.2f",
@@ -3414,8 +3502,892 @@ if debugPrintsEnabled && self.tripStartedAt != nil {
                 }
             }
         }
-
     }
+
+//    private func handleDeviceMotion(_ motion: CMDeviceMotion) {
+//        if crashLogsEnabled {
+//                print("[HANDLE_DM_ENTER] tick=\(Date())")
+//            }
+//        let callbackAt = Date()
+//        let sensorLag = ProcessInfo.processInfo.systemUptime - motion.timestamp
+//        let eventDate = callbackAt.addingTimeInterval(-sensorLag)
+//
+//        if sensorLag > 1.0 {
+//            print("[MOTION_BACKLOG] eventAt=\(eventDate) callbackAt=\(callbackAt) lag=\(sensorLag)s")
+//        }
+//        
+//        
+//        
+//        
+//        let accel = motion.userAcceleration
+//        let rot = motion.rotationRate
+//        let att = motion.attitude
+//        let grav = motion.gravity
+//           
+//        let now = Date()
+//        
+//        
+//        let tISO = isoFormatter.string(from: now)
+//        if crashLogsEnabled {
+//            print("[CRASH_RAW_DEVICE] tick=\(now) userAccX=\(accel.x) userAccY=\(accel.y) userAccZ=\(accel.z) rotZ=\(rot.z)")
+//        }
+//        
+//        // === Live «water glass» params (updated regardless of telemetry suppression) ===
+//        if wantsWaterRate {
+//            waterGameManager.process(
+//                attitude: att,
+//                accel: accel,
+//                rotationRate: rot
+//            )
+//        }
+//        
+//        
+//        // --- Heavy work throttle (samples/events/UI debug) ---
+//        let dueForTelemetry: Bool = {
+//            let dt = now.timeIntervalSince(lastTelemetryTickAt)
+//            if dt >= telemetryInterval {
+//                lastTelemetryTickAt = now
+//                return true
+//            }
+//            return false
+//        }()
+//
+//        // Если не пришло время — НЕ делаем тяжелый bufferQueue.async / эвенты / строки
+//        // Но “воду” ты уже обновил выше, так что UX живой.
+//        if !dueForTelemetry {
+//            return
+//        }
+//
+//
+//        
+//
+//        // Snapshot shared state
+//        let snapshot: (loc: CLLocation?, speedMS: Double?, mode: TelemetryMode, suppressUntil: Date, courseRad: Double?) = bufferQueue.sync {
+//            let l = lastKnownLocation
+//            let s: Double? = (lastKnownSpeedMS != nil && lastKnownSpeedMS! >= 0) ? Double(lastKnownSpeedMS!) : nil
+//            let mode = telemetryMode
+//            let sup = suppressEventsUntil
+//
+//            var courseRad: Double? = nil
+//            if let cr = lastCourseRad, let at = lastCourseAt, now.timeIntervalSince(at) <= 10.0 {
+//                courseRad = cr
+//            }
+//
+//            return (l, s, mode, sup, courseRad)
+//        }
+//
+//        let loc = snapshot.loc
+//        let speedMS = snapshot.speedMS
+//        let mode = snapshot.mode
+//        let suppressNow = (now < snapshot.suppressUntil)
+//        
+//        // NOTE: suppressNow applies only to telemetry EVENTS, not samples.
+//        let suppressEventsOnly = suppressNow
+//
+//
+//        
+//        let gpsOK: Bool = {
+//            guard let l = loc else { return false }
+//            if now.timeIntervalSince(l.timestamp) > self.maxLocationAge { return false }
+//            if l.horizontalAccuracy < 0 || l.horizontalAccuracy > self.maxHorizontalAccuracy { return false }
+//            return true
+//        }()
+//        
+//        // === CRASH FAST PATH DEBUG ===
+//       
+//        
+//        bufferQueue.async { [weak self] in
+//            guard let self else { return }
+//
+//            // Detect phone moved -> suppress events + reset IMU calibration
+//            let gDev = SIMD3<Double>(grav.x, grav.y, grav.z)
+////            if self.detectPhoneMovedSignificantly(gravityDev: gDev) {
+////                print("[PHONE_MOVED] now=\(tISO) suppressUntil=\(self.suppressEventsUntil)")
+////                self.suppressEventsUntil = max(self.suppressEventsUntil, now.addingTimeInterval(self.phoneMoveSuppressSec))
+////                self.resetIMUCalibration(reason: "phoneMoved")
+////            }
+//            if !self.indoorTestMode {
+//                if self.detectPhoneMovedSignificantly(gravityDev: gDev) {
+//                    self.suppressEventsUntil = max(
+//                        self.suppressEventsUntil,
+//                        now.addingTimeInterval(self.phoneMoveSuppressSec)
+//                    )
+//                    self.resetIMUCalibration(reason: "phoneMoved")
+//                }
+//            }
+//
+////            // iOS 15+: speed/course accuracy
+////            var speedAcc: Double? = nil
+////            var courseAcc: Double? = nil
+////            if let loc = loc {
+////                if #available(iOS 15.0, *) {
+////                    if loc.speedAccuracy >= 0 { speedAcc = loc.speedAccuracy }
+////                    if loc.courseAccuracy >= 0 { courseAcc = loc.courseAccuracy }
+////                }
+////            }
+//            
+//            // iOS can return negative accuracies to indicate "invalid"
+//            let speedAccToSend: Double? = {
+//                guard let l = loc else { return nil }
+//                if #available(iOS 10.0, *) {
+//                    let v = l.speedAccuracy
+//                    return v >= 0 ? v : nil
+//                }
+//                return nil
+//            }()
+//
+//            let courseAccToSend: Double? = {
+//                guard let l = loc else { return nil }
+//                if #available(iOS 13.4, *) {
+//                    let v = l.courseAccuracy
+//                    return v >= 0 ? v : nil
+//                }
+//                return nil
+//            }()
+//            
+//
+//            // --- Speed selection logic ---
+//            let gpsSpeed: Double? = {
+//                guard gpsOK, let s = loc?.speed, s >= 0 else { return nil }
+//                return s
+//            }()
+//
+// 
+//            
+//            // If GPS speed is bad or missing — fallback to IMU speed
+//                   
+//            let speedToSend: Double? = {
+//                // Prefer GPS when available, otherwise fallback to IMU-estimated speed
+//                if let gps = gpsSpeed { return gps }
+//                if let s = speedMS, s > 0 { return s }
+//                return nil
+//            }()
+//            
+//            // V2: speed_m_s is MUST for every event -> never send nil
+//            // Samples: keep "unknown" as -1.0 (server should treat as unknown)
+//            let speedForSample: Double = speedToSend ?? -1.0
+//            
+//            // Events: must be present; if unknown keep 0.0 (or switch to -1.0 if server supports it)
+//            let speedForEvent: Double = speedToSend ?? 0.0
+//            
+//            // Unified speed gate for all detectors (use -1 when unknown)
+//            let speedGateMS: Double = speedToSend ?? -1.0
+//            
+//            
+//
+//            
+//
+//            // Orientation-robust accelerations (compute ONCE)
+//            let proj = self.computeProjectedAccelerations(motion: motion, courseRad: snapshot.courseRad)
+//            
+//            // Seed IMU forward axis from GPS course once (so IMU projection works even if ref-frame later becomes non-north)
+//            do {
+//                let rf = motionReferenceFrame
+//                let okFrame = (rf == .xTrueNorthZVertical) || (rf == .xArbitraryCorrectedZVertical)
+//
+//                if okFrame,
+//                   let cr = snapshot.courseRad,
+//                   let sp = speedMS,
+//                   sp >= self.minSpeedForAccelBrakeMS {
+//
+//                    let vHat = SIMD2<Double>(cos(cr), sin(cr))  // GPS forward in reference plane
+//
+//                    if let v = self.forwardAxisRef2D {
+//                        // мягкая коррекция оси GPS'ом
+//                        self.forwardAxisRef2D = normalize2(v * 0.9 + vHat * 0.1)
+//                    } else {
+//                        // initial seed
+//                        self.forwardAxisRef2D = vHat
+//                        self.signScore = 1.0
+//                        self.imuCalibState = .ready
+//                    }
+//                }
+//            }
+//
+//            //калибруемся всегда, независимо от режима, просто не во время suppress. Это обычно и есть “IMU-first”
+//            if !(now < self.suppressEventsUntil) {
+//                self.updateIMUCalibration(aH: proj.aRefH, yawRateZ: rot.z, speedMS: speedMS)
+//            }
+//
+//            // Compute aLong/aLat for IMU-only using calibrated axis (compute ONCE)
+//            var aLongIMU: Double? = nil
+//            var aLatIMU: Double? = nil
+//            // IMU projection is valuable as a fallback even in gpsAssisted mode
+//            if let axis = self.calibratedAxisWithSign() {
+//                 let vPerp = SIMD2<Double>(-axis.y, axis.x)
+//                 aLongIMU = Double(proj.aRefH.x * axis.x + proj.aRefH.y * axis.y)
+//                 aLatIMU  = Double(proj.aRefH.x * vPerp.x + proj.aRefH.y * vPerp.y)
+//            }
+//            else {
+//                // fallback until axis calibration happens
+//                aLongIMU = Double(proj.aRefH.y)
+//                aLatIMU  = Double(proj.aRefH.x)
+//            }
+//            
+//            
+//             
+//
+//            // Trust GPS-assisted projection ONLY when course is trustworthy
+//            let gpsCourseTrusted: Bool = {
+//                guard mode == .gpsAssisted else { return false }
+//                guard snapshot.courseRad != nil else { return false }
+//                // Require non-trivial speed (course at low speed is noisy)
+//                if speedGateMS >= 0 && speedGateMS < self.gpsqMinSpeedForCourse { return false }
+//                // If courseAccuracy is available, require it to be reasonable
+//                if let ca = courseAccToSend, ca > 15 { return false } // degrees
+//                return true
+//            }()
+//            
+//            // Canonical values to send (V2): prefer GPS projection if trusted, else IMU projection
+//            let aLongToSend: Double? = ((gpsCourseTrusted) ? proj.aLong : nil) ?? aLongIMU
+//#if DEBUG
+//if debugPrintsEnabled && self.tripStartedAt != nil {
+//    print("[DBG] gpsTrusted=\(gpsCourseTrusted) axis=\(self.calibratedAxisWithSign() != nil) aLongIMU=\(aLongIMU.map{String(format:"%.3f",$0)} ?? "nil") proj.aLong=\(String(describing: proj.aLong)) aLongToSend=\(aLongToSend.map{String(format:"%.3f",$0)} ?? "nil") speed=\(String(format:"%.2f", speedGateMS))")
+//}
+//#endif
+//            let aLatToSend: Double?  = ((gpsCourseTrusted) ? proj.aLat  : nil) ?? aLatIMU
+//            
+//            let aVertToSend: Double? = proj.aVert
+//            
+//            if crashLogsEnabled {
+//                
+//                print("[CRASH_RAW_PROJECTED] tick=\(now) aLong=\(aLongToSend ?? -999) aLat=\(aLatToSend ?? -999) aVert=\(aVertToSend ?? -999) gpsTrusted=\(gpsCourseTrusted) axisReady=\(self.calibratedAxisWithSign() != nil)")
+//            }
+//            
+//            let src = gpsCourseTrusted ? "GPS_proj" : (self.calibratedAxisWithSign() != nil ? "IMU_proj" : "no_axis")
+//
+//            if self.shouldUpdateUI(now: now) {
+//                DispatchQueue.main.async {
+//                    self.lastProjString = String(
+//                        format: "%@ | aLong: %.2f  aLat: %.2f  aVert: %.2f",
+//                        src,
+//                        aLongToSend ?? 0.0,
+//                        aLatToSend ?? 0.0,
+//                        aVertToSend ?? 0.0
+//                    )
+//                }
+//            }
+//            
+//            let crashMagnitude = max(
+//                abs(aVertToSend ?? 0),
+//                abs(aLatToSend ?? 0),
+//                abs(aLongToSend ?? 0)
+//            )
+//            
+//
+//            if crashLogsEnabled {
+//                print("[CRASH_PROJECTED_MAG] tick=\(now) mag=\(crashMagnitude)")
+//            }
+//
+//            let threshold = indoorTestMode ? 1.2 : crashThresholdG
+//
+//            if crashMagnitude > threshold {
+//                
+//                let now = Date()
+//                let uptime = ProcessInfo.processInfo.systemUptime
+//
+//                let eventDate = now.addingTimeInterval(motion.timestamp - uptime)
+//
+//                // лаг между событием и обработкой
+//                let lag = now.timeIntervalSince(eventDate)
+//
+//                print("""
+//                [CRASH_TIMING]
+//                eventAt=\(eventDate)
+//                callbackAt=\(now)
+//                lag=\(lag)s
+//                """)
+//                
+//                if crashLogsEnabled {
+//                    print("[CRASH_THRESHOLD_HIT] at=\(Date()) g=\(crashMagnitude) threshold=\(threshold)")
+//                    print("[CRASH_FASTPATH] tick=\(now) g=\(crashMagnitude)")
+//                }
+//            }
+//            
+//            let safeSpeedForSample = NumericSanitizer.raw(speedForSample)
+//            let safeSpeedForEvent = NumericSanitizer.metric(speedForEvent)
+//            
+//
+//            let safeSpeedAccToSend  = NumericSanitizer.metricOptional(speedAccToSend)
+//            let safeCourseAccToSend = NumericSanitizer.metricOptional(courseAccToSend)
+//
+//            let safeALongToSend = NumericSanitizer.rawOptional(aLongToSend)
+//            let safeALatToSend  = NumericSanitizer.rawOptional(aLatToSend)
+//            let safeAVertToSend = NumericSanitizer.rawOptional(aVertToSend)
+//            
+//            let safeHAcc = NumericSanitizer.metricOptional(loc?.horizontalAccuracy)
+//            let safeVAcc = NumericSanitizer.metricOptional(loc?.verticalAccuracy)
+//
+//
+//
+//            // V2: speed_m_s MUST be present in every sample.
+//            // If unknown, send sentinel -1.0 (server should treat as "unknown").
+//            
+//
+//           
+//            
+//            let sample = TelemetrySample(
+//                t: tISO,
+//                lat: loc?.coordinate.latitude,
+//                lon: loc?.coordinate.longitude,
+//                hAcc: safeHAcc,
+//                vAcc: safeVAcc,
+//
+//                speed_m_s: safeSpeedForSample,
+//                speedAcc: safeSpeedAccToSend,
+//
+//                course: (loc?.course ?? -1) >= 0 ? loc?.course : nil,
+//                courseAcc: safeCourseAccToSend,
+//
+//                accel: Accel(x: accel.x, y: accel.y, z: accel.z),
+//                rotation: Rotation(x: rot.x, y: rot.y, z: rot.z),
+//                attitude: Attitude(yaw: att.yaw, pitch: att.pitch, roll: att.roll),
+//
+//                a_long_g: safeALongToSend,
+//                a_lat_g: safeALatToSend,
+//                a_vert_g: safeAVertToSend
+//            )
+//
+//
+//            self.sampleBuffer.append(sample)
+//            self.lastSampleSnapshot = sample
+//            self.timelineSamples.append(sample)
+//            self.trimTimelineSamples(nowISO: tISO)
+//
+//            // suppression for EVENTS only
+//            let suppress2 = suppressEventsOnly || (now < self.suppressEventsUntil)
+//
+//            // --- V2 per-tick gating flags (prevents combined-risk from double-classifying) ---
+//            var firedV2AccelThisTick = false
+//            var firedV2BrakeThisTick = false
+//            var firedV2TurnThisTick  = false   // если хочешь, отмечай в turn-блоке
+//
+//            
+//            // ===== V2 road anomaly (vertical) =====
+//            if !suppress2,
+//               // road anomalies считаем даже на малой скорости; но если speed неизвестна (-1) — разрешаем
+//                  (speedGateMS < 0 || speedGateMS >= self.minSpeedForRoadMS),
+//            let aVert = aVertToSend {
+//
+//                // 1) maintain rolling buffer
+//                vertBuffer.append(VertPoint(t: now, aVertG: aVert))
+//
+//                let cutoff = now.addingTimeInterval(-roadWindowS)
+//                while let first = vertBuffer.first, first.t < cutoff {
+//                    vertBuffer.removeFirst()
+//                }
+//
+//                // 2) compute metrics within window
+//                if vertBuffer.count >= 3 {
+//                    var maxAbs: Double = 0
+//                    var maxVal: Double = -Double.greatestFiniteMagnitude
+//                    var minVal: Double =  Double.greatestFiniteMagnitude
+//
+//                    for p in vertBuffer {
+//                        let v = p.aVertG
+//                        maxAbs = max(maxAbs, abs(v))
+//                        maxVal = max(maxVal, v)
+//                        minVal = min(minVal, v)
+//                    }
+//
+//                    let p2p = maxVal - minVal
+//
+//                    // 3) severity thresholds
+//                    let severity: String?
+//                    if p2p >= roadHighP2PG || maxAbs >= roadHighAbsG { severity = "high" }
+//                    else if p2p >= roadLowP2PG || maxAbs >= roadLowAbsG { severity = "low" }
+//                    else { severity = nil }
+//
+//                    if let severity {
+//
+//                        // 4) cooldown
+//                        let canFire = (lastRoadEventAt == nil) || (now.timeIntervalSince(lastRoadEventAt!) >= roadCooldownS)
+//                        if canFire {
+//                            lastRoadEventAt = now
+//
+//                            // 5) subtype heuristic (placeholder)
+//                            let subtype: String
+//                            let hasDip = (minVal <= -0.35)
+//                            let hasBump = (maxVal >= 0.35)
+//                            if hasDip && hasBump { subtype = "pothole" }
+//                            else {
+//                                let windowIsFull = (vertBuffer.first != nil) && (now.timeIntervalSince(vertBuffer.first!.t) >= (roadWindowS * 0.85))
+//                                subtype = windowIsFull ? "speed_bump" : "bump"
+//                            }
+//
+//                            // 6) meta_json
+//                            let safeMaxAbs = NumericSanitizer.metric(maxAbs, digits: 3)
+//                            let safeP2P    = NumericSanitizer.metric(p2p, digits: 3)
+//                            let safeWindow = NumericSanitizer.metric(roadWindowS, digits: 2)
+//                            let safeMaxVal = NumericSanitizer.metric(maxVal, digits: 3)
+//                            let safeMinVal = NumericSanitizer.metric(minVal, digits: 3)
+//
+//                            let meta = """
+//                            {"peak_abs_vert_g":\(String(format: "%.3f", safeMaxAbs)),
+//                             "peak_p2p_vert_g":\(String(format: "%.3f", safeP2P)),
+//                             "window_s":\(String(format: "%.2f", safeWindow)),
+//                             "max_vert_g":\(String(format: "%.3f", safeMaxVal)),
+//                             "min_vert_g":\(String(format: "%.3f", safeMinVal))}
+//                            """
+//                            .replacingOccurrences(of: "\n", with: "")
+//                            .replacingOccurrences(of: " ", with: "")
+//                            
+//                            DispatchQueue.main.async {
+//                                self.currentTripRoadAnomalyDeviceCount += 1
+//                            }
+//
+//                            let event = TelemetryEvent(
+//                                    type: .roadAnomaly,
+//                                    t: tISO,
+//                                    intensity: NumericSanitizer.metric(p2p),
+//                                    details: "v2 road_anomaly subtype=\(subtype) severity=\(severity)",
+//                                    origin: "client",
+//                                    algo_version: "v2",
+//                                    speed_m_s: safeSpeedForEvent,
+//                                    eventClass: nil,
+//                                    subtype: subtype,
+//                                    severity: severity,
+//                                    meta_json: meta
+//                                )
+//                            self.eventsBuffer.append(event)
+//
+//                            self.recentEventSnapshots.append(event)
+//                            self.timelineEvents.append(event)
+//                            self.trimTimelineEvents(nowISO: tISO)
+//                            if self.recentEventSnapshots.count > self.recentEventSnapshotsLimit {
+//                                self.recentEventSnapshots.removeFirst()
+//                            }
+//                            
+//                            self.recordAgg(.road, intensity: p2p)
+//                            
+////                            #if DEBUG
+////                            print("[V2][ROAD] t=\(tISO) aVert=\(String(format: "%.3f", aVert)) speed=\(String(format: "%.1f", speedForEvent))")
+////                            #endif
+//                            
+//                        }
+//                    }
+//                }
+//            }
+//
+//
+//
+//            // IMPORTANT: do not recompute aLongIMU/aLatIMU here.
+//            // Reuse values computed above (before building the sample).
+//            
+//            // ===== V2 turn (gyro-first; lateral used for severity when available) =====
+//            if !suppress2,
+//               (speedGateMS < 0 || speedGateMS >= self.minSpeedForTurnMS) {
+//
+//                // Optional suppression: don't classify a turn immediately after a strong brake/accel
+//                let recentlyBraked = (self.lastBrakeEventAt != nil) && (now.timeIntervalSince(self.lastBrakeEventAt!) < 0.4)
+//                let recentlyAccel  = (self.lastAccelEventAt != nil) && (now.timeIntervalSince(self.lastAccelEventAt!) < 0.4)
+//
+//                if !(recentlyBraked || recentlyAccel) {
+//
+//                    let yawAbsRaw = abs(rot.z)
+//                    let yawAbs = min(yawAbsRaw, 3.0)
+//                   
+//                    if yawAbsRaw > gyroSpikeThreshold {
+//                        if let last = lastGyroSpikeAt, now.timeIntervalSince(last) < 2.0 {
+//                            // уже недавно сбрасывали — не делаем reset снова
+//                        } else {
+//                            lastGyroSpikeAt = now
+//                            self.suppressEventsUntil = now.addingTimeInterval(2.0)
+//                            self.resetIMUCalibration(reason: "gyro spike (phone moved)")
+//#if DEBUG
+//
+//                            print("[GYRO_SPIKE] raw=\(yawAbsRaw) thr=\(gyroSpikeThreshold) -> suppress 2s + resetIMUCalibration")
+//
+//#endif
+//                        }
+//                    }
+//                    
+//
+//                    // Primary detection: yaw rate
+//                    if yawAbs >= self.turnYawThreshold {
+//
+//                        // Cooldown gate
+//                        let canFire = (self.lastTurnEventAt == nil) || (now.timeIntervalSince(self.lastTurnEventAt!) >= self.turnCooldown)
+//                        if canFire {
+//                            self.lastTurnEventAt = now
+//                            firedV2TurnThisTick = true
+//
+//                            // classify by aLat if present; otherwise classify by yaw rate
+//                            let aLatAbs: Double? = aLatToSend.map { abs($0) }
+//
+//                            let turnCls: String = {
+//                                if let x = aLatAbs {
+//                                    if x >= self.turnEmergencyLatG { return "emergency" }
+//                                    if x >= self.turnSharpLatG { return "sharp" }
+//                                    return "sharp"
+//                                } else {
+//                                    if yawAbs >= (self.turnYawThreshold * 1.4) { return "emergency" }
+//                                    return "sharp"
+//                                }
+//                            }()
+//
+//                            let intensity = NumericSanitizer.metric(aLatAbs ?? yawAbs)
+//
+//                            let event = TelemetryEvent(
+//                                    type: .turn,
+//                                    t: tISO,
+//                                    intensity: NumericSanitizer.metric(intensity),
+//                                    details: "v2 turn gyro-first cls=\(turnCls) yawAbs=\(String(format: "%.3f", yawAbs)) a_lat_g=\(aLatAbs != nil ? String(format: "%.3f", aLatAbs!) : "—")",
+//                                    origin: "client",
+//                                    algo_version: "v2",
+//                                    speed_m_s: safeSpeedForEvent,
+//                                    eventClass: turnCls,
+//                                    subtype: nil,
+//                                    severity: nil,
+//                                    meta_json: nil
+//                                )
+//                            // основной pipeline (НЕ ТРОГАЕМ)
+//                            self.eventsBuffer.append(event)
+//
+//                            // snapshot (НОВОЕ)
+//                            self.recentEventSnapshots.append(event)
+//                            self.timelineEvents.append(event)
+//                            self.trimTimelineEvents(nowISO: tISO)
+//                            if self.recentEventSnapshots.count > self.recentEventSnapshotsLimit {
+//                                self.recentEventSnapshots.removeFirst()
+//                            }
+//                                                       
+//                            self.recordAgg(.turn, intensity: intensity)
+//
+//                            DispatchQueue.main.async {
+//                                self.currentTripSuddenTurnDeviceCount += 1
+//                            }
+//                            
+////                            #if DEBUG
+////                            print("[V2][TURN] t=\(tISO) yaw=\(String(format: "%.3f", abs(rot.z))) aLat=\(aLatToSend != nil ? String(format: "%.3f", abs(aLatToSend!)) : "—") speed=\(String(format: "%.1f", speedForEvent))")
+////                            #endif
+//                        }
+//                    }
+//                }
+//            }
+//            
+//
+//
+//            // ===== V2 brake (a_long_g negative; guarded vs turn + per-tick gating) =====
+//            
+//            if !suppress2,
+//               (speedGateMS < 0 || speedGateMS >= self.minSpeedForAccelBrakeMS)
+//,
+//               !firedV2BrakeThisTick,
+//               !firedV2AccelThisTick,
+//               let aLong = aLongToSend {
+//
+//                // brake is negative longitudinal acceleration
+//                if aLong <= -brakeSharpLongG {
+//
+//                    // don't classify brake right after a turn (reduces mislabels)
+//                    let recentlyTurned = (self.lastTurnEventAt != nil) && (now.timeIntervalSince(self.lastTurnEventAt!) < 0.35)
+//                    if !recentlyTurned {
+//
+//                        // keep your existing cooldown
+//                        let canFire = (self.lastBrakeEventAt == nil) || (now.timeIntervalSince(self.lastBrakeEventAt!) >= self.accelBrakeCooldown)
+//                        if canFire {
+//                            self.lastBrakeEventAt = now
+//                            firedV2BrakeThisTick = true
+//                           
+//                            let mag = abs(aLong)
+//
+//                            let brakeCls: String
+//                            if mag >= brakeEmergencyLongG { brakeCls = "emergency" }
+//                            else { brakeCls = "sharp" }
+//
+//                            let event = TelemetryEvent(
+//                                    type: .brake,
+//                                    t: tISO,
+//                                    intensity: NumericSanitizer.metric(mag),
+//                                    details: "v2 brake cls=\(brakeCls) a_long_g=\(String(format: "%.3f", aLong))",
+//                                    origin: "client",
+//                                    algo_version: "v2",
+//                                    speed_m_s: safeSpeedForEvent,
+//                                    eventClass: brakeCls,
+//                                    subtype: nil,
+//                                    severity: nil,
+//                                    meta_json: nil
+//                                )
+//                            self.eventsBuffer.append(event)
+//
+//                            self.recentEventSnapshots.append(event)
+//                            self.timelineEvents.append(event)
+//                            self.trimTimelineEvents(nowISO: tISO)
+//                            if self.recentEventSnapshots.count > self.recentEventSnapshotsLimit {
+//                                self.recentEventSnapshots.removeFirst()
+//                            }
+//                            
+//                            self.recordAgg(.brake, intensity: mag)
+//
+//                            DispatchQueue.main.async {
+//                                self.currentTripSuddenBrakeDeviceCount += 1
+//                            }
+////                            #if DEBUG
+////                            print("[V2][BRAKE] t=\(tISO) aLong=\(String(format: "%.3f", aLong)) speed=\(String(format: "%.1f", speedForEvent)) firedTurn=\(firedV2TurnThisTick)")
+////                            #endif
+//                        }
+//                    }
+//                }
+//            }
+//            
+//
+//            // ===== V2 accel (a_long_g positive; mutual exclusion + cooldown) =====
+//            if !suppress2,
+//               (speedGateMS < 0 || speedGateMS >= self.minSpeedForAccelBrakeMS),
+//               !firedV2AccelThisTick,                       // don't fire twice in one tick
+//               !firedV2BrakeThisTick,                       // mutual exclusion within tick
+//               let aLong = aLongToSend {
+//
+//                // accel is positive longitudinal acceleration
+//                if aLong >= self.accelSharpLongG {
+//
+//                    // Optional suppression window: don't classify accel right after a turn
+//                    let recentlyTurned = (self.lastTurnEventAt != nil) && (now.timeIntervalSince(self.lastTurnEventAt!) < 0.35)
+//                    if !recentlyTurned {
+//
+//                        let canFire = (self.lastAccelEventAt == nil) || (now.timeIntervalSince(self.lastAccelEventAt!) >= self.accelBrakeCooldown)
+//                        if canFire {
+//                            
+//                            self.lastAccelEventAt = now
+//                            firedV2AccelThisTick = true
+//
+//                            let mag = NumericSanitizer.metric(aLong)
+//
+//                            let cls: String = {
+//                                if mag >= self.accelEmergencyLongG { return "emergency" }
+//                                return "sharp"
+//                            }()
+//
+//                            let event = TelemetryEvent(
+//                                    type: .accel,
+//                                    t: tISO,
+//                                    intensity: mag,
+//                                    details: "v2 accel cls=\(cls) a_long_g=\(String(format: "%.3f", aLong))",
+//                                    origin: "client",
+//                                    algo_version: "v2",
+//                                    speed_m_s: safeSpeedForEvent,
+//                                    eventClass: cls,
+//                                    subtype: nil,
+//                                    severity: nil,
+//                                    meta_json: nil
+//                                )
+//                            self.eventsBuffer.append(event)
+//
+//                            self.recentEventSnapshots.append(event)
+//                            self.timelineEvents.append(event)
+//                            self.trimTimelineEvents(nowISO: tISO)
+//                            if self.recentEventSnapshots.count > self.recentEventSnapshotsLimit {
+//                                self.recentEventSnapshots.removeFirst()
+//                            }
+//                            
+//                            
+//                            self.recordAgg(.accel, intensity: mag)
+//
+//                            DispatchQueue.main.async {
+//                                self.currentTripSuddenAccelDeviceCount += 1
+//                            }
+//                            
+////                            #if DEBUG
+////                            print("[V2][ACCEL] t=\(tISO) aLong=\(String(format: "%.3f", aLong)) speed=\(String(format: "%.1f", speedForEvent)) firedTurn=\(firedV2TurnThisTick)")
+////                            #endif
+//                        }
+//                    }
+//                }
+//            }
+//            
+//
+//
+//
+//            
+//            // ===== V2 combined risk (skid risk) =====
+//            let primaryFired = firedV2BrakeThisTick || firedV2AccelThisTick || firedV2TurnThisTick
+//
+//            if !suppress2,
+//               (speedGateMS < 0 || speedGateMS >= combinedMinSpeedMS),
+//               !primaryFired {
+//
+//                if let aLong = aLongToSend, let aLat = aLatToSend {
+//
+//                    let aLatAbs = abs(aLat)
+//
+//                    if aLatAbs >= combinedLatMinG {
+//
+//                        // brake_in_turn
+//                        let brakeCls: String?
+//                        if aLong <= -brakeInTurnEmergencyG { brakeCls = "emergency" }
+//                        else if aLong <= -brakeInTurnSharpG { brakeCls = "sharp" }
+//                        else { brakeCls = nil }
+//
+//                        if let brakeCls {
+//                            let canFireBrake = (lastBrakeInTurnAt == nil) || (now.timeIntervalSince(lastBrakeInTurnAt!) >= combinedCooldownS)
+//                            if canFireBrake {
+//                                lastBrakeInTurnAt = now
+//                                
+//                                let safeALong = NumericSanitizer.metric(aLong, digits: 3)
+//                                let safeALat  = NumericSanitizer.metric(aLat, digits: 3)
+//                                let safeLatMin = NumericSanitizer.metric(combinedLatMinG, digits: 3)
+//                                
+//                                let meta = """
+//                                {"a_long_g":\(String(format: "%.3f", safeALong)),
+//                                 "a_lat_g":\(String(format: "%.3f", safeALat)),
+//                                 "lat_min_g":\(String(format: "%.3f", safeLatMin))}
+//                                """
+//                                .replacingOccurrences(of: "\n", with: "")
+//                                .replacingOccurrences(of: " ", with: "")
+//                                
+//                                let event = TelemetryEvent(
+//                                        type: .brakeInTurn,
+//                                        t: tISO,
+//                                        intensity: NumericSanitizer.metric(abs(aLong)),
+//                                        details: "v2 brake_in_turn cls=\(brakeCls)",
+//                                        origin: "client",
+//                                        algo_version: "v2",
+//                                        speed_m_s: safeSpeedForEvent,
+//                                        eventClass: brakeCls,
+//                                        subtype: nil,
+//                                        severity: nil,
+//                                        meta_json: meta
+//                                    )
+//                                self.eventsBuffer.append(event)
+//
+//                                self.recentEventSnapshots.append(event)
+//                                self.timelineEvents.append(event)
+//                                self.trimTimelineEvents(nowISO: tISO)
+//                                if self.recentEventSnapshots.count > self.recentEventSnapshotsLimit {
+//                                    self.recentEventSnapshots.removeFirst()
+//                                }
+//                                
+//                                
+//                                self.recordAgg(.brakeInTurn, intensity: abs(aLong))
+//                                
+////                                #if DEBUG
+////                                print("[V2][COMBINED] t=\(tISO) aLong=\(String(format: "%.3f", aLong)) aLat=\(String(format: "%.3f", aLat)) speed=\(String(format: "%.1f", speedForEvent)) primaryFired=\(firedV2BrakeThisTick || firedV2AccelThisTick || firedV2TurnThisTick)")
+////                                #endif
+//                            }
+//                        }
+//
+//                        // accel_in_turn
+//                        let accelCls: String?
+//                        if aLong >= accelInTurnEmergencyG { accelCls = "emergency" }
+//                        else if aLong >= accelInTurnSharpG { accelCls = "sharp" }
+//                        else { accelCls = nil }
+//
+//                        if let accelCls {
+//                            let canFireAccel = (lastAccelInTurnAt == nil) || (now.timeIntervalSince(lastAccelInTurnAt!) >= combinedCooldownS)
+//                            if canFireAccel {
+//                                lastAccelInTurnAt = now
+//
+//                                let meta = """
+//                                {"a_long_g":\(String(format: "%.3f", aLong)),
+//                                 "a_lat_g":\(String(format: "%.3f", aLat)),
+//                                 "lat_min_g":\(String(format: "%.3f", combinedLatMinG))}
+//                                """.replacingOccurrences(of: "\n", with: "").replacingOccurrences(of: " ", with: "")
+//
+//                                let event = TelemetryEvent(
+//                                        type: .accelInTurn,
+//                                        t: tISO,
+//                                        intensity: NumericSanitizer.metric(abs(aLong)),
+//                                        details: "v2 accel_in_turn cls=\(accelCls)",
+//                                        origin: "client",
+//                                        algo_version: "v2",
+//                                        speed_m_s: safeSpeedForEvent,
+//                                        eventClass: accelCls,
+//                                        subtype: nil,
+//                                        severity: nil,
+//                                        meta_json: meta
+//                                    )
+//                                self.eventsBuffer.append(event)
+//
+//                                self.recentEventSnapshots.append(event)
+//                                self.timelineEvents.append(event)
+//                                self.trimTimelineEvents(nowISO: tISO)
+//                                if self.recentEventSnapshots.count > self.recentEventSnapshotsLimit {
+//                                    self.recentEventSnapshots.removeFirst()
+//                                }
+//                                
+//                                
+//                                self.recordAgg(.accelInTurn, intensity: abs(aLong))
+//                            }
+//                        }
+//                    }
+//
+//                }
+//            }
+//
+//
+//            // safety cap for RAM
+//            if self.sampleBuffer.count > 5000 {
+//                self.sampleBuffer.removeFirst(1000)
+//            }
+//            
+//            // DEBUG: last fired event
+//            if self.eventsBuffer.count > self.lastDebugEventIndex {
+//                self.lastDebugEventIndex = self.eventsBuffer.count
+//                if let e = self.eventsBuffer.last {
+//                    let cls = e.eventClass ?? "—"
+//                    let sub = e.subtype ?? "—"
+//                    let sev = e.severity ?? "—"
+//
+//                    if self.shouldUpdateUI(now: now) {
+//                        DispatchQueue.main.async {
+//                            self.lastFiredEventString =
+//                                "\(e.type.rawValue) | cls=\(cls) sub=\(sub) sev=\(sev) int=\(String(format: "%.3f", e.intensity))"
+//                        }
+//                    }
+//
+//                }
+//            }
+//
+//
+//            // Status hint
+//            if self.shouldUpdateUI(now: now) {
+//                DispatchQueue.main.async {
+//                    let gpsOrImu = self.currentTelemetryModeString()
+//                    if suppress2 {
+//                        self.statusText = "Running (\(mode.rawValue)) [\(gpsOrImu)] — stabilizing…"
+//                    } else {
+//                        self.statusText = "Running (\(mode.rawValue)) [\(gpsOrImu)] calib=\(self.imuCalibState.rawValue)"
+//                    }
+//                    self.telemetryModeText = gpsOrImu
+//                }
+//            }
+//
+//        }
+//
+//        // UI numbers
+//        let mag = sqrt(accel.x * accel.x + accel.y * accel.y + accel.z * accel.z)
+//        if crashLogsEnabled {
+//            print("[CRASH_RAW_MAG] tick=\(now) mag=\(mag)")
+//        }
+//
+//        if self.shouldUpdateUI(now: now) {
+//            DispatchQueue.main.async {
+//                self.lastUserAccelString = String(
+//                    format: "ua  x: %.2f  y: %.2f  z: %.2f",
+//                    accel.x, accel.y, accel.z
+//                )
+//
+//                self.lastRotRateString = String(
+//                    format: "rr  x: %.2f  y: %.2f  z: %.2f",
+//                    rot.x, rot.y, rot.z
+//                )
+//
+//                self.lastAccelString = String(
+//                    format: "x: %.2f y: %.2f z: %.2f",
+//                    accel.x, accel.y, accel.z
+//                )
+//
+//                self.accelMagnitudeString = String(format: "‖a‖ = %.2f", mag)
+//
+//                if let s = speedMS {
+//                    self.lastSpeedString = String(format: "%.1f km/h", s * 3.6)
+//                } else {
+//                    self.lastSpeedString = "—"
+//                }
+//            }
+//        }
+//    }
     
     func latestSample() -> TelemetrySample? {
         bufferQueue.sync {
@@ -3646,6 +4618,7 @@ if debugPrintsEnabled && self.tripStartedAt != nil {
                 
                 screen_interaction_context: screenInteractionContext,
             )
+            print("[BUFFER_QUEUE] enter \(Date())")
 
             self.batchSeq &+= 1
 
@@ -3915,6 +4888,8 @@ extension SensorManager {
 
         crashDetected = false
         crashG = 0
+        crashCount = 0
+        lastCrashDetectionAt = nil
     }
 
     
