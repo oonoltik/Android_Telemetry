@@ -11,6 +11,7 @@ extension TelemetryAppApp {
     static func makeDashcamStack(sensorManager: SensorManager) -> (DashcamManager, VideoArchiveStore) {
         let settings = UserDefaultsDashcamSettingsStore()
         let archiveStore = try! JSONVideoArchiveStore()
+
         let tripCoordinator = DashcamTripCoordinator(sensorManager: sensorManager)
         let quotaManager = StorageQuotaManager(archiveStore: archiveStore, settingsStore: settings)
 
@@ -31,6 +32,9 @@ extension TelemetryAppApp {
             settingsStore: settings,
             currentVideoSessionIdProvider: { [weak dashcamManager] in
                 dashcamManager?.crashVideoSessionIdForLateEvents()
+            },
+            requestSegmentFinishForCrash: { [weak dashcamManager] delay in
+                dashcamManager?.requestSegmentFinishForAcceptedCrash(after: delay)
             }
         )
 

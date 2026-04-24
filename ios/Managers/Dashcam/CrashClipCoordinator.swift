@@ -127,6 +127,8 @@ final class CrashClipCoordinator {
             .urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
             .appendingPathComponent("Dashcam", isDirectory: true)
     }
+    
+    private let requestSegmentFinishForCrash: (_ delay: TimeInterval) -> Void
 
     private let maxMetadataRetryCount = 10
     private let maxCrashVideoRetryCount = 20
@@ -151,13 +153,15 @@ final class CrashClipCoordinator {
         archiveStore: VideoArchiveStore,
         networkManager: NetworkManager,
         settingsStore: DashcamSettingsStore,
-        currentVideoSessionIdProvider: @escaping () -> String?
+        currentVideoSessionIdProvider: @escaping () -> String?,
+        requestSegmentFinishForCrash: @escaping (_ delay: TimeInterval) -> Void = { _ in }
     ) {
         self.sensorManager = sensorManager
         self.archiveStore = archiveStore
         self.networkManager = networkManager
         self.settingsStore = settingsStore
         self.currentVideoSessionIdProvider = currentVideoSessionIdProvider
+        self.requestSegmentFinishForCrash = requestSegmentFinishForCrash
         
 //#if DEBUG
 //    clearAllCrashPersistence()
@@ -248,11 +252,12 @@ final class CrashClipCoordinator {
 
         let crashId = "crash_" + UUID().uuidString
         let tripSessionId = sensorManager.currentTripSessionId()
-
+ 
         let finalPreSeconds = max(10, settingsStore.preCrashSeconds)
         let finalPostSeconds = max(10, settingsStore.postCrashSeconds)
 
         log("Accepted crash", crashId: crashId)
+        requestSegmentFinishForCrash(TimeInterval(finalPostSeconds))
         log("Trip session at crash = \(tripSessionId ?? "nil")", crashId: crashId)
         log("Requested final window pre=\(finalPreSeconds)s post=\(finalPostSeconds)s", crashId: crashId)
 
@@ -740,8 +745,8 @@ final class CrashClipCoordinator {
 
         let clip = pendingCrashClips[index]
 
-        let finalPreSeconds = max(30, clip.requestedPreSeconds)
-        let configuredPost = max(30, clip.requestedPostSeconds)
+        let finalPreSeconds = max(10, clip.requestedPreSeconds)
+        let configuredPost = max(10, clip.requestedPostSeconds)
 
         let effectiveConfiguredPost = configuredPost + clip.interruptionExtensionSeconds
 

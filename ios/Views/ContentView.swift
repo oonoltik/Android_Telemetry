@@ -85,6 +85,9 @@ struct ContentView: View {
     @State private var isLoadingTrips: Bool = false
     
     
+    @State private var isPreviewContainerVisible: Bool = false
+    
+    
     // ===== Stats table help =====
     private enum StatsColumn: String, Identifiable {
         case event, count, sumG, maxG, countPerKm, gPerKm
@@ -685,6 +688,18 @@ struct ContentView: View {
                                             .font(.system(.body, design: .monospaced))
                                     }
                                 }
+                                
+                                CameraPreviewContainerView(sessionProvider: dashcamManager)
+                                    .frame(maxWidth: .infinity)
+                                    .frame(height: isPreviewContainerVisible && dashcamManager.state == .recording ? 220 : 0)
+                                    .background(Color.black)
+                                    .overlay(
+                                        RoundedRectangle(cornerRadius: 12)
+                                            .stroke(Color.green, lineWidth: 2)
+                                    )
+                                    .opacity(isPreviewContainerVisible && dashcamManager.state == .recording ? 1 : 0)
+                                    .allowsHitTesting(isPreviewContainerVisible && dashcamManager.state == .recording)
+                                    .clipped()
 
                                 if dashcamManager.state == .stopping {
                                     VStack(spacing: 8) {
@@ -697,8 +712,31 @@ struct ContentView: View {
                                     }
                                 } else {
                                     HStack(spacing: 12) {
+                                        Button {
+                                            if isPreviewContainerVisible {
+                                                dashcamManager.hidePreview()
+                                                isPreviewContainerVisible = false
+                                            } else {
+                                                dashcamManager.showPreview()
+                                                isPreviewContainerVisible = true
+                                            }
+                                        } label: {
+                                            Label(
+                                                isPreviewContainerVisible ? "Скрыть камеру" : "Показать камеру",
+                                                systemImage: isPreviewContainerVisible ? "eye.slash" : "eye"
+                                            )
+                                            .frame(maxWidth: .infinity)
+                                            .padding(.vertical, 10)
+                                        }
+                                        .buttonStyle(.bordered)
+
                                         Button(role: .destructive) {
-                                            Task { await dashcamManager.stopVideoMode(trigger: .userButton) }
+                                            dashcamManager.hidePreview()
+                                            isPreviewContainerVisible = false
+                                            
+                                            Task {
+                                                await dashcamManager.stopVideoMode(trigger: .userButton)
+                                            }
                                         } label: {
                                             Label("Стоп видео", systemImage: "stop.fill")
                                                 .frame(maxWidth: .infinity)

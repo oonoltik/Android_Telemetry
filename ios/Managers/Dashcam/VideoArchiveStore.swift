@@ -148,6 +148,8 @@ final class JSONVideoArchiveStore: VideoArchiveStore {
         return result
     }
     
+    
+    
     private func resolvedURL(for segment: VideoSegmentRecord) -> URL {
         if fileManager.fileExists(atPath: segment.fileURL.path) {
             return segment.fileURL

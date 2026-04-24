@@ -42,6 +42,7 @@ final class AppDelegate: NSObject, UIApplicationDelegate {
 struct TelemetryAppApp: App {
     
     @UIApplicationDelegateAdaptor(AppDelegate.self) var appDelegate
+    @Environment(\.scenePhase) private var scenePhase
 
     @StateObject private var sensorManager = SensorManager.shared
     @StateObject private var dayMonitoring = DayMonitoringManager(sensorManager: SensorManager.shared)
@@ -63,10 +64,22 @@ struct TelemetryAppApp: App {
                 .environmentObject(sensorManager)
                 .environmentObject(dayMonitoring)
                 .environmentObject(languageManager)
-        
                 .environmentObject(dashcamManager)
-            
+                .onChange(of: scenePhase) { phase in
+                    switch phase {
+                    case .background:
+                        dashcamManager.applicationWillResignActive()
+
+                    case .active:
+                        dashcamManager.applicationDidBecomeActive()
+
+                    case .inactive:
+                        break
+
+                    @unknown default:
+                        break
+                    }
+                }
         }
     }
-
 }

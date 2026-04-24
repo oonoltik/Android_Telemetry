@@ -168,6 +168,9 @@ extension NetworkManager {
                  .cannotConnectToHost,
                  .cannotFindHost,
                  .dnsLookupFailed,
+                 .secureConnectionFailed,
+                 .cannotLoadFromNetwork,
+                 .cannotLoadFromNetwork,
                  .internationalRoamingOff,
                  .callIsActive,
                  .dataNotAllowed:
@@ -194,7 +197,10 @@ extension NetworkManager {
                  NSURLErrorNotConnectedToInternet,
                  NSURLErrorCannotConnectToHost,
                  NSURLErrorCannotFindHost,
-                 NSURLErrorDNSLookupFailed:
+                 NSURLErrorDNSLookupFailed,
+                 NSURLErrorSecureConnectionFailed,
+                 NSURLErrorCannotLoadFromNetwork,
+                 NSURLErrorDataNotAllowed:
                 return true
             default:
                 return false
@@ -449,7 +455,7 @@ extension NetworkManager {
         print("📁 file size=\(totalSize)")
         logEvent("📁 file size=\(totalSize)")
 
-        let preferredChunkSize = 64 * 1024
+        let preferredChunkSize = 256 * 1024
 
         let statusResponse = try await getCrashClipChunkUploadStatus(
             crashClipId: crashClipId,
@@ -523,9 +529,9 @@ extension NetworkManager {
                     bearer: bearer
                 )
 
-                print("⏳ debug pause after chunk \(chunkIndex + 1)/\(totalChunks)")
-                logEvent("⏳ debug pause after chunk \(chunkIndex + 1)/\(totalChunks)")
-                try await Task.sleep(nanoseconds: 2_000_000_000)
+//                print("⏳ debug pause after chunk \(chunkIndex + 1)/\(totalChunks)")
+//                logEvent("⏳ debug pause after chunk \(chunkIndex + 1)/\(totalChunks)")
+//                try await Task.sleep(nanoseconds: 2_000_000_000)
             }
         }
 
