@@ -4,8 +4,39 @@ import UIKit
 import Combine
 import CoreLocation
 
+
 @MainActor
 final class DashcamManager: NSObject, ObservableObject {
+    
+    // DEBUG LOG EXPORT
+    func debug_shareSessionLog() {
+        let url = FileLogger.shared.currentLogURL()
+        let vc = UIActivityViewController(activityItems: [url], applicationActivities: nil)
+
+        guard let scene = UIApplication.shared.connectedScenes.first as? UIWindowScene,
+              let root = scene.windows.first?.rootViewController else { return }
+
+        root.present(vc, animated: true)
+    }
+
+    func debug_printSessionLog() {
+        let url = FileLogger.shared.currentLogURL()
+        print("LOG FILE =", url.path)
+
+        if let text = try? String(contentsOf: url, encoding: .utf8) {
+            print("===== SESSION.LOG =====")
+            print(text)
+            print("===== END LOG =====")
+        } else {
+            print("failed to read log")
+        }
+    }
+    
+    nonisolated private static func __dbg(_ message: String) {
+            print(message)
+            FileLogger.shared.log(message)
+        }
+    
     @Published private(set) var state: DashcamRecordingState = .idle {
         didSet {
             sensorManager.suppressAutoFinishWhileDashcamActive =
@@ -76,6 +107,8 @@ final class DashcamManager: NSObject, ObservableObject {
     private var pendingInterruptionResumeTask: Task<Void, Never>?
     private var lastSegmentStartAt: Date?
 
+   
+    
     init(
         sensorManager: SensorManager,
         networkManager: NetworkManager,
@@ -168,6 +201,7 @@ final class DashcamManager: NSObject, ObservableObject {
                     self.lastCrashEvent = event
                     self.recentCrashAt = Date()
                     print("[DASHCAM] crash snapshot received at \(event.at)")
+                    Self.__dbg("[DASHCAM] crash snapshot received at \(event.at)")
                 }
 
                 self.sessionQueue.async {
@@ -177,6 +211,7 @@ final class DashcamManager: NSObject, ObservableObject {
     }
 
     private func scheduleCrashUploadDrain(after delay: TimeInterval = 1.5) {
+        
         guard !isCrashUploadDrainScheduled else { return }
         isCrashUploadDrainScheduled = true
 
@@ -190,6 +225,8 @@ final class DashcamManager: NSObject, ObservableObject {
 
             guard self.state == .idle || self.state == .stopping || self.state == .recording else { return }
 
+            Self.__dbg("[DASHCAM][DRAIN] scheduled crash upload drain state=\(self.state)")
+            await self.crashCoordinator.attemptPendingServerVideoSessionStarts()
             await self.crashCoordinator.attemptPendingCrashMetadataUpload()
             await self.crashCoordinator.attemptPendingCrashVideoUploads()
         }
@@ -327,7 +364,7 @@ final class DashcamManager: NSObject, ObservableObject {
         shouldStopAfterCurrentSegment = false
         quotaStopErrorMessage = nil
 
-        endBackgroundTaskIfNeeded()
+        Self.__dbg("[DASHCAM][STOP] forceResetAfterInterruptedStop complete lastStoppedVideoSessionId=\(lastStoppedVideoSessionId ?? "nil")")
     }
     
     private func attemptResumeAfterInterruption(force: Bool = false) async {
@@ -335,6 +372,7 @@ final class DashcamManager: NSObject, ObservableObject {
         guard appState != .background else {
             if force {
                 print("[DashcamCapture] forced resume deferred: app in background")
+                Self.__dbg("[DashcamCapture] forced resume deferred: app in background")
             }
             return
         }
@@ -380,8 +418,10 @@ final class DashcamManager: NSObject, ObservableObject {
             state = .recording
 
             print("[DashcamCapture] recording resumed after interruption")
+            Self.__dbg("[DashcamCapture] recording resumed after interruption")
         } catch {
             print("[DashcamCapture] forced resume failed: \(error)")
+            Self.__dbg("[DashcamCapture] forced resume failed: \(error)")
             lastError = .unknown("Не удалось возобновить запись после interruption: \(error.localizedDescription)")
             await finalizeStoppedSession(trigger: .fatalError)
         }
@@ -394,6 +434,7 @@ final class DashcamManager: NSObject, ObservableObject {
         let reason = reasonValue.flatMap { AVCaptureSession.InterruptionReason(rawValue: $0.intValue) }
 
         print("[DashcamCapture] interrupted reason=\(String(describing: reason))")
+        Self.__dbg("[DashcamCapture] interrupted reason=\(String(describing: reason))")
 
         shouldResumeAfterInterruption = (state == .recording || state == .preparing)
 
@@ -415,12 +456,14 @@ final class DashcamManager: NSObject, ObservableObject {
             }
 
             print("[DashcamCapture] interruption watchdog fired -> forcing resume, appState=\(appState.rawValue)")
+            Self.__dbg("[DashcamCapture] interruption watchdog fired -> forcing resume, appState=\(appState.rawValue)")
             await self.attemptResumeAfterInterruption(force: true)
         }
     }
     
     @objc private func handleCaptureSessionInterruptionEnded(_ notification: Notification) {
         print("[DashcamCapture] interruption ended")
+        Self.__dbg("[DashcamCapture] interruption ended")
         sessionInterrupted = false
 
         guard shouldResumeAfterInterruption else { return }
@@ -441,6 +484,7 @@ final class DashcamManager: NSObject, ObservableObject {
         let text = nsError?.localizedDescription ?? "Неизвестная ошибка камеры"
 
         print("[DashcamCapture] runtime error: \(text)")
+        Self.__dbg("[DashcamCapture] runtime error: \(text)")
 
         guard state == .recording || state == .preparing else { return }
 
@@ -469,6 +513,7 @@ final class DashcamManager: NSObject, ObservableObject {
             guard self.state == .recording || self.state == .preparing else { return }
 
             print("[DashcamCapture] attempting soft recovery")
+            Self.__dbg("[DashcamCapture] attempting soft recovery")
 
             self.stopSegmentWatchdog()
             self.isSegmentFinishing = false
@@ -498,6 +543,7 @@ final class DashcamManager: NSObject, ObservableObject {
                 try self.startNextSegment()
                 self.state = .recording
                 print("[DashcamCapture] soft recovery succeeded")
+                Self.__dbg("[DashcamCapture] soft recovery succeeded")
             } catch {
                 self.lastError = .unknown("Ошибка камеры: \(text). Восстановление не удалось: \(error.localizedDescription)")
                 let trigger = self.pendingStopTrigger ?? .fatalError
@@ -510,6 +556,7 @@ final class DashcamManager: NSObject, ObservableObject {
         guard state == .idle else { return }
 
         print("[DASHCAM][START] startVideoMode begin trigger=\(trigger.rawValue)")
+        Self.__dbg("[DASHCAM][START] startVideoMode begin trigger=\(trigger.rawValue)")
         state = .preparing
         lastStoppedVideoSessionId = nil
         lastStoppedVideoSessionEndedAt = nil
@@ -521,19 +568,24 @@ final class DashcamManager: NSObject, ObservableObject {
 
         do {
             print("[DASHCAM][START] ensure quota")
+            Self.__dbg("[DASHCAM][START] ensure quota")
             try await quotaManager.ensureCanStartRecording()
 
             print("[DASHCAM][START] validate rear camera")
+            Self.__dbg("[DASHCAM][START] validate rear camera")
             try capabilityService.validateRearCameraAvailable()
 
             print("[DASHCAM][START] ensure trip for video start")
+            Self.__dbg("[DASHCAM][START] ensure trip for video start")
             let ownership = try await tripCoordinator.ensureTripForVideoStart()
 
             print("[DASHCAM][START] configure capture session")
+            Self.__dbg("[DASHCAM][START] configure capture session")
             try configureSessionIfNeeded()
 
             let linkedTrip = tripCoordinator.currentTripSessionId()
             print("[DASHCAM][START] create archive video session linkedTrip=\(linkedTrip ?? "nil")")
+            Self.__dbg("[DASHCAM][START] create archive video session linkedTrip=\(linkedTrip ?? "nil")")
             let sessionId = try archiveStore.createVideoSession(
                 startedAt: Date(),
                 linkedTripSessionId: linkedTrip
@@ -546,38 +598,69 @@ final class DashcamManager: NSObject, ObservableObject {
             UIApplication.shared.isIdleTimerDisabled = true
 
             print("[DASHCAM][START] start captureSession running")
+            Self.__dbg("[DASHCAM][START] start captureSession running")
             try await startCaptureSessionWithTimeout()
 
             print("[DASHCAM][START] configure audio session after capture start")
+            Self.__dbg("[DASHCAM][START] configure audio session after capture start")
             try configureAudioSessionIfNeeded()
 
             print("[DASHCAM][START] start first segment")
+            Self.__dbg("[DASHCAM][START] start first segment")
             try startNextSegment()
 
             state = .recording
             startTimers()
             print("[DASHCAM][START] recording started sessionId=\(sessionId)")
+            Self.__dbg("[DASHCAM][START] recording started sessionId=\(sessionId)")
 
             Task {
                 print("[DASHCAM][START] post /video/session/start")
-                try? await networkManager.startVideoSession(
-                    VideoSessionStartRequest(
-                        video_session_id: sessionId,
-                        device_id: sensorManager.deviceIdForDisplay,
-                        driver_id: sensorManager.driverId,
-                        started_at: ISO8601DateFormatter().string(from: Date()),
-                        linked_trip_session_id: linkedTrip,
-                        trip_source: ownership == .videoImplicit ? .videoImplicit : .manual,
-                        camera_mode: "rear",
-                        audio_enabled: settingsStore.enableMicrophone,
-                        app_version: Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String,
-                        ios_version: UIDevice.current.systemVersion,
-                        device_model: UIDevice.current.model
-                    )
+                Self.__dbg("[DASHCAM][START] post /video/session/start")
+
+                crashCoordinator.markServerVideoSessionPending(
+                    localVideoSessionId: sessionId,
+                    tripSessionId: linkedTrip,
+                    startedAt: Date(),
+                    deviceId: sensorManager.deviceIdForDisplay,
+                    driverId: sensorManager.driverId,
+                    tripSourceRaw: (ownership == .videoImplicit ? "video_implicit" : "manual"),
+                    cameraMode: "rear",
+                    audioEnabled: settingsStore.enableMicrophone,
+                    appVersion: Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String,
+                    iosVersion: UIDevice.current.systemVersion,
+                    deviceModel: UIDevice.current.model
                 )
-            }
+
+                do {
+                    try await networkManager.startVideoSession(
+                        VideoSessionStartRequest(
+                                        video_session_id: sessionId,
+                                        device_id: sensorManager.deviceIdForDisplay,
+                                        driver_id: sensorManager.driverId,
+                                        started_at: ISO8601DateFormatter().string(from: Date()),
+                                        linked_trip_session_id: linkedTrip,
+                                        trip_source: (ownership == .videoImplicit ? .videoImplicit : .manual),
+                                        camera_mode: "rear",
+                                        audio_enabled: settingsStore.enableMicrophone,
+                                        app_version: Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String,
+                                        ios_version: UIDevice.current.systemVersion,
+                                        device_model: UIDevice.current.model
+                                    )
+                                )
+                    crashCoordinator.markServerVideoSessionConfirmed(localVideoSessionId: sessionId)
+                    Self.__dbg("[DASHCAM][START] /video/session/start SUCCESS sessionId=\(sessionId)")
+                } catch {
+                    print("[DASHCAM][START] /video/session/start deferred, error=\(error)")
+                    Self.__dbg("[DASHCAM][START] /video/session/start deferred, error=\(error)")
+                    Task {
+                        await crashCoordinator.attemptPendingServerVideoSessionStarts()
+                    }
+                }
+                        }
         } catch {
             print("[DASHCAM][START] FAILED error=\(error)")
+            Self.__dbg("[DASHCAM][START] FAILED error=\(error)")
             lastError = (error as? DashcamError) ?? .unknown("Не удалось начать видеозапись: \(error.localizedDescription)")
             sensorManager.suppressAutoFinishWhileDashcamActive = false
             UIApplication.shared.isIdleTimerDisabled = false
@@ -607,9 +690,11 @@ final class DashcamManager: NSObject, ObservableObject {
 
             sessionQueue.async {
                 print("[DASHCAM][START] captureSession.startRunning() begin")
+                Self.__dbg("[DASHCAM][START] captureSession.startRunning() begin")
 
                 if self.captureSession.isRunning {
                     print("[DASHCAM][START] captureSession already running")
+                    Self.__dbg("[DASHCAM][START] captureSession already running")
                     timeoutWorkItem.cancel()
                     finish(.success(()))
                     return
@@ -618,6 +703,7 @@ final class DashcamManager: NSObject, ObservableObject {
                 self.captureSession.startRunning()
 
                 print("[DASHCAM][START] captureSession.startRunning() end isRunning=\(self.captureSession.isRunning)")
+                Self.__dbg("[DASHCAM][START] captureSession.startRunning() end isRunning=\(self.captureSession.isRunning)")
 
                 timeoutWorkItem.cancel()
 
@@ -656,6 +742,7 @@ final class DashcamManager: NSObject, ObservableObject {
     func stopVideoMode(trigger: DashcamStopTrigger) async {
         guard state == .recording || state == .preparing else { return }
 
+        Self.__dbg("[DASHCAM][STOP] stopVideoMode begin trigger=\(trigger.rawValue) state=\(state)")
         state = .stopping
         pendingStopTrigger = trigger
         startStopProgressUI()
@@ -696,11 +783,13 @@ final class DashcamManager: NSObject, ObservableObject {
     func applicationWillResignActive() {
         guard state == .recording || state == .preparing else { return }
 
+        Self.__dbg("[DASHCAM][APP] applicationWillResignActive state=\(state)")
         beginBackgroundTaskIfNeeded()
         backgroundStopStartedAt = Date()
     }
 
     func applicationDidBecomeActive() {
+        Self.__dbg("[DASHCAM][APP] applicationDidBecomeActive state=\(state) movieOutput.isRecording=\(movieOutput.isRecording)")
         backgroundStopStartedAt = nil
 
         if state == .stopping {
@@ -727,10 +816,12 @@ final class DashcamManager: NSObject, ObservableObject {
     private func configureAudioSessionIfNeeded() throws {
         guard settingsStore.enableMicrophone else {
             print("[DASHCAM][AUDIO] microphone disabled -> skip audio session config")
+            Self.__dbg("[DASHCAM][AUDIO] microphone disabled -> skip audio session config")
             return
         }
 
         print("[DASHCAM][AUDIO] configure begin")
+        Self.__dbg("[DASHCAM][AUDIO] configure begin")
         let audioSession = AVAudioSession.sharedInstance()
         try audioSession.setCategory(
             .playAndRecord,
@@ -742,28 +833,9 @@ final class DashcamManager: NSObject, ObservableObject {
             ]
         )
         print("[DASHCAM][AUDIO] configure success")
+        Self.__dbg("[DASHCAM][AUDIO] configure success")
     }
 
-//    private func configureAudioSessionIfNeeded() throws {
-//        guard settingsStore.enableMicrophone else {
-//            print("[DASHCAM][AUDIO] microphone disabled -> skip audio session config")
-//            return
-//        }
-//
-//        print("[DASHCAM][AUDIO] configure begin")
-//        let audioSession = AVAudioSession.sharedInstance()
-//        try audioSession.setCategory(
-//            .playAndRecord,
-//            mode: .videoRecording,
-//            options: [
-//                .mixWithOthers,
-//                .defaultToSpeaker,
-//                .allowBluetoothA2DP
-//            ]
-//        )
-//        try audioSession.setActive(true)
-//        print("[DASHCAM][AUDIO] configure success")
-//    }
 
     private func configureSessionIfNeeded() throws {
         captureSession.beginConfiguration()
@@ -811,20 +883,24 @@ final class DashcamManager: NSObject, ObservableObject {
     private func startNextSegment() throws {
         if movieOutput.isRecording {
             print("[DASHCAM][SEGMENT] skip startNextSegment: already recording")
+            Self.__dbg("[DASHCAM][SEGMENT] skip startNextSegment: already recording")
             return
         }
 
         if isSegmentFinishing {
             print("[DASHCAM][SEGMENT] skip startNextSegment: segment finishing in progress")
+            Self.__dbg("[DASHCAM][SEGMENT] skip startNextSegment: segment finishing in progress")
             return
         }
 
         guard let activeVideoSessionId else { throw DashcamError.cannotStartRecording }
 
         print("[DASHCAM][SEGMENT] startNextSegment begin sessionId=\(activeVideoSessionId)")
+        Self.__dbg("[DASHCAM][SEGMENT] startNextSegment begin sessionId=\(activeVideoSessionId)")
 
         if !captureSession.isRunning {
             print("[DASHCAM][SEGMENT] captureSession not running -> startRunning again")
+            Self.__dbg("[DASHCAM][SEGMENT] captureSession not running -> startRunning again")
             let semaphore = DispatchSemaphore(value: 0)
             sessionQueue.async {
                 self.captureSession.startRunning()
@@ -835,12 +911,14 @@ final class DashcamManager: NSObject, ObservableObject {
 
         guard captureSession.isRunning else {
             print("[DASHCAM][SEGMENT] captureSession is still not running")
+            Self.__dbg("[DASHCAM][SEGMENT] captureSession is still not running")
             throw DashcamError.cannotStartRecording
         }
 
         let now = Date()
         if let last = lastSegmentStartAt, now.timeIntervalSince(last) < 1.0 {
             print("[DASHCAM][SEGMENT] skip startNextSegment: too soon after previous start")
+            Self.__dbg("[DASHCAM][SEGMENT] skip startNextSegment: too soon after previous start")
             return
         }
         lastSegmentStartAt = now
@@ -853,6 +931,7 @@ final class DashcamManager: NSObject, ObservableObject {
         }
 
         print("[DASHCAM][SEGMENT] outputURL=\(url.path)")
+        Self.__dbg("[DASHCAM][SEGMENT] outputURL=\(url.path)")
 
         currentSegmentId = UUID().uuidString
         currentSegmentURL = url
@@ -861,11 +940,15 @@ final class DashcamManager: NSObject, ObservableObject {
         lastSegmentFinishRequestedAt = nil
 
         print("[SEG_ROTATE] startNextSegment begin at=\(Date()) state=\(state) currentSegmentId=\(currentSegmentId ?? "nil") currentVideoSessionId=\(activeVideoSessionId ?? "nil")")
+        Self.__dbg("[SEG_ROTATE] startNextSegment begin at=\(Date()) state=\(state) currentSegmentId=\(currentSegmentId ?? "nil") currentVideoSessionId=\(activeVideoSessionId ?? "nil")")
         print("[SEG_ROTATE] startNextSegment outputURL=\(url.path)")
+        Self.__dbg("[SEG_ROTATE] startNextSegment outputURL=\(url.path)")
         print("[SEG_ROTATE] segment assigned at=\(Date()) currentSegmentURL=\(currentSegmentURL?.path ?? "nil") currentSegmentStartedAt=\(currentSegmentStartedAt?.formatted(.iso8601) ?? "nil")")
+        Self.__dbg("[SEG_ROTATE] segment assigned at=\(Date()) currentSegmentURL=\(currentSegmentURL?.path ?? "nil") currentSegmentStartedAt=\(currentSegmentStartedAt?.formatted(.iso8601) ?? "nil")")
 
         movieOutput.startRecording(to: url, recordingDelegate: self)
         print("[DASHCAM][SEGMENT] movieOutput.startRecording CALLED url=\(url.path)")
+        Self.__dbg("[DASHCAM][SEGMENT] movieOutput.startRecording CALLED url=\(url.path)")
 
         startSegmentWatchdog()
     }
@@ -926,7 +1009,9 @@ final class DashcamManager: NSObject, ObservableObject {
             self.checkSegmentRotationIfNeeded()
 
             Task { @MainActor in
+                Self.__dbg("[DASHCAM][TIMER] periodic drain tick")
                 await self.crashCoordinator.processTimerReadyCrashClips()
+                await self.crashCoordinator.attemptPendingServerVideoSessionStarts()
                 await self.crashCoordinator.attemptPendingCrashMetadataUpload()
                 await self.crashCoordinator.attemptPendingCrashVideoUploads()
             }
@@ -951,10 +1036,11 @@ final class DashcamManager: NSObject, ObservableObject {
             await self.evaluateQuotaForNextSegment()
         }
 
-        let maxDuration = max(10, min(30, settingsStore.maxSegmentDurationSeconds))
+        let maxDuration = max(10, min(120, settingsStore.maxSegmentDurationSeconds))
         let elapsed = Date().timeIntervalSince(segmentStarted)
         if elapsed >= TimeInterval(maxDuration) {
             print("[SEG_ROTATE] regular rotation after \(elapsed)s maxDuration=\(maxDuration)")
+            Self.__dbg("[SEG_ROTATE] regular rotation after \(elapsed)s maxDuration=\(maxDuration)")
             requestSegmentFinish()
         }
     }
@@ -962,38 +1048,45 @@ final class DashcamManager: NSObject, ObservableObject {
     private func requestSegmentFinish() {
         guard movieOutput.isRecording else {
             print("[SEG_ROTATE] requestSegmentFinish skipped: movieOutput.isRecording == false")
+            Self.__dbg("[SEG_ROTATE] requestSegmentFinish skipped: movieOutput.isRecording == false")
             return
         }
         guard !isSegmentFinishing else {
             print("[SEG_ROTATE] requestSegmentFinish skipped: already finishing")
+            Self.__dbg("[SEG_ROTATE] requestSegmentFinish skipped: already finishing")
             return
         }
 
         isSegmentFinishing = true
         lastSegmentFinishRequestedAt = Date()
         print("[SEG_ROTATE] movieOutput.stopRecording CALLED at=\(Date()) currentSegmentURL=\(currentSegmentURL?.path ?? "nil")")
+        Self.__dbg("[SEG_ROTATE] movieOutput.stopRecording CALLED at=\(Date()) currentSegmentURL=\(currentSegmentURL?.path ?? "nil")")
         movieOutput.stopRecording()
     }
     
     func requestSegmentFinishForCrash() {
         if state == .idle {
             print("[SEG_ROTATE] requestSegmentFinishForCrash skipped: state=idle")
+            Self.__dbg("[SEG_ROTATE] requestSegmentFinishForCrash skipped: state=idle")
             return
         }
 
         if isSegmentFinishing {
             print("[SEG_ROTATE] requestSegmentFinishForCrash: already finishing, keep waiting for didFinishRecording")
+            Self.__dbg("[SEG_ROTATE] requestSegmentFinishForCrash: already finishing, keep waiting for didFinishRecording")
             return
         }
 
         guard movieOutput.isRecording else {
             print("[SEG_ROTATE] requestSegmentFinishForCrash skipped: movieOutput.isRecording == false")
+            Self.__dbg("[SEG_ROTATE] requestSegmentFinishForCrash skipped: movieOutput.isRecording == false")
             return
         }
 
         isSegmentFinishing = true
         lastSegmentFinishRequestedAt = Date()
         print("[SEG_ROTATE] requestSegmentFinishForCrash stopRecording at=\(Date()) currentSegmentURL=\(currentSegmentURL?.path ?? "nil")")
+        Self.__dbg("[SEG_ROTATE] requestSegmentFinishForCrash stopRecording at=\(Date()) currentSegmentURL=\(currentSegmentURL?.path ?? "nil")")
         movieOutput.stopRecording()
     }
 
@@ -1015,6 +1108,7 @@ final class DashcamManager: NSObject, ObservableObject {
         defer { isFinalizingStop = false }
 
         let stopDate = Date()
+        Self.__dbg("[DASHCAM][STOP] finalizeStoppedSession begin trigger=\(trigger.rawValue) activeVideoSessionId=\(activeVideoSessionId ?? "nil")")
 
         finishStopProgressUI()
         UIApplication.shared.isIdleTimerDisabled = false
@@ -1033,16 +1127,25 @@ final class DashcamManager: NSObject, ObservableObject {
             let segmentsCount = try? archiveStore.segmentsCount(for: sessionId)
             let totalSize = try? archiveStore.totalUsageBytes()
 
-            try? await networkManager.stopVideoSession(
-                VideoSessionStopRequest(
-                    video_session_id: sessionId,
-                    ended_at: ISO8601DateFormatter().string(from: stopDate),
-                    stop_reason: trigger.rawValue,
-                    final_linked_trip_session_id: tripCoordinator.currentTripSessionId(),
-                    segments_count: segmentsCount,
-                    total_size_bytes: totalSize
+            
+            if crashCoordinator.isServerVideoSessionConfirmed(sessionId) {
+                Self.__dbg("[DASHCAM][STOP] Posting server stop + camera-log sessionId=\(sessionId)")
+                try? await networkManager.stopVideoSession(
+                    VideoSessionStopRequest(
+                        video_session_id: sessionId,
+                        ended_at: ISO8601DateFormatter().string(from: stopDate),
+                        stop_reason: trigger.rawValue,
+                        final_linked_trip_session_id: tripCoordinator.currentTripSessionId(),
+                        segments_count: segmentsCount,
+                        total_size_bytes: totalSize
+                    )
                 )
-            )
+
+                await postFinalCameraLog(trigger: trigger)
+            } else {
+                print("[DASHCAM] Skipping server stop/camera-log until video session is confirmed")
+                Self.__dbg("[DASHCAM][STOP] Skipping server stop/camera-log until video session is confirmed sessionId=\(sessionId)")
+            }
 
             try? archiveStore.finishVideoSession(
                 id: sessionId,
@@ -1050,8 +1153,6 @@ final class DashcamManager: NSObject, ObservableObject {
                 finalLinkedTripSessionId: tripCoordinator.currentTripSessionId(),
                 stopReason: trigger
             )
-
-            await postFinalCameraLog(trigger: trigger)
         }
 
         await tripCoordinator.handleVideoStop(reason: trigger.tripFinishReason.rawValue)
@@ -1083,6 +1184,7 @@ final class DashcamManager: NSObject, ObservableObject {
         sensorManager.suppressAutoFinishWhileDashcamActive = false
         state = .idle
 
+        Self.__dbg("[DASHCAM][STOP] finalizeStoppedSession complete trigger=\(trigger.rawValue) lastStoppedVideoSessionId=\(lastStoppedVideoSessionId ?? "nil")")
         endBackgroundTaskIfNeeded()
     }
 
@@ -1146,6 +1248,7 @@ final class DashcamManager: NSObject, ObservableObject {
             archive_crash_size_bytes: stats.3
         )
 
+        Self.__dbg("[DASHCAM][STOP] postFinalCameraLog sessionId=\(sessionId) trigger=\(trigger.rawValue)")
         try? await networkManager.postDashcamCameraLog(payload)
     }
 }
@@ -1181,6 +1284,7 @@ extension DashcamManager: AVCaptureFileOutputRecordingDelegate {
             let segmentStartedAt = currentSegmentStartedAt ?? Date()
             let segmentEndedAt = Date()
             print("[SEG_ROTATE] didFinishRecording ENTER at=\(Date()) outputFileURL=\(outputFileURL.path) expectedSegmentURL=\(expectedSegmentURL?.path ?? "nil") segmentStartedAt=\(segmentStartedAt.formatted(.iso8601)) segmentEndedAt=\(segmentEndedAt.formatted(.iso8601)) currentSegmentId=\(currentSegmentId ?? "nil") state=\(state)")
+            Self.__dbg("[SEG_ROTATE] didFinishRecording ENTER at=\(Date()) outputFileURL=\(outputFileURL.path) expectedSegmentURL=\(expectedSegmentURL?.path ?? "nil") segmentStartedAt=\(segmentStartedAt.formatted(.iso8601)) segmentEndedAt=\(segmentEndedAt.formatted(.iso8601)) currentSegmentId=\(currentSegmentId ?? "nil") state=\(state)")
 
             currentSegmentURL = nil
             currentSegmentStartedAt = nil
@@ -1191,6 +1295,7 @@ extension DashcamManager: AVCaptureFileOutputRecordingDelegate {
 
             if let error {
                 print("[Dashcam] didFinishRecordingTo error = \(error.localizedDescription)")
+                Self.__dbg("[Dashcam] didFinishRecordingTo error = \(error.localizedDescription)")
                 lastSegmentStartAt = nil
 
                 if FileManager.default.fileExists(atPath: outputFileURL.path) {
@@ -1204,6 +1309,7 @@ extension DashcamManager: AVCaptureFileOutputRecordingDelegate {
 
                 if shouldResumeAfterInterruption || sessionInterrupted {
                     print("[Dashcam] segment interrupted, waiting for automatic resume after interruption end")
+                    Self.__dbg("[Dashcam] segment interrupted, waiting for automatic resume after interruption end")
 
                     currentSegmentId = nil
                     currentSegmentURL = nil
@@ -1228,6 +1334,7 @@ extension DashcamManager: AVCaptureFileOutputRecordingDelegate {
                         }
 
                         print("[Dashcam] didFinish watchdog fired -> forcing resume after interrupted segment, appState=\(appState.rawValue)")
+                        Self.__dbg("[Dashcam] didFinish watchdog fired -> forcing resume after interrupted segment, appState=\(appState.rawValue)")
                         await self.attemptResumeAfterInterruption(force: true)
                     }
 
@@ -1245,8 +1352,10 @@ extension DashcamManager: AVCaptureFileOutputRecordingDelegate {
             } else if let fallback = lastStoppedVideoSessionId {
                 sessionIdForSegment = fallback
                 print("[SEG_ROTATE] using lastStoppedVideoSessionId fallback = \(fallback)")
+                Self.__dbg("[SEG_ROTATE] using lastStoppedVideoSessionId fallback = \(fallback)")
             } else {
                 print("[SEG_ROTATE] no session id for completed segment, file will not be indexed")
+                Self.__dbg("[SEG_ROTATE] no session id for completed segment, file will not be indexed")
                 return
             }
 
@@ -1254,6 +1363,7 @@ extension DashcamManager: AVCaptureFileOutputRecordingDelegate {
 
             guard FileManager.default.fileExists(atPath: segmentURL.path) else {
                 print("[Dashcam] recorded file missing after successful finish")
+                Self.__dbg("[Dashcam] recorded file missing after successful finish")
                 return
             }
 
@@ -1278,6 +1388,7 @@ extension DashcamManager: AVCaptureFileOutputRecordingDelegate {
 
             do {
                 print("[SEG_ROTATE] addCompletedSegment CALL at=\(Date()) sessionId=\(sessionIdForSegment) fileURL=\(segmentURL.path) startedAt=\(segmentStartedAt.formatted(.iso8601)) endedAt=\(segmentEndedAt.formatted(.iso8601)) size=\(size)")
+                Self.__dbg("[SEG_ROTATE] addCompletedSegment CALL at=\(Date()) sessionId=\(sessionIdForSegment) fileURL=\(segmentURL.path) startedAt=\(segmentStartedAt.formatted(.iso8601)) endedAt=\(segmentEndedAt.formatted(.iso8601)) size=\(size)")
                 try archiveStore.addCompletedSegment(
                     sessionId: sessionIdForSegment,
                     fileURL: segmentURL,
@@ -1298,9 +1409,11 @@ extension DashcamManager: AVCaptureFileOutputRecordingDelegate {
                 )
                 
                 print("[SEG_ROTATE] addCompletedSegment DONE at=\(Date()) sessionId=\(sessionIdForSegment) fileURL=\(segmentURL.path)")
+                Self.__dbg("[SEG_ROTATE] addCompletedSegment DONE at=\(Date()) sessionId=\(sessionIdForSegment) fileURL=\(segmentURL.path)")
                 
             } catch {
                 print("❌ archiveStore.addCompletedSegment failed: \(error)")
+                Self.__dbg("❌ archiveStore.addCompletedSegment failed: \(error)")
                 lastError = .unknown("Не удалось сохранить сегмент видео: \(error.localizedDescription)")
                 let trigger = pendingStopTrigger ?? .fatalError
                 await finalizeStoppedSession(trigger: trigger)

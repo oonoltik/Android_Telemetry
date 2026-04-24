@@ -64,7 +64,31 @@ final class CrashClipCoordinator {
     struct PendingCrashVideoUpload: Codable {
         let crashId: String
         let videoSessionId: String
-        let filePath: String
+
+        let relativeFilePath: String
+
+        var retryCount: Int
+        var nextRetryAt: Date
+        var isInFlight: Bool
+    }
+    
+    enum ServerVideoSessionState: String, Codable {
+        case pending
+        case confirmed
+    }
+
+    struct PendingServerVideoSessionStart: Codable {
+        let localVideoSessionId: String
+        let tripSessionId: String?
+        let startedAt: Date
+        let deviceId: String
+        let driverId: String
+        let tripSourceRaw: String
+        let cameraMode: String
+        let audioEnabled: Bool
+        let appVersion: String?
+        let iosVersion: String?
+        let deviceModel: String?
 
         var retryCount: Int
         var nextRetryAt: Date
@@ -82,10 +106,31 @@ final class CrashClipCoordinator {
     private var pendingCrashClips: [PendingCrashClip] = []
     private var pendingCrashMetadataQueue: [PendingCrashMetadata] = []
     private var pendingCrashVideoUploadQueue: [PendingCrashVideoUpload] = []
+    
+    private var pendingServerVideoSessionStarts: [PendingServerVideoSessionStart] = []
+    private var confirmedServerVideoSessionIds: Set<String> = []
+
+   
+    
+    private var pendingServerSessionsURL: URL {
+        let base = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first!
+        return base.appendingPathComponent("pending_server_sessions.json")
+    }
+
+    private var confirmedServerSessionsURL: URL {
+        let base = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first!
+        return base.appendingPathComponent("confirmed_server_sessions.json")
+    }
+    
+    private var dashcamBaseURL: URL {
+        FileManager.default
+            .urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
+            .appendingPathComponent("Dashcam", isDirectory: true)
+    }
 
     private let maxMetadataRetryCount = 10
     private let maxCrashVideoRetryCount = 20
-    private let cooldownSeconds: TimeInterval = 20
+    private let cooldownSeconds: TimeInterval = 5
 
     private var lastAcceptedCrashAt: Date?
     private var isDrainingMetadataQueue = false
@@ -113,9 +158,16 @@ final class CrashClipCoordinator {
         self.networkManager = networkManager
         self.settingsStore = settingsStore
         self.currentVideoSessionIdProvider = currentVideoSessionIdProvider
+        
+//#if DEBUG
+//    clearAllCrashPersistence()
+//#endif
 
-        restorePendingCrashMetadataQueue()
-        restorePendingCrashVideoUploadQueue()
+    restorePendingCrashMetadataQueue()
+    restorePendingCrashVideoUploadQueue()
+    restorePendingServerVideoSessionStarts()
+    restoreConfirmedServerVideoSessionIds()
+
     }
 
     func attach() {
@@ -123,10 +175,14 @@ final class CrashClipCoordinator {
 
         cancellable = sensorManager.crashEventPublisher
             .sink { [weak self] event in
-                print("[CRASH_COORD_RECEIVE] at=\(Date()) eventAt=\(event.at) lag=\(Date().timeIntervalSince(event.at)) threadMain=\(Thread.isMainThread)")
+                let message = "[CRASH_COORD_RECEIVE] at=\(Date()) eventAt=\(event.at) lag=\(Date().timeIntervalSince(event.at)) threadMain=\(Thread.isMainThread)"
+                print(message)
+                FileLogger.shared.log(message)
 
                 Task { @MainActor in
-                    print("[CRASH_COORD_MAINACTOR_HANDLE] at=\(Date()) eventAt=\(event.at) lag=\(Date().timeIntervalSince(event.at))")
+                    let message = "[CRASH_COORD_MAINACTOR_HANDLE] at=\(Date()) eventAt=\(event.at) lag=\(Date().timeIntervalSince(event.at))"
+                    print(message)
+                    FileLogger.shared.log(message)
                     await self?.handleCrashDetected(
                         at: event.at,
                         gForce: event.gForce,
@@ -137,9 +193,29 @@ final class CrashClipCoordinator {
             }
 
         Task {
+            await attemptPendingServerVideoSessionStarts()
             await attemptPendingCrashMetadataUpload()
             await attemptPendingCrashVideoUploads()
         }
+    }
+    private func relativeCrashFilePath(for fileURL: URL) -> String {
+        let baseURL = dashcamBaseURL.standardizedFileURL
+        let normalizedFileURL = fileURL.standardizedFileURL
+
+        let basePath = baseURL.path
+        let filePath = normalizedFileURL.path
+
+        if filePath.hasPrefix(basePath + "/") {
+            return String(filePath.dropFirst(basePath.count + 1))
+        }
+
+        log("WARNING: crash file is outside Dashcam base. filePath=\(filePath), basePath=\(basePath)")
+
+        return normalizedFileURL.lastPathComponent
+    }
+
+    private func absoluteCrashFileURL(from relativePath: String) -> URL {
+        dashcamBaseURL.appendingPathComponent(relativePath)
     }
     
     func detach() {
@@ -381,6 +457,12 @@ final class CrashClipCoordinator {
 
             do {
                 log("Posting crash metadata", crashId: item.crashId)
+                guard isServerVideoSessionConfirmed(item.videoSessionId) else {
+                    log("Metadata waiting for confirmed server video session localVideoSessionId=\(item.videoSessionId)", crashId: item.crashId)
+                    pendingCrashMetadataQueue[idx].isInFlight = false
+                    persistPendingCrashMetadataQueue()
+                    continue
+                }
                 try await networkManager.postCrashClip(request)
                 log("Metadata upload SUCCESS", crashId: item.crashId)
 
@@ -391,8 +473,36 @@ final class CrashClipCoordinator {
                     continue
                 }
 
-                pendingCrashMetadataQueue[retryIdx].retryCount += 1
                 pendingCrashMetadataQueue[retryIdx].isInFlight = false
+
+                let nsError = error as NSError
+                let errorText = nsError.localizedDescription
+
+                if nsError.domain == "DashcamHTTP",
+                   nsError.code == 404,
+                   errorText.contains("video_session_id not found") {
+
+                    pendingCrashMetadataQueue[retryIdx].retryCount += 1
+
+                    if pendingCrashMetadataQueue[retryIdx].retryCount <= 3 {
+                        pendingCrashMetadataQueue[retryIdx].nextRetryAt = nextRetryDate(
+                            forAttempt: pendingCrashMetadataQueue[retryIdx].retryCount,
+                            maxDelay: 60
+                        )
+                        log(
+                            "Metadata retry \(pendingCrashMetadataQueue[retryIdx].retryCount) for delayed video_session_id, next at \(pendingCrashMetadataQueue[retryIdx].nextRetryAt.iso8601WithFractionalSeconds)",
+                            crashId: item.crashId
+                        )
+                    } else {
+                        log("Dropping broken metadata after repeated video_session_id not found", crashId: item.crashId)
+                        pendingCrashMetadataQueue.removeAll(where: { $0.crashId == item.crashId })
+                    }
+
+                    persistPendingCrashMetadataQueue()
+                    continue
+                }
+
+                pendingCrashMetadataQueue[retryIdx].retryCount += 1
 
                 if pendingCrashMetadataQueue[retryIdx].retryCount <= maxMetadataRetryCount {
                     pendingCrashMetadataQueue[retryIdx].nextRetryAt = nextRetryDate(
@@ -439,7 +549,7 @@ final class CrashClipCoordinator {
             pendingCrashVideoUploadQueue[idx].isInFlight = true
             persistPendingCrashVideoUploadQueue()
 
-            let fileURL = URL(fileURLWithPath: item.filePath)
+            let fileURL = absoluteCrashFileURL(from: item.relativeFilePath)
 
             guard FileManager.default.fileExists(atPath: fileURL.path) else {
                 log("Crash clip file missing, dropping upload task: \(fileURL.lastPathComponent)", crashId: item.crashId)
@@ -449,12 +559,33 @@ final class CrashClipCoordinator {
             }
 
             log("Uploading crash video file \(fileURL.lastPathComponent)", crashId: item.crashId)
+            log("Video file relativePath=\(item.relativeFilePath)", crashId: item.crashId)
+            log("Video file path=\(fileURL.path)", crashId: item.crashId)
+            
+            guard isServerVideoSessionConfirmed(item.videoSessionId) else {
+                log("Video upload waiting for confirmed server video session localVideoSessionId=\(item.videoSessionId)", crashId: item.crashId)
+                pendingCrashVideoUploadQueue[idx].isInFlight = false
+                persistPendingCrashVideoUploadQueue()
+                continue
+            }
 
-            let result = await networkManager.uploadCrashClipResult(
+            let uploadOutcome = await networkManager.uploadCrashClipResultWithError(
                 videoSessionId: item.videoSessionId,
                 crashClipId: item.crashId,
                 fileURL: fileURL
             )
+
+            let result = uploadOutcome.result
+            let uploadErrorText = uploadOutcome.errorText
+            
+            log("retryCount=\(item.retryCount)", crashId: item.crashId)
+            if item.retryCount > 10 {
+                log("Dropping video upload after too many retries", crashId: item.crashId)
+
+                pendingCrashVideoUploadQueue.removeAll { $0.crashId == item.crashId }
+                persistPendingCrashVideoUploadQueue()
+                continue
+            }
 
             switch result {
             case .success:
@@ -463,10 +594,14 @@ final class CrashClipCoordinator {
                 persistPendingCrashVideoUploadQueue()
 
             case .permanentFailure:
-                log("Video upload FAILED permanently", crashId: item.crashId)
+                if let uploadErrorText {
+                    log("Video upload FAILED permanently, error=\(uploadErrorText)", crashId: item.crashId)
+                } else {
+                    log("Video upload FAILED permanently", crashId: item.crashId)
+                }
                 pendingCrashVideoUploadQueue.removeAll(where: { $0.crashId == item.crashId })
                 persistPendingCrashVideoUploadQueue()
-
+                
             case .retryableFailure:
                 guard let retryIdx = pendingCrashVideoUploadQueue.firstIndex(where: { $0.crashId == item.crashId }) else {
                     continue
@@ -479,16 +614,92 @@ final class CrashClipCoordinator {
                     pendingCrashVideoUploadQueue[retryIdx].nextRetryAt = nextCrashUploadRetryDate(
                         forAttempt: pendingCrashVideoUploadQueue[retryIdx].retryCount
                     )
-                    log(
-                        "Video retry \(pendingCrashVideoUploadQueue[retryIdx].retryCount), next at \(pendingCrashVideoUploadQueue[retryIdx].nextRetryAt.iso8601WithFractionalSeconds)",
-                        crashId: item.crashId
-                    )
+                    if let uploadErrorText {
+                        
+                        log(
+                            "Video retry \(pendingCrashVideoUploadQueue[retryIdx].retryCount), next at \(pendingCrashVideoUploadQueue[retryIdx].nextRetryAt.iso8601WithFractionalSeconds), error=\(uploadErrorText)",
+                            crashId: item.crashId
+                        )
+                    } else {
+                        log(
+                            "Video retry \(pendingCrashVideoUploadQueue[retryIdx].retryCount), next at \(pendingCrashVideoUploadQueue[retryIdx].nextRetryAt.iso8601WithFractionalSeconds)",
+                            crashId: item.crashId
+                        )
+                    }
+                    
                 } else {
                     log("Video upload retry limit reached, removing from queue", crashId: item.crashId)
                     pendingCrashVideoUploadQueue.removeAll(where: { $0.crashId == item.crashId })
                 }
 
                 persistPendingCrashVideoUploadQueue()
+            }
+        }
+    }
+    
+    func attemptPendingServerVideoSessionStarts() async {
+        let now = Date()
+
+        for item in pendingServerVideoSessionStarts {
+            guard let idx = pendingServerVideoSessionStarts.firstIndex(where: { $0.localVideoSessionId == item.localVideoSessionId }) else {
+                continue
+            }
+
+            if pendingServerVideoSessionStarts[idx].isInFlight {
+                log("Skipping pending server session \(item.localVideoSessionId): still in flight")
+                continue
+            }
+
+            if pendingServerVideoSessionStarts[idx].nextRetryAt > now {
+                log("Skipping pending server session \(item.localVideoSessionId): next retry at \(pendingServerVideoSessionStarts[idx].nextRetryAt.iso8601WithFractionalSeconds)")
+                continue
+            }
+
+            pendingServerVideoSessionStarts[idx].isInFlight = true
+            persistPendingServerVideoSessionStarts()
+
+            do {
+                log("Attempting server video session start retries, queue count = \(pendingServerVideoSessionStarts.count)")
+                log("Posting /video/session/start retry for \(item.localVideoSessionId)")
+
+                try await networkManager.startVideoSession(
+                    VideoSessionStartRequest(
+                        video_session_id: item.localVideoSessionId,
+                        device_id: item.deviceId,
+                        driver_id: item.driverId,
+                        started_at: ISO8601DateFormatter().string(from: item.startedAt),
+                        linked_trip_session_id: item.tripSessionId,
+                        trip_source: (item.tripSourceRaw == "video_implicit" ? .videoImplicit : .manual),
+                        camera_mode: item.cameraMode,
+                        audio_enabled: item.audioEnabled,
+                        app_version: item.appVersion,
+                        ios_version: item.iosVersion,
+                        device_model: item.deviceModel
+                    )
+                )
+
+                markServerVideoSessionConfirmed(localVideoSessionId: item.localVideoSessionId)
+                log("Session retry SUCCESS localVideoSessionId=\(item.localVideoSessionId)")
+                await attemptPendingCrashMetadataUpload()
+                await attemptPendingCrashVideoUploads()
+          
+            } catch {
+                guard let retryIdx = pendingServerVideoSessionStarts.firstIndex(where: { $0.localVideoSessionId == item.localVideoSessionId }) else {
+                    continue
+                }                
+               
+                pendingServerVideoSessionStarts[retryIdx].retryCount += 1
+                pendingServerVideoSessionStarts[retryIdx].isInFlight = false
+                pendingServerVideoSessionStarts[retryIdx].nextRetryAt = nextRetryDate(
+                    forAttempt: pendingServerVideoSessionStarts[retryIdx].retryCount,
+                    maxDelay: 300
+                )
+
+                log(
+                    "video/session/start retry \(pendingServerVideoSessionStarts[retryIdx].retryCount), next at \(pendingServerVideoSessionStarts[retryIdx].nextRetryAt.iso8601WithFractionalSeconds), error=\(error)"
+                )
+
+                persistPendingServerVideoSessionStarts()
             }
         }
     }
@@ -529,8 +740,8 @@ final class CrashClipCoordinator {
 
         let clip = pendingCrashClips[index]
 
-        let finalPreSeconds = max(10, clip.requestedPreSeconds)
-        let configuredPost = max(10, clip.requestedPostSeconds)
+        let finalPreSeconds = max(30, clip.requestedPreSeconds)
+        let configuredPost = max(30, clip.requestedPostSeconds)
 
         let effectiveConfiguredPost = configuredPost + clip.interruptionExtensionSeconds
 
@@ -779,14 +990,17 @@ final class CrashClipCoordinator {
             return
         }
 
+        let relativePath = relativeCrashFilePath(for: fileURL)
+
         let item = PendingCrashVideoUpload(
             crashId: crashId,
             videoSessionId: videoSessionId,
-            filePath: fileURL.path,
+            relativeFilePath: relativePath,
             retryCount: 0,
             nextRetryAt: Date(),
             isInFlight: false
         )
+        log("Enqueued video upload relativePath=\(relativePath)", crashId: crashId)
 
         pendingCrashVideoUploadQueue.append(item)
         persistPendingCrashVideoUploadQueue()
@@ -830,7 +1044,14 @@ final class CrashClipCoordinator {
     private func restorePendingCrashMetadataQueue() {
         do {
             let data = try Data(contentsOf: metadataQueueFileURL)
-            pendingCrashMetadataQueue = try JSONDecoder().decode([PendingCrashMetadata].self, from: data)
+            var restored = try JSONDecoder().decode([PendingCrashMetadata].self, from: data)
+
+            for i in restored.indices {
+                restored[i].isInFlight = false
+                restored[i].nextRetryAt = Date()
+            }
+
+            pendingCrashMetadataQueue = restored
             log("Restored metadata queue, count = \(pendingCrashMetadataQueue.count)")
         } catch {
             pendingCrashMetadataQueue = []
@@ -847,21 +1068,171 @@ final class CrashClipCoordinator {
             log("Failed to persist video upload queue: \(error)")
         }
     }
+    
 
     private func restorePendingCrashVideoUploadQueue() {
         do {
             let data = try Data(contentsOf: videoUploadQueueFileURL)
-            pendingCrashVideoUploadQueue = try JSONDecoder().decode([PendingCrashVideoUpload].self, from: data)
+            var restored = try JSONDecoder().decode([PendingCrashVideoUpload].self, from: data)
+
+            for i in restored.indices {
+                restored[i].isInFlight = false
+                restored[i].nextRetryAt = Date()
+            }
+
+            pendingCrashVideoUploadQueue = restored
             log("Restored video upload queue, count = \(pendingCrashVideoUploadQueue.count)")
         } catch {
             pendingCrashVideoUploadQueue = []
             log("Video upload queue not restored, starting empty")
         }
     }
+    
+    private func persistPendingServerVideoSessionStarts() {
+        do {
+            let data = try JSONEncoder().encode(pendingServerVideoSessionStarts)
+            try data.write(to: pendingServerSessionsURL, options: .atomic)
+            log("Persisted server video session starts, count = \(pendingServerVideoSessionStarts.count)")
+        } catch {
+            log("Failed to persist server video session starts: \(error)")
+        }
+    }
+
+    private func restorePendingServerVideoSessionStarts() {
+        guard let data = try? Data(contentsOf: pendingServerSessionsURL) else {
+            pendingServerVideoSessionStarts = []
+            log("No pending server video session starts to restore")
+            return
+        }
+
+        do {
+            var restored = try JSONDecoder().decode([PendingServerVideoSessionStart].self, from: data)
+
+            // сбрасываем возможные залипшие состояния после kill
+            for i in restored.indices {
+                restored[i].isInFlight = false
+                restored[i].nextRetryAt = Date()
+            }
+
+            pendingServerVideoSessionStarts = restored
+            log("Restored server video session starts from file, count = \(restored.count)")
+        } catch {
+            pendingServerVideoSessionStarts = []
+            log("Failed to decode pending server video session starts: \(error)")
+        }
+    }
+    private func persistConfirmedServerVideoSessionIds() {
+        do {
+            let data = try JSONEncoder().encode(Array(confirmedServerVideoSessionIds))
+            try data.write(to: confirmedServerSessionsURL, options: .atomic)
+            log("Persisted confirmed server video session ids, count = \(confirmedServerVideoSessionIds.count)")
+        } catch {
+            log("Failed to persist confirmed server video session ids: \(error)")
+        }
+    }
+
+    private func restoreConfirmedServerVideoSessionIds() {
+        if let data = try? Data(contentsOf: confirmedServerSessionsURL) {
+            do {
+                let arr = try JSONDecoder().decode([String].self, from: data)
+                confirmedServerVideoSessionIds = Set(arr)
+                log("Restored confirmed server video session ids, count = \(arr.count)")
+            } catch {
+                confirmedServerVideoSessionIds = []
+                log("Failed to decode confirmed server video session ids: \(error)")
+            }
+        } else {
+            confirmedServerVideoSessionIds = []
+            log("No confirmed server video session ids to restore")
+        }
+    }
+    
+    func markServerVideoSessionPending(
+        localVideoSessionId: String,
+        tripSessionId: String?,
+        startedAt: Date,
+        deviceId: String,
+        driverId: String,
+        tripSourceRaw: String,
+        cameraMode: String,
+        audioEnabled: Bool,
+        appVersion: String?,
+        iosVersion: String?,
+        deviceModel: String?
+    ) {
+        if pendingServerVideoSessionStarts.contains(where: { $0.localVideoSessionId == localVideoSessionId }) {
+            return
+        }
+
+        pendingServerVideoSessionStarts.append(
+            PendingServerVideoSessionStart(
+                localVideoSessionId: localVideoSessionId,
+                tripSessionId: tripSessionId,
+                startedAt: startedAt,
+                deviceId: deviceId,
+                driverId: driverId,
+                tripSourceRaw: tripSourceRaw,
+                cameraMode: cameraMode,
+                audioEnabled: audioEnabled,
+                appVersion: appVersion,
+                iosVersion: iosVersion,
+                deviceModel: deviceModel,
+                retryCount: 0,
+                nextRetryAt: Date(),
+                isInFlight: false
+            )
+        )
+
+        persistPendingServerVideoSessionStarts()
+        log("Server video session pending: \(localVideoSessionId)")
+        log("Server video session pending details trip=\(tripSessionId ?? "nil") driver=\(driverId) device=\(deviceId)")
+    }
+
+    func markServerVideoSessionConfirmed(localVideoSessionId: String) {
+        confirmedServerVideoSessionIds.insert(localVideoSessionId)
+        
+        pendingServerVideoSessionStarts.removeAll { $0.localVideoSessionId == localVideoSessionId }
+        persistConfirmedServerVideoSessionIds()
+        persistPendingServerVideoSessionStarts()
+        log("Server video session confirmed: \(localVideoSessionId)")
+    }
+
+    func isServerVideoSessionConfirmed(_ localVideoSessionId: String) -> Bool {
+        confirmedServerVideoSessionIds.contains(localVideoSessionId)
+    }
 
     private func log(_ message: String, crashId: String? = nil) {
         let prefix = crashId.map { "[CRASH \($0)]" } ?? "[CRASH]"
-        print("\(prefix) \(message)")
+        let line = "\(prefix) \(message)"
+        print(line)
+        FileLogger.shared.log(line)
+    }
+    
+    func clearAllCrashPersistence() {
+        let fm = FileManager.default
+
+        // 1. Удаляем файлы
+        try? fm.removeItem(at: metadataQueueFileURL)
+        try? fm.removeItem(at: videoUploadQueueFileURL)
+        try? fm.removeItem(at: pendingServerSessionsURL)
+        try? fm.removeItem(at: confirmedServerSessionsURL)
+
+        // 2. Очищаем in-memory
+        pendingCrashMetadataQueue = []
+        pendingCrashVideoUploadQueue = []
+        pendingServerVideoSessionStarts = []
+        confirmedServerVideoSessionIds = []
+
+        // 3. ❗ Очищаем UserDefaults fallback (КРИТИЧНО)
+        let defaults = UserDefaults.standard
+
+        // если вдруг metadata/video раньше тоже там лежали
+        defaults.removeObject(forKey: "pendingCrashMetadataQueue")
+        defaults.removeObject(forKey: "pendingCrashVideoUploadQueue")
+
+        
+
+        log("Cleared ALL crash persistence (files + memory + UserDefaults)")
     }
 }
 

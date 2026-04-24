@@ -7,6 +7,24 @@ import SwiftUI
 import UIKit
 
 final class AppDelegate: NSObject, UIApplicationDelegate {
+
+    func application(
+        _ application: UIApplication,
+        didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]? = nil
+    ) -> Bool {
+        
+#if DEBUG
+   if UserDefaults.standard.bool(forKey: "reset_logs_two") == false {
+       FileLogger.shared.reset()
+       UserDefaults.standard.set(true, forKey: "reset_logs_two")
+   }
+#endif
+        
+        logEvent("=== APP LAUNCH ===")
+        logEvent("LOG FILE = \(FileLogger.shared.currentLogURL().path)")
+        return true
+    }
+
     func application(
         _ application: UIApplication,
         handleEventsForBackgroundURLSession identifier: String,

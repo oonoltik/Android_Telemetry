@@ -325,7 +325,7 @@ final class JSONVideoArchiveStore: VideoArchiveStore {
                     linkedTripSessionIdInitial: linkedTripSessionId,
                     finalLinkedTripSessionId: nil,
                     stopReason: nil,
-                    audioEnabled: false,
+                    audioEnabled: true,
                     cameraMode: "rear",
                     segmentIds: []
                 )
