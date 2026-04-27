@@ -57,6 +57,18 @@ final class DashcamManager: NSObject, ObservableObject {
     @Published private(set) var stopProgressValue: Double = 0
     
     @Published private(set) var previewState: DashcamPreviewState = .hidden
+    @Published private(set) var cameraMode: DashcamCameraMode = .rear
+    
+    @Published private(set) var driverEyeOpenScore: CGFloat = 0
+    @Published private(set) var driverPerclos: Double = 0
+    
+    var driverFatigueWarningThreshold: Double {
+        driverMonitoring.warningPerclosThreshold
+    }
+
+    var driverFatigueCriticalThreshold: Double {
+        driverMonitoring.criticalPerclosThreshold
+    }
 
 
     private let sensorManager: SensorManager
@@ -70,6 +82,9 @@ final class DashcamManager: NSObject, ObservableObject {
 
     private let captureSession = AVCaptureSession()
     private let movieOutput = AVCaptureMovieFileOutput()
+    
+    private let driverFrameOutput = AVCaptureVideoDataOutput()
+    private let driverFrameQueue = DispatchQueue(label: "dashcam.driver.monitoring.frame.queue")
 //    private let previewVideoOutput = AVCaptureVideoDataOutput()
     private let sessionQueue = DispatchQueue(label: "dashcam.capture.session.queue")
 
@@ -115,6 +130,14 @@ final class DashcamManager: NSObject, ObservableObject {
     private var pendingInterruptionResumeTask: Task<Void, Never>?
     private var lastSegmentStartAt: Date?
     private var pendingPreviewRotation = false
+    
+    private let driverMonitoring = DriverMonitoringService()
+    private lazy var driverFrameDelegate = DriverMonitoringFrameDelegate(
+        driverMonitoring: driverMonitoring
+    )
+
+    private var driverMonitoringCancellables = Set<AnyCancellable>()
+    
 
    
     
@@ -138,6 +161,7 @@ final class DashcamManager: NSObject, ObservableObject {
 
         sensorManager.suppressAutoFinishWhileDashcamActive = false
         registerCaptureObservers()
+        bindDriverMonitoring()
     }
 
     deinit {
@@ -146,6 +170,23 @@ final class DashcamManager: NSObject, ObservableObject {
         pendingRuntimeRecoveryTask?.cancel()
         pendingInterruptionResumeTask?.cancel()
     }
+    
+    private func bindDriverMonitoring() {
+        driverMonitoring.$eyeOpenScore
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] value in
+                self?.driverEyeOpenScore = value
+            }
+            .store(in: &driverMonitoringCancellables)
+
+        driverMonitoring.$perclos
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] value in
+                self?.driverPerclos = value
+            }
+            .store(in: &driverMonitoringCancellables)
+    }
+        
 
     func crashVideoSessionIdForLateEvents() -> String? {
         if let activeVideoSessionId {
@@ -583,9 +624,9 @@ final class DashcamManager: NSObject, ObservableObject {
             Self.__dbg("[DASHCAM][START] ensure quota")
             try await quotaManager.ensureCanStartRecording()
 
-            print("[DASHCAM][START] validate rear camera")
-            Self.__dbg("[DASHCAM][START] validate rear camera")
-            try capabilityService.validateRearCameraAvailable()
+            print("[DASHCAM][START] validate camera mode=\(cameraMode.rawValue)")
+            Self.__dbg("[DASHCAM][START] validate camera mode=\(cameraMode.rawValue)")
+            try capabilityService.validateCameraAvailable(position: cameraMode.avPosition)
 
             print("[DASHCAM][START] ensure trip for video start")
             Self.__dbg("[DASHCAM][START] ensure trip for video start")
@@ -637,7 +678,7 @@ final class DashcamManager: NSObject, ObservableObject {
                     deviceId: sensorManager.deviceIdForDisplay,
                     driverId: sensorManager.driverId,
                     tripSourceRaw: (ownership == .videoImplicit ? "video_implicit" : "manual"),
-                    cameraMode: "rear",
+                    cameraMode: cameraMode.backendValue,
                     audioEnabled: settingsStore.enableMicrophone,
                     appVersion: Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String,
                     iosVersion: UIDevice.current.systemVersion,
@@ -653,7 +694,7 @@ final class DashcamManager: NSObject, ObservableObject {
                                         started_at: ISO8601DateFormatter().string(from: Date()),
                                         linked_trip_session_id: linkedTrip,
                                         trip_source: (ownership == .videoImplicit ? .videoImplicit : .manual),
-                                        camera_mode: "rear",
+                                        camera_mode: cameraMode.backendValue,
                                         audio_enabled: settingsStore.enableMicrophone,
                                         app_version: Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String,
                                         ios_version: UIDevice.current.systemVersion,
@@ -866,7 +907,7 @@ final class DashcamManager: NSObject, ObservableObject {
 
         captureSession.sessionPreset = capabilityService.recommendedPreset()
 
-        guard let camera = AVCaptureDevice.default(.builtInWideAngleCamera, for: .video, position: .back) else {
+        guard let camera = AVCaptureDevice.default(.builtInWideAngleCamera, for: .video, position: cameraMode.avPosition) else {
             captureSession.commitConfiguration()
             throw DashcamError.cameraUnavailable
         }
@@ -898,6 +939,27 @@ final class DashcamManager: NSObject, ObservableObject {
 //        }
 
         captureSession.addOutput(movieOutput)
+
+        if cameraMode == .front {
+            driverFrameOutput.alwaysDiscardsLateVideoFrames = true
+            driverFrameOutput.videoSettings = [
+                kCVPixelBufferPixelFormatTypeKey as String: kCVPixelFormatType_32BGRA
+            ]
+
+            if captureSession.canAddOutput(driverFrameOutput) {
+                driverFrameOutput.setSampleBufferDelegate(
+                    driverFrameDelegate,
+                    queue: driverFrameQueue
+                )
+                captureSession.addOutput(driverFrameOutput)
+                print("[DRIVER_MONITORING] frame output added")
+            } else {
+                print("[DRIVER_MONITORING] cannot add frame output")
+            }
+        } else {
+            driverFrameOutput.setSampleBufferDelegate(nil, queue: nil)
+        }
+
         captureSession.commitConfiguration()
     }
 
@@ -1256,7 +1318,7 @@ final class DashcamManager: NSObject, ObservableObject {
             session_end_speed_kmh: sessionEndSpeedKmh,
             session_event_types: sessionEventTypes,
             stop_reason: trigger.rawValue,
-            camera_mode: "rear",
+            camera_mode: cameraMode.backendValue,
             audio_enabled: settingsStore.enableMicrophone,
             is_crash_log: false,
             crash_detected_at: lastCrashEvent.map { ISO8601DateFormatter().string(from: $0.at) },
@@ -1292,6 +1354,11 @@ final class DashcamManager: NSObject, ObservableObject {
 
     func updatePreviewLayout() {
         // layout теперь обслуживает CameraPreviewHostView
+    }
+    
+    func setCameraMode(_ mode: DashcamCameraMode) {
+        guard state == .idle else { return }
+        cameraMode = mode
     }
     
     

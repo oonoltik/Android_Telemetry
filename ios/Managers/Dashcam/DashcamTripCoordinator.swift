@@ -43,6 +43,11 @@ final class DashcamTripCoordinator: ObservableObject {
         if tripOwnership == .videoImplicit {
             await sensorManager.finishImplicitTrip(reason: TripFinishReason.manualTakeover.rawValue)
         }
+
+        if !sensorManager.isCollectingNow {
+            sensorManager.startCollecting()
+        }
+
         tripOwnership = .manual
     }
 
@@ -69,7 +74,7 @@ final class DashcamTripCoordinator: ObservableObject {
         }
     }
 
-    func syncOwnershipAfterExternalStateChange(videoStillActive: Bool) {
+    func syncOwnershipAfterExternalStateChange(videoStillActive: Bool) async {
         if sensorManager.isCollectingNow {
             if tripOwnership == .none {
                 tripOwnership = .manual
@@ -77,8 +82,13 @@ final class DashcamTripCoordinator: ObservableObject {
             return
         }
 
-        if videoStillActive {
-            tripOwnership = .videoImplicit
+        if videoStillActive && tripOwnership != .manual {
+            do {
+                try await sensorManager.startImplicitTrip()
+                tripOwnership = .videoImplicit
+            } catch {
+                tripOwnership = .none
+            }
         } else {
             tripOwnership = .none
         }

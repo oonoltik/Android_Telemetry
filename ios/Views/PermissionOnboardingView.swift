@@ -7,35 +7,70 @@
 
 import SwiftUI
 
-
-
 struct PermissionOnboardingView: View {
     let onContinue: () -> Void
-    
+
     @EnvironmentObject var languageManager: LanguageManager
+    @State private var page = 0
 
     private func t(_ key: LocalizationKey) -> String {
         languageManager.text(key)
     }
+
     var body: some View {
         NavigationStack {
-            VStack(alignment: .leading, spacing: 20) {
-                Spacer()
+            VStack(spacing: 20) {
+                TabView(selection: $page) {
+                    onboardingPage(
+                        icon: "car.fill",
+                        title: t(.onboardingTitle),
+                        items: [
+                            (t(.onboardingAutoDetect), "car.fill"),
+                            (t(.onboardingSummary), "chart.line.uptrend.xyaxis"),
+                            (t(.onboardingEvents), "figure.walk.motion"),
+                            (t(.onboardingBackground), "location.fill")
+                        ],
+                        footer: t(.onboardingPermissionText)
+                    )
+                    .tag(0)
 
-                Text(t(.onboardingTitle))
-                    .font(.largeTitle.bold())
+                    onboardingPage(
+                        icon: "video.fill",
+                        title: t(.onboardingDashcamTitle),
+                        items: [
+                            (t(.onboardingDashcamVideoRecording), "video.fill"),
+                            (t(.onboardingDashcamForegroundOnly), "iphone"),
+                            (t(.onboardingDashcamNoHiddenBackground), "pause.circle")
+                        ],
+                        footer: t(.onboardingDashcamFooter)
+                    )
+                    .tag(1)
 
-                VStack(alignment: .leading, spacing: 14) {
-                    Label(t(.onboardingAutoDetect), systemImage: "car.fill")
-                    Label(t(.onboardingSummary), systemImage: "chart.line.uptrend.xyaxis")
-                    Label(t(.onboardingEvents), systemImage: "figure.walk.motion")
-                    Label(t(.onboardingBackground), systemImage: "location.fill")
+                    onboardingPage(
+                        icon: "exclamationmark.triangle.fill",
+                        title: t(.onboardingCrashTitle),
+                        items: [
+                            (t(.onboardingCrashProtectedClip), "lock.fill"),
+                            (t(.onboardingCrashBeforeAfter), "clock.arrow.circlepath"),
+                            (t(.onboardingCrashNotAutoDeleted), "archivebox.fill")
+                        ],
+                        footer: t(.onboardingCrashFooter)
+                    )
+                    .tag(2)
+
+                    onboardingPage(
+                        icon: "hand.raised.fill",
+                        title: t(.onboardingPermissionsTitle),
+                        items: [
+                            (t(.onboardingPermissionCamera), "camera.fill"),
+                            (t(.onboardingPermissionMicrophone), "mic.fill"),
+                            (t(.onboardingPermissionPhotoLibrary), "photo.fill")
+                        ],
+                        footer: t(.onboardingPermissionsFooter)
+                    )
+                    .tag(3)
                 }
-                .font(.body)
-
-                Text(t(.onboardingPermissionText))
-                    .font(.footnote)
-                    .foregroundColor(.secondary)
+                .tabViewStyle(.page(indexDisplayMode: .always))
 
                 VStack(alignment: .leading, spacing: 8) {
                     Link(t(.privacyPolicy), destination: URL(string: "https://drivetelemetry.com/privacy/")!)
@@ -43,15 +78,52 @@ struct PermissionOnboardingView: View {
                 }
                 .font(.footnote)
 
-                Spacer()
-
-                Button(t(.continueButton))  {
-                    onContinue()
+                Button(page == 3 ? t(.continueButton) : t(.nextButton)) {
+                    if page < 3 {
+                        withAnimation {
+                            page += 1
+                        }
+                    } else {
+                        onContinue()
+                    }
                 }
                 .buttonStyle(.borderedProminent)
                 .frame(maxWidth: .infinity)
             }
             .padding()
         }
+    }
+
+    @ViewBuilder
+    private func onboardingPage(
+        icon: String,
+        title: String,
+        items: [(String, String)],
+        footer: String
+    ) -> some View {
+        VStack(alignment: .leading, spacing: 20) {
+            Spacer()
+
+            Image(systemName: icon)
+                .font(.system(size: 48))
+                .foregroundColor(.blue)
+
+            Text(title)
+                .font(.largeTitle.bold())
+
+            VStack(alignment: .leading, spacing: 14) {
+                ForEach(Array(items.enumerated()), id: \.offset) { _, item in
+                    Label(item.0, systemImage: item.1)
+                }
+            }
+            .font(.body)
+
+            Text(footer)
+                .font(.footnote)
+                .foregroundColor(.secondary)
+
+            Spacer()
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
     }
 }

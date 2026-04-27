@@ -132,7 +132,7 @@ final class CrashClipCoordinator {
 
     private let maxMetadataRetryCount = 10
     private let maxCrashVideoRetryCount = 20
-    private let cooldownSeconds: TimeInterval = 5
+    private let cooldownSeconds: TimeInterval = 20
 
     private var lastAcceptedCrashAt: Date?
     private var isDrainingMetadataQueue = false

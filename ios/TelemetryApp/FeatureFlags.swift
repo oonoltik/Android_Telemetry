@@ -34,5 +34,5 @@ enum FeatureFlags {
     // Temporary QA stub:
     // selected local state should be removed together with the app on uninstall
     // Удалаем все с устрйоства при переустановке -в режиме true
-    static let uninstallSafeLocalPersistence = true
+    static let uninstallSafeLocalPersistence = false
 }

@@ -25,4 +25,10 @@ final class CameraCapabilityService {
     func recommendedPreset() -> AVCaptureSession.Preset { .hd1280x720 }
     func requestCameraAccess() async -> Bool { await AVCaptureDevice.requestAccess(for: .video) }
     func requestMicrophoneAccess() async -> Bool { await AVCaptureDevice.requestAccess(for: .audio) }
+    
+    func validateCameraAvailable(position: AVCaptureDevice.Position) throws {
+        guard AVCaptureDevice.default(.builtInWideAngleCamera, for: .video, position: position) != nil else {
+            throw DashcamError.cameraUnavailable
+        }
+    }
 }

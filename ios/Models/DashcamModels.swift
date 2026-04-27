@@ -1,4 +1,5 @@
 import Foundation
+import AVFoundation
 
 enum DashcamRecordingState: Equatable {
     case idle
@@ -11,6 +12,24 @@ enum DashcamRecordingState: Equatable {
 enum DashcamPreviewState: Equatable {
     case hidden
     case visible
+}
+
+enum DashcamCameraMode: String, Codable, Equatable {
+    case rear
+    case front
+
+    var avPosition: AVCaptureDevice.Position {
+        switch self {
+        case .rear:
+            return .back
+        case .front:
+            return .front
+        }
+    }
+
+    var backendValue: String {
+        rawValue
+    }
 }
 
 enum DashcamTripOwnership: String, Codable {

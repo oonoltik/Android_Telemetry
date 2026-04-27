@@ -147,7 +147,7 @@ final class SensorManager: NSObject, ObservableObject {
         static var roadLowAbsG: Double = 0.45
         static var roadHighAbsG: Double = 0.75
         
-        static var gyroSpikeThreshold: Double = 6.0
+        static var gyroSpikeThreshold: Double = 1.0
         
 
         // client-only: gate for road anomaly (server doesn’t gate road by speed)
@@ -164,7 +164,7 @@ final class SensorManager: NSObject, ObservableObject {
     private let indoorTestModeKey = "indoorTestMode_v1"
 
     @Published var indoorTestMode: Bool = {
-        (UserDefaults.standard.object(forKey: "indoorTestMode_v1") as? Bool) ?? true
+        (UserDefaults.standard.object(forKey: "indoorTestMode_v1") as? Bool) ?? false
     }() {
         didSet {
             UserDefaults.standard.set(indoorTestMode, forKey: indoorTestModeKey)
@@ -222,6 +222,15 @@ final class SensorManager: NSObject, ObservableObject {
     private let crashThresholdG: Double = 1.2
 
     private let crashLogsEnabled = false
+    
+
+    private var effectiveCrashThresholdG: Double {
+        indoorTestMode ? 3.2 : crashThresholdG
+    }
+
+    private var isDashcamVideoModeActive: Bool {
+        suppressAutoFinishWhileDashcamActive
+    }
 
 
 
@@ -763,7 +772,7 @@ final class SensorManager: NSObject, ObservableObject {
     private func recordAgg(_ kind: AggKind, intensity raw: Double) {
         let x = abs(raw)
 
-        let threshold = indoorTestMode ? 1.2 : crashThresholdG
+        let threshold = effectiveCrashThresholdG
         if x > threshold {
             if crashLogsEnabled {
                 let detectedAt = Date()
@@ -1830,7 +1839,7 @@ if self.debugPrintsEnabled {
         minSpeedForAccelBrakeMS = 0.0
 
         // gyro spike threshold
-        gyroSpikeThreshold = 20.0
+        gyroSpikeThreshold = 4.0
     }
 
     // Re-apply thresholds from TripConfig / defaults, then apply indoor overrides if enabled.
@@ -3005,7 +3014,7 @@ if self.debugPrintsEnabled {
                 abs(aLongToSend ?? 0)
             )
 
-            let threshold = indoorTestMode ? 1.2 : crashThresholdG
+            let threshold = self.effectiveCrashThresholdG
 
             if crashMagnitude > threshold {
                 let now2 = Date()
@@ -3019,6 +3028,10 @@ if self.debugPrintsEnabled {
                 callbackAt=\(now2)
                 lag=\(lag)s
                 """)
+
+                if self.isDashcamVideoModeActive {
+                    self.publishDashcamCrashEvent(crashMagnitude)
+                }
             }
 
             let safeSpeedForSample = NumericSanitizer.raw(speedForSample)

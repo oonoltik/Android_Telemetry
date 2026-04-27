@@ -24,7 +24,7 @@ final class ManualTripAutoFinish {
     private var isAutoStoppingNow = false
 
     // Подберите: 60–120 сек. Я бы оставил 80 как в DayMonitoringManager.
-    var stopConfirmSec: TimeInterval = 999999
+    var stopConfirmSec: TimeInterval = 150
     
     
 

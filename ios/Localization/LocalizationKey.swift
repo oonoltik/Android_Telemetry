@@ -256,6 +256,26 @@ enum LocalizationKey: String {
     case onboardingEvents
     case onboardingBackground
     case onboardingPermissionText
+    
+    case onboardingDashcamTitle
+    case onboardingDashcamVideoRecording
+    case onboardingDashcamForegroundOnly
+    case onboardingDashcamNoHiddenBackground
+    case onboardingDashcamFooter
+
+    case onboardingCrashTitle
+    case onboardingCrashProtectedClip
+    case onboardingCrashBeforeAfter
+    case onboardingCrashNotAutoDeleted
+    case onboardingCrashFooter
+
+    case onboardingPermissionsTitle
+    case onboardingPermissionCamera
+    case onboardingPermissionMicrophone
+    case onboardingPermissionPhotoLibrary
+    case onboardingPermissionsFooter
+
+    case nextButton
 
     case crashDetected
     case crashImpactFormat
@@ -272,5 +292,63 @@ enum LocalizationKey: String {
     case archiveLoadFailedGeneric
     
     case driverScoreOneTrip
+    
+    
+    case videoArchiveTitle
+    case videoArchiveLockedMessage
+    case crashRecordsSection
+    case closeButton
+    case deselectAll
+    case selectAll
+    case deleteSelectedNormalTitle
+    case noButton
+    case yesButton
+    case recordsDeleteIrreversible
+    case deleteCrashRecordsTitle
+    case crashDeleteFirstConfirm
+    case confirmDeleteCrashRecordsTitle
+    case crashRecordsDeleteIrreversible
+    case archiveUnavailableDuringRecordingTitle
+    case stopVideoRecordingToOpenArchive
+    case fileUnavailableTitle
+    case unableToOpenRecordingMissingSegment
+    case saveToLibraryTitle
+    case saveToLibraryConfirmFormat
+    case saveCompletedTitle
+    case readyShort
+    case totalRecordsFormat
+    case usedStorageFormat
+    case recordsSavedInTwoMinuteFragments
+    case recordingMayContainSeveralFragments
+    case reducesDeviceLoad
+    case archiveEmpty
+    case archiveEmptyDescription
+    case summary
+    case normalRecords
+    case crashRecords
+    case selected
+    case all
+    case crashFilter
+    case normalFilter
+    case segmentFormat
+    case crashBadge
+    case savedBadge
+    case recordingFragmentFormat
+    case durationLabelFormat
+    case sizeGBFormat
+    case saveToMediaLibrary
+    case deleteNormal
+    case deleteCrash
+    case archiveFooterHint
+    case videoRecordingInProgress
+    case videoSavingInProgress
+    case hideCamera
+    case showCamera
+    case stopVideo
+    case smoothness
+    case recordingTitleFormat
+    case savedToLibraryFormat
+    case crashTitleWithDateFormat
+    
     
 }

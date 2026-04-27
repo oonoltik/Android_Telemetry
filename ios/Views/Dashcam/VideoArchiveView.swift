@@ -3,6 +3,13 @@ import AVKit
 
 struct VideoArchiveView: View {
     @Environment(\.dismiss) private var dismiss
+    
+    @EnvironmentObject var languageManager: LanguageManager
+
+    private func t(_ key: LocalizationKey) -> String {
+        languageManager.text(key)
+    }
+    
     @StateObject var viewModel: VideoArchiveViewModel
 
     let isInteractionLocked: Bool
@@ -87,7 +94,7 @@ struct VideoArchiveView: View {
                 infoBlock
 
                 if isInteractionLocked {
-                    Text("Во время видеозаписи просмотр и удаление записей временно недоступны.")
+                    Text(t(.videoArchiveLockedMessage))
                         .font(.footnote)
                         .foregroundColor(.orange)
                         .padding(.horizontal, 16)
@@ -111,7 +118,7 @@ struct VideoArchiveView: View {
                         filterBar
 
                         if !visibleCrashItems.isEmpty {
-                            Section("ЗАПИСИ аварий") {
+                            Section(t(.crashRecordsSection)) {
                                 ForEach(visibleCrashItems) { item in
                                     archiveRow(item)
                                 }
@@ -119,7 +126,7 @@ struct VideoArchiveView: View {
                         }
                         
                         if !visibleNormalItems.isEmpty {
-                            Section("Архив видео") {
+                            Section(t(.videoArchiveTitle)) {
                                 ForEach(visibleNormalItems) { item in
                                     archiveRow(item)
                                 }
@@ -131,17 +138,17 @@ struct VideoArchiveView: View {
 
                 footerBar
             }
-            .navigationTitle("Архив видео")
+            .navigationTitle(t(.videoArchiveTitle))
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .topBarLeading) {
-                    Button("Закрыть") {
+                    Button(t(.closeButton)) {
                         dismiss()
                     }
                 }
 
                 ToolbarItem(placement: .topBarTrailing) {
-                    Button(viewModel.allVisibleSelected ? "Снять всё" : "Выбрать всё") {
+                    Button(viewModel.allVisibleSelected ? t(.deselectAll) : t(.selectAll)) {
                         if isInteractionLocked {
                             showRecordingLockAlert = true
                             return
@@ -163,44 +170,44 @@ struct VideoArchiveView: View {
                 VideoPlayer(player: AVPlayer(url: item.url))
                     .ignoresSafeArea()
             }
-            .alert("Удалить выбранные обычные записи?", isPresented: $showDeleteNormalConfirm) {
-                Button("Нет", role: .cancel) {}
-                Button("Да", role: .destructive) {
+            .alert(t(.deleteSelectedNormalTitle), isPresented: $showDeleteNormalConfirm) {
+                Button(t(.noButton), role: .cancel) {}
+                Button(t(.yesButton), role: .destructive) {
                     viewModel.deleteItems(ids: selectedNormalIds)
                 }
             } message: {
-                Text("Записи будут удалены без возможности восстановления.")
+                Text(t(.recordsDeleteIrreversible))
             }
-            .alert("Удалить аварийные записи?", isPresented: $showDeleteCrashConfirmStep1) {
-                Button("Нет", role: .cancel) {}
-                Button("Да", role: .destructive) {
+            .alert(t(.deleteCrashRecordsTitle), isPresented: $showDeleteCrashConfirmStep1) {
+                Button(t(.noButton), role: .cancel) {}
+                Button(t(.yesButton), role: .destructive) {
                     showDeleteCrashConfirmStep2 = true
                 }
             } message: {
-                Text("Аварийные записи хранятся отдельно. Это первое подтверждение удаления.")
+                Text(t(.crashDeleteFirstConfirm))
             }
-            .alert("Подтвердите удаление аварийных записей", isPresented: $showDeleteCrashConfirmStep2) {
-                Button("Нет", role: .cancel) {}
-                Button("Удалить", role: .destructive) {
+            .alert(t(.confirmDeleteCrashRecordsTitle), isPresented: $showDeleteCrashConfirmStep2) {
+                Button(t(.noButton), role: .cancel) {}
+                Button(t(.delete), role: .destructive) {
                     viewModel.deleteItems(ids: selectedCrashIds)
                 }
             } message: {
-                Text("Аварийные записи будут удалены без возможности восстановления.")
+                Text(t(.crashRecordsDeleteIrreversible))
             }
-            .alert("Архив недоступен во время записи", isPresented: $showRecordingLockAlert) {
-                Button("OK", role: .cancel) {}
+            .alert(t(.archiveUnavailableDuringRecordingTitle), isPresented: $showRecordingLockAlert) {
+                Button(t(.ok), role: .cancel) {}
             } message: {
-                Text("Остановите видеозапись, чтобы открыть просмотр или удаление записей.")
+                Text(t(.stopVideoRecordingToOpenArchive))
             }
-            .alert("Файл недоступен", isPresented: $showFileMissingAlert) {
-                Button("OK", role: .cancel) {}
+            .alert(t(.fileUnavailableTitle), isPresented: $showFileMissingAlert) {
+                Button(t(.ok), role: .cancel) {}
             } message: {
-                Text("Не удалось открыть запись. Возможно, файл сегмента отсутствует.")
+                Text(t(.unableToOpenRecordingMissingSegment))
             }
-            .alert("Сохранить в медиатеку?", isPresented: $showSaveToLibraryConfirm) {
-                Button("Нет", role: .cancel) {}
+            .alert(t(.saveToLibraryTitle), isPresented: $showSaveToLibraryConfirm) {
+                Button(t(.noButton), role: .cancel) {}
 
-                Button("Да") {
+                Button(t(.yesButton)) {
                     Task {
                         isSavingToLibrary = true
                         await viewModel.saveSelectedToPhotoLibrary()
@@ -209,25 +216,41 @@ struct VideoArchiveView: View {
                     }
                 }
             } message: {
-                Text("Вы хотите сохранить \(viewModel.selectedCount) записей общим размером \(viewModel.selectedTotalSizeMBText) МБ?")
+                Text(String(format: t(.saveToLibraryConfirmFormat), viewModel.selectedCount, viewModel.selectedTotalSizeMBText))
             }
-            .alert("Сохранение завершено", isPresented: $showSaveResultAlert) {
-                Button("OK", role: .cancel) {}
+            .alert(t(.saveCompletedTitle), isPresented: $showSaveResultAlert) {
+                Button(t(.ok), role: .cancel) {}
             } message: {
-                Text(viewModel.saveResultText ?? "Готово.")
+                Text(localizedSaveResultText)
             }
         }
+    }
+    
+    private func localizedRecordingTitle(for item: DashcamArchiveItem) -> String {
+        if let recordingNumber = item.recordingNumber {
+            return String(format: t(.recordingTitleFormat), recordingNumber)
+        }
+        return item.title
+    }
+    
+    private var localizedSaveResultText: String {
+        guard let text = viewModel.saveResultText else { return t(.readyShort) }
+        let prefix = "Сохранено в медиатеку: "
+        if text.hasPrefix(prefix), let count = Int(text.dropFirst(prefix.count)) {
+            return String(format: t(.savedToLibraryFormat), count)
+        }
+        return text
     }
 
     private var headerView: some View {
         VStack(spacing: 10) {
             HStack {
                 VStack(alignment: .leading, spacing: 4) {
-                    Text("Всего записей: \(viewModel.items.count)")
+                    Text(String(format: t(.totalRecordsFormat), viewModel.items.count))
                         .font(.subheadline)
                         .fontWeight(.semibold)
 
-                    Text(String(format: "Использовано: %.2f ГБ (%d%%)", viewModel.totalSizeGB, viewModel.usagePercent))
+                    Text(String(format: t(.usedStorageFormat), viewModel.totalSizeGB, viewModel.usagePercent))
                         .font(.footnote)
                         .foregroundColor(.secondary)
                 }
@@ -253,15 +276,15 @@ struct VideoArchiveView: View {
     
     private var infoBlock: some View {
         VStack(alignment: .leading, spacing: 6) {
-            Label("Записи сохраняются фрагментами по 2 минуты", systemImage: "info.circle")
+            Label(t(.recordsSavedInTwoMinuteFragments), systemImage: "info.circle")
                 .font(.caption)
                 .foregroundColor(.secondary)
 
-            Text("Одна запись может состоять из нескольких фрагментов в архиве")
+            Text(t(.recordingMayContainSeveralFragments))
                 .font(.caption)
                 .foregroundColor(.secondary)
 
-            Text("Это сделано для снижения нагрузки на устройство")
+            Text(t(.reducesDeviceLoad))
                 .font(.caption)
                 .foregroundColor(.secondary)
         }
@@ -277,10 +300,10 @@ struct VideoArchiveView: View {
                 .font(.system(size: 42))
                 .foregroundColor(.secondary)
 
-            Text("Архив пуст")
+            Text(t(.archiveEmpty))
                 .font(.headline)
 
-            Text("После записи видео здесь появятся обычные и аварийные ролики.")
+            Text(t(.archiveEmptyDescription))
                 .font(.footnote)
                 .foregroundColor(.secondary)
                 .multilineTextAlignment(.center)
@@ -291,12 +314,12 @@ struct VideoArchiveView: View {
     }
 
     private var summarySection: some View {
-        Section("Сводка") {
+        Section(t(.summary)) {
             Button {
                 selectedFilter = .normal
             } label: {
                 HStack {
-                    Text("Обычные записи")
+                    Text(t(.normalRecords))
                     Spacer()
                     Text("\(normalItems.count)")
                         .foregroundColor(.secondary)
@@ -310,7 +333,7 @@ struct VideoArchiveView: View {
                 selectedFilter = .crash
             } label: {
                 HStack {
-                    Text("Аварийные записи")
+                    Text(t(.crashRecords))
                     Spacer()
                     Text("\(crashItems.count)")
                         .foregroundColor(.secondary)
@@ -324,7 +347,7 @@ struct VideoArchiveView: View {
                 selectedFilter = .all
             } label: {
                 HStack {
-                    Text("Выбрано")
+                    Text(t(.selected))
                     Spacer()
                     Text("\(viewModel.selectedIds.count)")
                         .foregroundColor(.secondary)
@@ -343,7 +366,7 @@ struct VideoArchiveView: View {
                 Button {
                     selectedFilter = .all
                 } label: {
-                    Text("Все")
+                    Text(t(.all))
                         .frame(maxWidth: .infinity)
                 }
                 .buttonStyle(.borderedProminent)
@@ -352,7 +375,7 @@ struct VideoArchiveView: View {
                 Button {
                     selectedFilter = .crash
                 } label: {
-                    Text("Аварийные")
+                    Text(t(.crashFilter))
                         .frame(maxWidth: .infinity)
                 }
                 .buttonStyle(.borderedProminent)
@@ -361,7 +384,7 @@ struct VideoArchiveView: View {
                 Button {
                     selectedFilter = .normal
                 } label: {
-                    Text("Обычные")
+                    Text(t(.normalFilter))
                         .frame(maxWidth: .infinity)
                 }
                 .buttonStyle(.borderedProminent)
@@ -371,10 +394,18 @@ struct VideoArchiveView: View {
         }
     }
     
+    private var displayFormatter: DateFormatter {
+        let f = DateFormatter()
+        f.locale = languageManager.locale()
+        f.timeZone = .current
+        f.dateFormat = "d MMM yyyy, HH:mm"
+        return f
+    }
+    
     private func segmentLabel(for item: DashcamArchiveItem) -> String? {
         guard item.kind == .normal else { return nil }
         guard let order = item.segmentOrder else { return nil }
-        return "Сегмент \(order)"
+        return String(format: t(.segmentFormat), order)
     }
 
     private func archiveRow(_ item: DashcamArchiveItem) -> some View {
@@ -415,7 +446,13 @@ struct VideoArchiveView: View {
                 HStack(alignment: .top, spacing: 12) {
                     VStack(alignment: .leading, spacing: 6) {
                         HStack(spacing: 8) {
-                            Text(item.title)
+                            let formattedDate = displayFormatter.string(from: item.startedAt)
+
+                            Text(
+                                item.kind == .crash
+                                ? String(format: t(.crashTitleWithDateFormat), formattedDate)
+                                : localizedRecordingTitle(for: item)
+                            )
                                 .font(.subheadline)
                                 .fontWeight(.semibold)
                                 .multilineTextAlignment(.leading)
@@ -432,7 +469,7 @@ struct VideoArchiveView: View {
                                 }
 
                             if item.kind == .crash {
-                                Text("АВАРИЯ")
+                                Text(t(.crashBadge))
                                     .font(.caption2)
                                     .fontWeight(.bold)
                                     .padding(.horizontal, 6)
@@ -443,7 +480,7 @@ struct VideoArchiveView: View {
                             }
                             
                             if item.isSavedToPhotoLibrary {
-                                Text("СОХРАНЕНО")
+                                Text(t(.savedBadge))
                                     .font(.caption2)
                                     .fontWeight(.bold)
                                     .padding(.horizontal, 6)
@@ -454,19 +491,19 @@ struct VideoArchiveView: View {
                             }
                         }
 
-                        Text(item.startedAt.formatted(.dateTime.year().month().day().hour().minute().second()))
+                        Text(displayFormatter.string(from: item.startedAt))
                             .font(.caption)
                             .foregroundColor(.secondary)
                         
                         if let recordingNumber = item.recordingNumber, let fragmentNumber = item.fragmentNumber {
-                            Text("Запись №\(recordingNumber) · Фрагмент \(fragmentNumber)")
+                            Text(String(format: t(.recordingFragmentFormat), recordingNumber, fragmentNumber))
                                 .font(.caption)
                                 .foregroundColor(.secondary)
                         }
 
                         HStack(spacing: 12) {
-                            Text("Длительность: \(formatDuration(item.durationSeconds))")
-                            Text(String(format: "Размер: %.2f ГБ", Double(item.sizeBytes) / 1_073_741_824.0))
+                            Text(String(format: t(.durationLabelFormat), formatDuration(item.durationSeconds)))
+                            Text(String(format: t(.sizeGBFormat), Double(item.sizeBytes) / 1_073_741_824.0))
                         }
                         .font(.caption)
                         .foregroundColor(.secondary)
@@ -501,7 +538,7 @@ struct VideoArchiveView: View {
                         ProgressView()
                             .frame(maxWidth: .infinity)
                     } else {
-                        Text("Сохранить в медиатеку")
+                        Text(t(.saveToMediaLibrary))
                             .frame(maxWidth: .infinity)
                     }
                 }
@@ -515,7 +552,7 @@ struct VideoArchiveView: View {
                     }
                     showDeleteNormalConfirm = true
                 } label: {
-                    Text("Удалить обычные")
+                    Text(t(.deleteNormal))
                         .frame(maxWidth: .infinity)
                 }
                 .buttonStyle(.bordered)
@@ -528,7 +565,7 @@ struct VideoArchiveView: View {
                     }
                     showDeleteCrashConfirmStep1 = true
                 } label: {
-                    Text("Удалить аварийные")
+                    Text(t(.deleteCrash))
                         .frame(maxWidth: .infinity)
                 }
                 .buttonStyle(.bordered)
@@ -536,7 +573,7 @@ struct VideoArchiveView: View {
             }
 
             if hasSelection {
-                Text("Можно выбрать записи и сохранить их в медиатеку. Для аварийных записей удаление требует двойного подтверждения.")
+                Text(t(.archiveFooterHint))
                     .font(.caption)
                     .foregroundColor(.secondary)
                     .frame(maxWidth: .infinity, alignment: .leading)

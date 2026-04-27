@@ -13,12 +13,12 @@ final class AppDelegate: NSObject, UIApplicationDelegate {
         didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]? = nil
     ) -> Bool {
         
-#if DEBUG
-   if UserDefaults.standard.bool(forKey: "reset_logs_two") == false {
-       FileLogger.shared.reset()
-       UserDefaults.standard.set(true, forKey: "reset_logs_two")
-   }
-#endif
+//#if DEBUG
+//   if UserDefaults.standard.bool(forKey: "reset_logs_two") == false {
+//       FileLogger.shared.reset()
+//       UserDefaults.standard.set(true, forKey: "reset_logs_two")
+//   }
+//#endif
         
         logEvent("=== APP LAUNCH ===")
         logEvent("LOG FILE = \(FileLogger.shared.currentLogURL().path)")

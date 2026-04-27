@@ -14,6 +14,8 @@
 		F51BB5182F9968EA0057C496 /* FileLogger.swift in Sources */ = {isa = PBXBuildFile; fileRef = F51BB5172F9968E50057C496 /* FileLogger.swift */; };
 		F51BB51A2F9969370057C496 /* LogEvent.swift in Sources */ = {isa = PBXBuildFile; fileRef = F51BB5192F9969350057C496 /* LogEvent.swift */; };
 		F51BB51D2F9971C50057C496 /* DebugLogSink.swift in Sources */ = {isa = PBXBuildFile; fileRef = F51BB51C2F9971C20057C496 /* DebugLogSink.swift */; };
+		F51BB5312F9F4EB20057C496 /* DriverMonitoringService.swift in Sources */ = {isa = PBXBuildFile; fileRef = F51BB5302F9F4EB00057C496 /* DriverMonitoringService.swift */; };
+		F51BB5332F9F51880057C496 /* DriverMonitoringFrameDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = F51BB5322F9F51870057C496 /* DriverMonitoringFrameDelegate.swift */; };
 		F51CC9742F178AFE00926111 /* KeychainStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = F51CC9732F178AFA00926111 /* KeychainStore.swift */; };
 		F51CC9762F178B2500926111 /* AuthManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = F51CC9752F178B2300926111 /* AuthManager.swift */; };
 		F532A1662F66A1E60083C8BF /* LanguageManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = F532A1652F66A0960083C8BF /* LanguageManager.swift */; };
@@ -91,6 +93,8 @@
 		F51BB5172F9968E50057C496 /* FileLogger.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FileLogger.swift; sourceTree = "<group>"; };
 		F51BB5192F9969350057C496 /* LogEvent.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LogEvent.swift; sourceTree = "<group>"; };
 		F51BB51C2F9971C20057C496 /* DebugLogSink.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DebugLogSink.swift; sourceTree = "<group>"; };
+		F51BB5302F9F4EB00057C496 /* DriverMonitoringService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DriverMonitoringService.swift; sourceTree = "<group>"; };
+		F51BB5322F9F51870057C496 /* DriverMonitoringFrameDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DriverMonitoringFrameDelegate.swift; sourceTree = "<group>"; };
 		F51CC9732F178AFA00926111 /* KeychainStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KeychainStore.swift; sourceTree = "<group>"; };
 		F51CC9752F178B2300926111 /* AuthManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AuthManager.swift; sourceTree = "<group>"; };
 		F532A1622F66A02F0083C8BF /* AppLanguage.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppLanguage.swift; sourceTree = "<group>"; };
@@ -197,6 +201,15 @@
 			path = Logging;
 			sourceTree = "<group>";
 		};
+		F51BB52F2F9F4EA10057C496 /* Vision */ = {
+			isa = PBXGroup;
+			children = (
+				F51BB5322F9F51870057C496 /* DriverMonitoringFrameDelegate.swift */,
+				F51BB5302F9F4EB00057C496 /* DriverMonitoringService.swift */,
+			);
+			path = Vision;
+			sourceTree = "<group>";
+		};
 		F532A1612F66A0220083C8BF /* Localization */ = {
 			isa = PBXGroup;
 			children = (
@@ -237,6 +250,7 @@
 		F552E9CE2F851D5100CBC4D3 /* Dashcam */ = {
 			isa = PBXGroup;
 			children = (
+				F51BB52F2F9F4EA10057C496 /* Vision */,
 				F552EA0B2F8687E600CBC4D3 /* CrashClipExporter.swift */,
 				F552E9FE2F85226000CBC4D3 /* CrashClipCoordinator.swift */,
 				F552E9FF2F85226000CBC4D3 /* DashcamManager.swift */,
@@ -496,6 +510,7 @@
 				F5A3AB482F1FD8CB00BBB788 /* TripsArchiveView.swift in Sources */,
 				F532A1942F6ADD960083C8BF /* TelemetryAppApp.swift in Sources */,
 				F532A1952F6ADD960083C8BF /* FeatureFlags.swift in Sources */,
+				F51BB5312F9F4EB20057C496 /* DriverMonitoringService.swift in Sources */,
 				F57FB9202EEAEC09002BC621 /* models.swift in Sources */,
 				F552EA0A2F8524C000CBC4D3 /* VideoArchiveStore.swift in Sources */,
 				F552E9BF2F851BE000CBC4D3 /* DashcamModels.swift in Sources */,
@@ -514,6 +529,7 @@
 				F57FB91A2EEADC82002BC621 /* SensorManager.swift in Sources */,
 				F507E2F52F24E3AA00F8D50E /* WaterGlassFullScreenView.swift in Sources */,
 				F56722692EFEEE5400757F45 /* TripReportView.swift in Sources */,
+				F51BB5332F9F51880057C496 /* DriverMonitoringFrameDelegate.swift in Sources */,
 				F57FB9242EEB2721002BC621 /* SettingsView.swift in Sources */,
 				F532A16F2F695D4F0083C8BF /* WaterGameManager.swift in Sources */,
 				F5617FF92F01E5F7000889E0 /* Axis3.swift in Sources */,
@@ -720,7 +736,7 @@
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_ENTITLEMENTS = TelemetryApp/TelemetryApp.entitlements;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 10;
+				CURRENT_PROJECT_VERSION = 2;
 				DEVELOPMENT_TEAM = 586DTS6D8R;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
@@ -742,7 +758,7 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				MARKETING_VERSION = 1.0.1;
+				MARKETING_VERSION = 1.0.3;
 				PRODUCT_BUNDLE_IDENTIFIER = com.alexey.TelemetryApp;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				STRING_CATALOG_GENERATE_SYMBOLS = YES;
@@ -762,7 +778,7 @@
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_ENTITLEMENTS = TelemetryApp/TelemetryApp.entitlements;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 10;
+				CURRENT_PROJECT_VERSION = 2;
 				DEVELOPMENT_TEAM = 586DTS6D8R;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
@@ -784,7 +800,7 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				MARKETING_VERSION = 1.0.1;
+				MARKETING_VERSION = 1.0.3;
 				PRODUCT_BUNDLE_IDENTIFIER = com.alexey.TelemetryApp;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				STRING_CATALOG_GENERATE_SYMBOLS = YES;

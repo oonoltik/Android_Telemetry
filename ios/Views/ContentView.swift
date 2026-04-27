@@ -534,7 +534,7 @@ struct ContentView: View {
 
                         VStack(alignment: .leading, spacing: 10) {
                             HStack {
-                                Text("Smoothness")
+                                Text(t(.smoothness))
                                     .font(.headline)
                                 Spacer()
                                 Text("\(smooth)")
@@ -641,7 +641,7 @@ struct ContentView: View {
                                     isInteractionLocked: dashcamManager.isVideoModeActive
                                 )
                             } label: {
-                                Label("Архив видео", systemImage: "internaldrive")
+                                Label(t(.videoArchiveTitle), systemImage: "internaldrive")
                                     .frame(maxWidth: .infinity)
                                     .padding(.vertical, 10)
                             }
@@ -675,7 +675,7 @@ struct ContentView: View {
                                     Image(systemName: "record.circle.fill")
                                         .foregroundColor(dashcamManager.state == .stopping ? .orange : .red)
 
-                                    Text(dashcamManager.state == .stopping ? "Идет сохранение записи" : "Идет видеозапись")
+                                    Text(dashcamManager.state == .stopping ? t(.videoSavingInProgress) : t(.videoRecordingInProgress))
                                         .font(.headline)
 
                                     Spacer()
@@ -700,13 +700,33 @@ struct ContentView: View {
                                     .opacity(isPreviewContainerVisible && dashcamManager.state == .recording ? 1 : 0)
                                     .allowsHitTesting(isPreviewContainerVisible && dashcamManager.state == .recording)
                                     .clipped()
+                                
+                                driverFatigueAlertView
+                                
+                                if dashcamManager.cameraMode == .front && dashcamManager.state == .recording {
+                                    VStack(alignment: .leading, spacing: 6) {
+                                        Text("Driver monitoring")
+                                            .font(.caption)
+                                            .foregroundColor(.secondary)
+
+                                        Text("Eye score: \(dashcamManager.driverEyeOpenScore, specifier: "%.2f")")
+                                            .font(.caption)
+
+                                        Text("PERCLOS: \(dashcamManager.driverPerclos, specifier: "%.2f")")
+                                            .font(.caption)
+                                    }
+                                    .frame(maxWidth: .infinity, alignment: .leading)
+                                    .padding(10)
+                                    .background(.thinMaterial)
+                                    .cornerRadius(10)
+                                }
 
                                 if dashcamManager.state == .stopping {
                                     VStack(spacing: 8) {
                                         ProgressView(value: dashcamManager.stopProgressValue)
                                             .progressViewStyle(.linear)
 
-                                        Text(dashcamManager.stopProgressText ?? "Идет сохранение записи")
+                                        Text(dashcamManager.stopProgressText ?? t(.videoSavingInProgress))
                                             .font(.caption)
                                             .foregroundColor(.secondary)
                                     }
@@ -722,7 +742,7 @@ struct ContentView: View {
                                             }
                                         } label: {
                                             Label(
-                                                isPreviewContainerVisible ? "Скрыть камеру" : "Показать камеру",
+                                                isPreviewContainerVisible ? t(.hideCamera) : t(.showCamera),
                                                 systemImage: isPreviewContainerVisible ? "eye.slash" : "eye"
                                             )
                                             .frame(maxWidth: .infinity)
@@ -738,7 +758,7 @@ struct ContentView: View {
                                                 await dashcamManager.stopVideoMode(trigger: .userButton)
                                             }
                                         } label: {
-                                            Label("Стоп видео", systemImage: "stop.fill")
+                                            Label(t(.stopVideo), systemImage: "stop.fill")
                                                 .frame(maxWidth: .infinity)
                                                 .padding(.vertical, 10)
                                         }
@@ -751,6 +771,16 @@ struct ContentView: View {
                     }
                     
                     // ===== Live visualization: glass of water =====
+                    Picker("Камера", selection: Binding(
+                        get: { dashcamManager.cameraMode },
+                        set: { dashcamManager.setCameraMode($0) }
+                    )) {
+                        Text("Дорога").tag(DashcamCameraMode.rear)
+                        Text("Водитель").tag(DashcamCameraMode.front)
+                    }
+                    .pickerStyle(.segmented)
+                    .padding(.horizontal)
+                    .disabled(dashcamManager.state != .idle)
                     
                     Button {
                         sensorManager.markScreenInteractionInApp()
@@ -1120,6 +1150,45 @@ struct ContentView: View {
 //                    sensorManager.markScreenInteractionInApp()
 //                }
 //        )
+    }
+    
+    @ViewBuilder
+    private var driverFatigueAlertView: some View {
+        if dashcamManager.cameraMode == .front &&
+            dashcamManager.state == .recording {
+
+            switch dashcamManager.driverPerclos {
+            case let perclos where perclos >= dashcamManager.driverFatigueCriticalThreshold:
+                VStack(spacing: 6) {
+                    Text("ВОДИТЕЛЬ ЗАСЫПАЕТ")
+                        .font(.headline)
+                        .fontWeight(.bold)
+                        .foregroundColor(.white)
+
+                    Text("СРОЧНО ОСТАНОВИТЕСЬ")
+                        .font(.caption)
+                        .fontWeight(.semibold)
+                        .foregroundColor(.white)
+                }
+                .frame(maxWidth: .infinity)
+                .padding(14)
+                .background(Color.red.opacity(0.92))
+                .cornerRadius(12)
+
+            case let perclos where perclos >= dashcamManager.driverFatigueWarningThreshold:
+                Text("Признаки усталости водителя")
+                    .font(.caption)
+                    .fontWeight(.semibold)
+                    .foregroundColor(.black)
+                    .frame(maxWidth: .infinity)
+                    .padding(10)
+                    .background(Color.yellow.opacity(0.92))
+                    .cornerRadius(10)
+
+            default:
+                EmptyView()
+            }
+        }
     }
     
     @ViewBuilder
