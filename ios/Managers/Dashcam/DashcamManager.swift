@@ -37,9 +37,8 @@ final class DashcamManager: NSObject, ObservableObject {
     }
     
     nonisolated private static func __dbg(_ message: String) {
-            print(message)
-            FileLogger.shared.log(message)
-        }
+        FileLogger.shared.log(message)
+    }
     
     @Published private(set) var state: DashcamRecordingState = .idle {
         didSet {
@@ -61,6 +60,9 @@ final class DashcamManager: NSObject, ObservableObject {
     
     @Published private(set) var driverEyeOpenScore: CGFloat = 0
     @Published private(set) var driverPerclos: Double = 0
+    @Published private(set) var driverFatigueScore: Double = 0
+
+    @Published private(set) var driverFatigueState: DriverFatigueState = .normal
     
     var driverFatigueWarningThreshold: Double {
         driverMonitoring.warningPerclosThreshold
@@ -178,11 +180,27 @@ final class DashcamManager: NSObject, ObservableObject {
                 self?.driverEyeOpenScore = value
             }
             .store(in: &driverMonitoringCancellables)
+        
+        
 
         driverMonitoring.$perclos
             .receive(on: DispatchQueue.main)
             .sink { [weak self] value in
                 self?.driverPerclos = value
+            }
+            .store(in: &driverMonitoringCancellables)
+        
+        driverMonitoring.$fatigueScore
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] value in
+                self?.driverFatigueScore = value
+            }
+            .store(in: &driverMonitoringCancellables)
+        
+        driverMonitoring.$driverFatigueState
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] value in
+                self?.driverFatigueState = value
             }
             .store(in: &driverMonitoringCancellables)
     }
@@ -618,6 +636,8 @@ final class DashcamManager: NSObject, ObservableObject {
         pendingStopTrigger = nil
         lastCrashEvent = nil
         recentCrashAt = nil
+        
+        driverMonitoring.reset()
 
         do {
             print("[DASHCAM][START] ensure quota")
@@ -814,6 +834,7 @@ final class DashcamManager: NSObject, ObservableObject {
         await finalizeStoppedSession(trigger: trigger)
         
         hidePreview()
+        driverMonitoring.reset()
     }
 
     func prepareManualTripStartDuringVideo() async {

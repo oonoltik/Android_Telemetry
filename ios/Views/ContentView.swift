@@ -666,7 +666,7 @@ struct ContentView: View {
                         }
                         .buttonStyle(.bordered)
                         .padding(.horizontal)
-                        .disabled(dashcamManager.state == .recording || sensorManager.driverId.isEmpty)
+                        .disabled(dashcamManager.state != .idle || sensorManager.driverId.isEmpty)
                        
                         
                         if dashcamManager.state == .recording || dashcamManager.state == .preparing || dashcamManager.state == .stopping {
@@ -709,12 +709,31 @@ struct ContentView: View {
                                             .font(.caption)
                                             .foregroundColor(.secondary)
 
-                                        Text("Eye score: \(dashcamManager.driverEyeOpenScore, specifier: "%.2f")")
-                                            .font(.caption)
+                                        HStack(alignment: .firstTextBaseline, spacing: 14) {
+                                            Text("Eye score: \(dashcamManager.driverEyeOpenScore, specifier: "%.2f")")
+                                                .font(.caption)
+
+                                            Spacer(minLength: 8)
+
+                                            Text("Fatigue:")
+                                                .font(.caption)
+                                                .foregroundColor(.secondary)
+
+                                            Text("\(dashcamManager.driverFatigueScore, specifier: "%.0f")")
+                                                .font(.system(size: 34, weight: .bold, design: .rounded))
+
+                                            Text("/100")
+                                                .font(.caption)
+                                                .foregroundColor(.secondary)
+                                        }
 
                                         Text("PERCLOS: \(dashcamManager.driverPerclos, specifier: "%.2f")")
                                             .font(.caption)
+
+                                        Text("State: \(dashcamManager.driverFatigueState.rawValue)")
+                                            .font(.caption)
                                     }
+                                    
                                     .frame(maxWidth: .infinity, alignment: .leading)
                                     .padding(10)
                                     .background(.thinMaterial)
@@ -1157,8 +1176,9 @@ struct ContentView: View {
         if dashcamManager.cameraMode == .front &&
             dashcamManager.state == .recording {
 
-            switch dashcamManager.driverPerclos {
-            case let perclos where perclos >= dashcamManager.driverFatigueCriticalThreshold:
+            switch dashcamManager.driverFatigueState {
+
+            case .critical:
                 VStack(spacing: 6) {
                     Text("ВОДИТЕЛЬ ЗАСЫПАЕТ")
                         .font(.headline)
@@ -1175,7 +1195,7 @@ struct ContentView: View {
                 .background(Color.red.opacity(0.92))
                 .cornerRadius(12)
 
-            case let perclos where perclos >= dashcamManager.driverFatigueWarningThreshold:
+            case .warning:
                 Text("Признаки усталости водителя")
                     .font(.caption)
                     .fontWeight(.semibold)
@@ -1185,7 +1205,27 @@ struct ContentView: View {
                     .background(Color.yellow.opacity(0.92))
                     .cornerRadius(10)
 
-            default:
+            case .drowsy:
+                Text("Голова опущена")
+                    .font(.caption)
+                    .fontWeight(.semibold)
+                    .foregroundColor(.white)
+                    .frame(maxWidth: .infinity)
+                    .padding(10)
+                    .background(Color.orange.opacity(0.92))
+                    .cornerRadius(10)
+
+            case .distracted:
+                Text("Смотрите на дорогу")
+                    .font(.caption)
+                    .fontWeight(.semibold)
+                    .foregroundColor(.white)
+                    .frame(maxWidth: .infinity)
+                    .padding(10)
+                    .background(Color.blue.opacity(0.92))
+                    .cornerRadius(10)
+
+            case .normal:
                 EmptyView()
             }
         }
