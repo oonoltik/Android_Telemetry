@@ -24,6 +24,9 @@ class PersistentTripRuntimeStateStore(
             .putFloat(KEY_DISTANCE_M, state.distanceM.toFloat())
             .putBoolean(KEY_IS_FOREGROUND, state.isForegroundCollection)
             .putBoolean(KEY_PENDING_FINISH, state.pendingFinish)
+            .putBoolean(KEY_DAY_MONITORING_ENABLED, state.dayMonitoringEnabled)
+            .putBoolean(KEY_DAY_MONITORING_AUTO_TRIP_ACTIVE, state.dayMonitoringAutoTripActive)
+            .putString(KEY_DAY_MONITORING_AUTO_STARTED_SESSION_ID, state.dayMonitoringAutoStartedSessionId)
             .apply()
     }
 
@@ -48,6 +51,9 @@ class PersistentTripRuntimeStateStore(
             distanceM = prefs.getFloat(KEY_DISTANCE_M, 0f).toDouble(),
             isForegroundCollection = prefs.getBoolean(KEY_IS_FOREGROUND, false),
             pendingFinish = prefs.getBoolean(KEY_PENDING_FINISH, false),
+            dayMonitoringEnabled = prefs.getBoolean(KEY_DAY_MONITORING_ENABLED, false),
+            dayMonitoringAutoTripActive = prefs.getBoolean(KEY_DAY_MONITORING_AUTO_TRIP_ACTIVE, false),
+            dayMonitoringAutoStartedSessionId = prefs.getString(KEY_DAY_MONITORING_AUTO_STARTED_SESSION_ID, null),
         )
     }
 
@@ -69,5 +75,8 @@ class PersistentTripRuntimeStateStore(
         const val KEY_DISTANCE_M = "distance_m"
         const val KEY_IS_FOREGROUND = "is_foreground"
         const val KEY_PENDING_FINISH = "pending_finish"
+        const val KEY_DAY_MONITORING_ENABLED = "day_monitoring_enabled"
+        const val KEY_DAY_MONITORING_AUTO_TRIP_ACTIVE = "day_monitoring_auto_trip_active"
+        const val KEY_DAY_MONITORING_AUTO_STARTED_SESSION_ID = "day_monitoring_auto_started_session_id"
     }
 }

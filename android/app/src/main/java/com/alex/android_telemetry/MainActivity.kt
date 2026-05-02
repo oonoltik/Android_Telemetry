@@ -1,9 +1,13 @@
 package com.alex.android_telemetry
 
+import android.Manifest
+import android.content.pm.PackageManager
+import android.os.Build
 import android.os.Bundle
 import android.util.Log
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
@@ -26,24 +30,32 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import com.alex.android_telemetry.telemetry.domain.TrackingMode
+import com.alex.android_telemetry.telemetry.domain.TransportMode
 import com.alex.android_telemetry.telemetry.domain.model.TelemetryMode
 import com.alex.android_telemetry.telemetry.domain.model.TripRuntimeState
 import com.alex.android_telemetry.telemetry.driver.AccountDeleteResult
 import com.alex.android_telemetry.telemetry.driver.DriverLoginResult
 import com.alex.android_telemetry.telemetry.driver.DriverPrepareResult
 import com.alex.android_telemetry.telemetry.driver.DriverRegisterResult
+import com.alex.android_telemetry.telemetry.service.TelemetryServiceStarter
 import com.alex.android_telemetry.ui.theme.Android_TelemetryTheme
 import kotlinx.coroutines.launch
-import com.alex.android_telemetry.telemetry.domain.TrackingMode
-import com.alex.android_telemetry.telemetry.domain.TransportMode
-import com.alex.android_telemetry.telemetry.service.TelemetryServiceStarter
-
 class MainActivity : ComponentActivity() {
 
     private lateinit var graph: TelemetryAppGraph
 
+    private val activityRecognitionPermissionLauncher =
+        registerForActivityResult(
+            ActivityResultContracts.RequestPermission()
+        ) { granted ->
+            Log.d("UI", "ACTIVITY_RECOGNITION granted=$granted")
+        }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+
+        requestActivityRecognitionPermissionIfNeeded()
 
         graph = TelemetryAppGraph.get(applicationContext)
         val serviceStarter = TelemetryServiceStarter(applicationContext)
@@ -53,7 +65,7 @@ class MainActivity : ComponentActivity() {
                 val scope = rememberCoroutineScope()
                 val state by graph.facade.observeState().collectAsState()
 
-                var mdMonitoringEnabledUi by remember { mutableStateOf(false) }
+
 
                 var driverIdInput by remember {
                     mutableStateOf(graph.driverRepository.getCurrentDriverId().orEmpty())
@@ -66,7 +78,7 @@ class MainActivity : ComponentActivity() {
 
                 DebugTelemetryScreen(
                     state = state,
-                    mdMonitoringEnabledUi = mdMonitoringEnabledUi,
+
                     driverIdInput = driverIdInput,
                     passwordInput = passwordInput,
                     prepareStatus = prepareStatus,
@@ -246,7 +258,7 @@ class MainActivity : ComponentActivity() {
                                     deviceId = graph.deviceIdProvider.get(),
                                     driverId = driverId,
                                     trackingMode = TrackingMode.SINGLE_TRIP,
-                                    transportMode = TransportMode.CAR,
+                                    transportMode = TransportMode.UNKNOWN,
                                 )
                                 Log.d("UI", "single trip start invoked")
                             } catch (t: Throwable) {
@@ -259,7 +271,7 @@ class MainActivity : ComponentActivity() {
                         scope.launch {
                             try {
                                 serviceStarter.enableDayMonitoring()
-                                mdMonitoringEnabledUi = true
+
                                 Log.d("UI", "enableDayMonitoring() invoked")
                             } catch (t: Throwable) {
                                 Log.e("UI", "enableDayMonitoring() FAILED", t)
@@ -271,7 +283,7 @@ class MainActivity : ComponentActivity() {
                         scope.launch {
                             try {
                                 serviceStarter.disableDayMonitoring()
-                                mdMonitoringEnabledUi = false
+
                                 Log.d("UI", "disableDayMonitoring() invoked")
                             } catch (t: Throwable) {
                                 Log.e("UI", "disableDayMonitoring() FAILED", t)
@@ -304,13 +316,24 @@ class MainActivity : ComponentActivity() {
             }
         }
     }
+
+    private fun requestActivityRecognitionPermissionIfNeeded() {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) return
+
+        val permission = Manifest.permission.ACTIVITY_RECOGNITION
+
+        if (checkSelfPermission(permission) != PackageManager.PERMISSION_GRANTED) {
+            activityRecognitionPermissionLauncher.launch(permission)
+        }
+    }
+
+
 }
 
 @Composable
 
 private fun DebugTelemetryScreen(
     state: TripRuntimeState,
-    mdMonitoringEnabledUi: Boolean,
     driverIdInput: String,
     passwordInput: String,
     prepareStatus: String,
@@ -391,7 +414,9 @@ private fun DebugTelemetryScreen(
         Text(text = "finishUiState: ${state.finishUiState}")
         Text(text = "lastFinishError: ${state.lastFinishError ?: "-"}")
         Text(text = "lastTripReport.sessionId: ${state.lastTripReport?.sessionId ?: "-"}")
-        Text(text = "dayMonitoring(UI): $mdMonitoringEnabledUi")
+        Text(text = "dayMonitoringEnabled: ${state.dayMonitoringEnabled}")
+        Text(text = "dayMonitoringAutoTripActive: ${state.dayMonitoringAutoTripActive}")
+        Text(text = "dayMonitoringAutoStartedSessionId: ${state.dayMonitoringAutoStartedSessionId ?: "-"}")
         Text(text = "startedAt: ${state.startedAt ?: "-"}")
         Text(text = "lastSampleAt: ${state.lastSampleAt ?: "-"}")
         Text(text = "lastLocationAt: ${state.lastLocationAt ?: "-"}")
@@ -430,7 +455,7 @@ private fun DebugTelemetryScreenPreview() {
         DebugTelemetryScreen(
             state = TripRuntimeState(),
             driverIdInput = "analitik7",
-            mdMonitoringEnabledUi = false,
+
             passwordInput = "secret123",
             prepareStatus = "-",
             registerStatus = "-",

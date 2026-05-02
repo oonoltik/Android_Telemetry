@@ -16,6 +16,8 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.cancelAndJoin
 import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.launch
+import com.alex.android_telemetry.telemetry.domain.model.TelemetryCounters
+import com.alex.android_telemetry.telemetry.domain.model.DeliveryRouteStats
 
 class TelemetryCaptureCoordinator(
     private val clockProvider: ClockProvider,

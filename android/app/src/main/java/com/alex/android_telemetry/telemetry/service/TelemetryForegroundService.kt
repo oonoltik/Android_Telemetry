@@ -7,9 +7,8 @@ import android.util.Log
 import com.alex.android_telemetry.TelemetryAppGraph
 import com.alex.android_telemetry.core.di.ServiceLocator
 import com.alex.android_telemetry.core.foreground.ForegroundIds
-import com.alex.android_telemetry.telemetry.domain.FinishReason
-import com.alex.android_telemetry.telemetry.domain.TrackingMode
-import com.alex.android_telemetry.telemetry.domain.TransportMode
+import com.alex.android_telemetry.telemetry.domain.model.TrackingMode
+import com.alex.android_telemetry.telemetry.runtime.toSnapshot
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -37,13 +36,13 @@ class TelemetryForegroundService : Service() {
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         when (intent?.action) {
             TelemetryServiceActions.ACTION_START_TRIP -> handleStartTrip(intent)
-            TelemetryServiceActions.ACTION_STOP_TRIP -> handleStopTrip(intent)
+            TelemetryServiceActions.ACTION_STOP_TRIP -> handleStopTrip()
             TelemetryServiceActions.ACTION_RECOVER_TRIP -> handleRecoverTrip()
 
             TelemetryServiceActions.ACTION_ENABLE_DAY_MONITORING -> handleEnableDayMonitoring()
             TelemetryServiceActions.ACTION_DISABLE_DAY_MONITORING -> handleDisableDayMonitoring()
-            TelemetryServiceActions.ACTION_AUTO_START_TRIP -> handleAutoStartTrip(intent)
-            TelemetryServiceActions.ACTION_AUTO_STOP_TRIP -> handleAutoStopTrip(intent)
+            TelemetryServiceActions.ACTION_AUTO_START_TRIP -> handleAutoStartTrip()
+            TelemetryServiceActions.ACTION_AUTO_STOP_TRIP -> handleAutoStopTrip()
         }
         return START_STICKY
     }
@@ -57,55 +56,35 @@ class TelemetryForegroundService : Service() {
     }
 
     private fun handleStartTrip(intent: Intent) {
-        val deviceId = intent.getStringExtra(TelemetryServiceActions.EXTRA_DEVICE_ID).orEmpty()
-        val driverId = intent.getStringExtra(TelemetryServiceActions.EXTRA_DRIVER_ID)
         val trackingMode = runCatching {
             TrackingMode.valueOf(
                 intent.getStringExtra(TelemetryServiceActions.EXTRA_TRACKING_MODE).orEmpty()
             )
         }.getOrDefault(TrackingMode.SINGLE_TRIP)
-        val transportMode = runCatching {
-            TransportMode.valueOf(
-                intent.getStringExtra(TelemetryServiceActions.EXTRA_TRANSPORT_MODE).orEmpty()
-            )
-        }.getOrDefault(TransportMode.CAR)
 
         serviceScope.launch {
-            ServiceLocator.appContainer.tripSessionRuntime.startTrip(
-                scope = serviceScope,
-                deviceId = deviceId,
-                driverId = driverId,
-                trackingMode = trackingMode,
-                transportMode = transportMode
-            )
-
+            appGraph.facade.startTrip(mode = trackingMode)
             appGraph.dayMonitoringManager.markTripStoppedFromService()
 
             startForeground(
                 ForegroundIds.TELEMETRY_NOTIFICATION_ID,
                 ServiceLocator.appContainer.notificationFactory.buildActiveTripNotification(
-                    ServiceLocator.appContainer.tripSessionRuntime.snapshot()
+                    appGraph.facade.observeState().value.toSnapshot()
                 )
             )
         }
     }
 
-    private fun handleStopTrip(intent: Intent) {
-        val reason = runCatching {
-            FinishReason.valueOf(
-                intent.getStringExtra(TelemetryServiceActions.EXTRA_FINISH_REASON).orEmpty()
-            )
-        }.getOrDefault(FinishReason.UNKNOWN)
-
+    private fun handleStopTrip() {
         serviceScope.launch {
             startForeground(
                 ForegroundIds.TELEMETRY_NOTIFICATION_ID,
                 ServiceLocator.appContainer.notificationFactory.buildStoppingNotification(
-                    ServiceLocator.appContainer.tripSessionRuntime.snapshot()
+                    appGraph.facade.observeState().value.toSnapshot()
                 )
             )
 
-            ServiceLocator.appContainer.tripSessionRuntime.stopTrip(reason)
+            appGraph.facade.stopTrip()
             appGraph.dayMonitoringManager.markTripStoppedFromService()
             stopSelf()
         }
@@ -113,12 +92,12 @@ class TelemetryForegroundService : Service() {
 
     private fun handleRecoverTrip() {
         serviceScope.launch {
-            ServiceLocator.appContainer.tripSessionRuntime.recoverIfNeeded(serviceScope)
+            appGraph.facade.restore()
 
             startForeground(
                 ForegroundIds.TELEMETRY_NOTIFICATION_ID,
                 ServiceLocator.appContainer.notificationFactory.buildActiveTripNotification(
-                    ServiceLocator.appContainer.tripSessionRuntime.snapshot()
+                    appGraph.facade.observeState().value.toSnapshot()
                 )
             )
         }
@@ -134,30 +113,15 @@ class TelemetryForegroundService : Service() {
         Log.d("TelemetryService", "day monitoring disabled")
     }
 
-    private fun handleAutoStartTrip(intent: Intent) {
-        val deviceId = intent.getStringExtra(TelemetryServiceActions.EXTRA_DEVICE_ID).orEmpty()
-        val driverId = intent.getStringExtra(TelemetryServiceActions.EXTRA_DRIVER_ID)
-        val transportMode = runCatching {
-            TransportMode.valueOf(
-                intent.getStringExtra(TelemetryServiceActions.EXTRA_TRANSPORT_MODE).orEmpty()
-            )
-        }.getOrDefault(TransportMode.CAR)
-
+    private fun handleAutoStartTrip() {
         serviceScope.launch {
-            ServiceLocator.appContainer.tripSessionRuntime.startTrip(
-                scope = serviceScope,
-                deviceId = deviceId,
-                driverId = driverId,
-                trackingMode = TrackingMode.DAY_MONITORING,
-                transportMode = transportMode
-            )
-
+            appGraph.facade.startTrip(mode = TrackingMode.DAY_MONITORING)
             appGraph.dayMonitoringManager.markAutoTripStartedFromService()
 
             startForeground(
                 ForegroundIds.TELEMETRY_NOTIFICATION_ID,
                 ServiceLocator.appContainer.notificationFactory.buildActiveTripNotification(
-                    ServiceLocator.appContainer.tripSessionRuntime.snapshot()
+                    appGraph.facade.observeState().value.toSnapshot()
                 )
             )
 
@@ -165,22 +129,16 @@ class TelemetryForegroundService : Service() {
         }
     }
 
-    private fun handleAutoStopTrip(intent: Intent) {
-        val reason = runCatching {
-            FinishReason.valueOf(
-                intent.getStringExtra(TelemetryServiceActions.EXTRA_FINISH_REASON).orEmpty()
-            )
-        }.getOrDefault(FinishReason.UNKNOWN)
-
+    private fun handleAutoStopTrip() {
         serviceScope.launch {
             startForeground(
                 ForegroundIds.TELEMETRY_NOTIFICATION_ID,
                 ServiceLocator.appContainer.notificationFactory.buildStoppingNotification(
-                    ServiceLocator.appContainer.tripSessionRuntime.snapshot()
+                    appGraph.facade.observeState().value.toSnapshot()
                 )
             )
 
-            ServiceLocator.appContainer.tripSessionRuntime.stopTrip(reason)
+            appGraph.facade.stopTrip()
             appGraph.dayMonitoringManager.markTripStoppedFromService()
 
             Log.d("TelemetryService", "auto trip stopped")

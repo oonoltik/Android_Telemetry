@@ -1,6 +1,7 @@
 package com.alex.android_telemetry.telemetry.runtime
 
 import android.util.Log
+
 import com.alex.android_telemetry.sensors.api.AccelerometerSource
 import com.alex.android_telemetry.sensors.api.DeviceStateSource
 import com.alex.android_telemetry.sensors.api.GyroscopeSource
@@ -55,6 +56,11 @@ import com.alex.android_telemetry.sensors.api.ActivityRecognitionSource
 import com.alex.android_telemetry.sensors.api.AltimeterSource
 import com.alex.android_telemetry.sensors.api.PedometerSource
 import com.alex.android_telemetry.sensors.api.ScreenInteractionSource
+
+import kotlin.math.abs
+
+import com.alex.android_telemetry.telemetry.domain.model.TelemetryEventType
+
 
 interface TripRuntimeStateStore {
     suspend fun save(state: TripRuntimeState)
@@ -158,6 +164,7 @@ class TelemetryOrchestrator(
 
     private var collectionJob: Job? = null
     private val flushMutex = Mutex()
+    private val tripMetricsAccumulator = TripMetricsAccumulator()
 
     private suspend fun shouldResumeCollectedSession(
         restoredState: TripRuntimeState,
@@ -307,6 +314,11 @@ class TelemetryOrchestrator(
 
             Log.d(
                 "TelemetryTrip",
+                "restore(): sources started and subscriptions attached sessionId=${restoredState.sessionId}"
+            )
+
+            Log.d(
+                "TelemetryTrip",
                 "restore(): resumed collecting sessionId=${restoredState.sessionId}"
             )
             return
@@ -369,12 +381,19 @@ class TelemetryOrchestrator(
 
         batchSequenceStore.reset()
 
+        tripMetricsAccumulator.reset()
+
         val started = stateMachine.start(mode, now)
         mutableState.emit(started)
         runtimeStateStore.save(started)
 
         startSourcesIfNeeded()
         subscribeIfNeeded()
+
+        Log.d(
+            "TelemetryTrip",
+            "startTrip(): sources started and subscriptions attached sessionId=${started.sessionId}"
+        )
 
         Log.d(
             "TelemetryTrip",
@@ -448,7 +467,15 @@ class TelemetryOrchestrator(
                 ((now.toEpochMilliseconds() - startedAt.toEpochMilliseconds()).coerceAtLeast(0L)) / 1000.0
             }
 
-            val clientMetrics = buildClientTripMetrics(current)
+            val clientMetrics = buildClientTripMetrics(
+                distanceM = state.value.distanceM,
+                accumulator = tripMetricsAccumulator,
+            )
+
+            Log.d(
+                "TelemetryTrip",
+                "FINAL CLIENT METRICS: distanceM=${state.value.distanceM} brake=${clientMetrics.brake.count} accel=${clientMetrics.accel.count} road=${clientMetrics.road.count} turn=${clientMetrics.turn.count}"
+            )
 
             Log.d(
                 "TelemetryTrip",
@@ -538,6 +565,9 @@ class TelemetryOrchestrator(
             "stopTrip(): completed sessionId=$sessionId finishUiState=$finalUiState pendingFinish=$finalPendingFinish"
         )
     }
+
+
+
     suspend fun pauseCollection() {
         val updated = stateMachine.pause(state.value)
         mutableState.emit(updated)
@@ -550,8 +580,23 @@ class TelemetryOrchestrator(
         runtimeStateStore.save(updated)
     }
 
+    suspend fun setDayMonitoringState(
+        enabled: Boolean,
+        autoTripActive: Boolean,
+        autoStartedSessionId: String?,
+    ) {
+        val updated = state.value.copy(
+            dayMonitoringEnabled = enabled,
+            dayMonitoringAutoTripActive = autoTripActive,
+            dayMonitoringAutoStartedSessionId = autoStartedSessionId,
+        )
+        mutableState.emit(updated)
+        runtimeStateStore.save(updated)
+    }
+
     suspend fun flushNow(now: Instant = kotlinx.datetime.Clock.System.now()) {
         flushMutex.withLock {
+            Log.d("TelemetryTrip", "flushNow(): entered sessionId=${state.value.sessionId}")
             val current = state.value
             val sessionId = current.sessionId ?: return
 
@@ -567,7 +612,39 @@ class TelemetryOrchestrator(
                 activitySummary = latestActivity,
                 thresholds = thresholdResolver.getEffectiveThresholds(),
                 now = now,
-            ) ?: return
+            )
+
+            if (batch == null) {
+                Log.d("TelemetryTrip", "flushNow(): no batch produced sessionId=$sessionId")
+                return
+            }
+
+
+            val frames = batch.frames
+
+            if (frames.isEmpty()) {
+                Log.d(
+                    "TelemetryTrip",
+                    "batch stats: batchSeq=${batch.batchSeq} frames=0 events=${batch.events.size}"
+                )
+            } else {
+                val maxLong = frames.maxOf { abs(it.motionVector?.aLongG ?: 0.0) }
+                val maxLat = frames.maxOf { abs(it.motionVector?.aLatG ?: 0.0) }
+                val maxVert = frames.maxOf { abs(it.motionVector?.aVertG ?: 0.0) }
+
+                Log.d(
+                    "TelemetryTrip",
+                    "batch stats: batchSeq=${batch.batchSeq} maxLong=%.3f maxLat=%.3f maxVert=%.3f frames=${frames.size} events=${batch.events.size}"
+                        .format(maxLong, maxLat, maxVert)
+                )
+            }
+
+            tripMetricsAccumulator.addEvents(batch.events)
+
+            Log.d(
+                "TelemetryTrip",
+                "trip metrics accumulator: brake=${tripMetricsAccumulator.brake.count} accel=${tripMetricsAccumulator.accel.count} road=${tripMetricsAccumulator.road.count} turn=${tripMetricsAccumulator.turn.count}"
+            )
 
             Log.d(
                 "TelemetryTrip",
@@ -659,6 +736,10 @@ class TelemetryOrchestrator(
     }
 
     private suspend fun onSensorTick(now: Instant) {
+//        Log.d(
+//            "TelemetryTrip",
+//            "onSensorTick(): sessionId=${state.value.sessionId} hasLocation=${latestLocation != null} hasAccel=${latestAccel != null} hasGyro=${latestGyro != null}"
+//        )
         val current = state.value
         if (current.telemetryMode != TelemetryMode.COLLECTING) return
 
@@ -682,6 +763,10 @@ class TelemetryOrchestrator(
             motionVector = motion,
         )
         batchBuilder.addFrame(frame)
+//        Log.d(
+//            "TelemetryTrip",
+//            "onSensorTick(): frame added sessionId=${state.value.sessionId}"
+//        )
 
         val updated = state.value.copy(
             lastSampleAt = now,
@@ -695,6 +780,10 @@ class TelemetryOrchestrator(
                 "TelemetryTrip",
                 "onSensorTick(): shouldFlush=true sessionId=${current.sessionId} now=$now"
             )
+//            Log.d(
+//                "TelemetryTrip",
+//                "onSensorTick(): shouldFlush=true sessionId=${current.sessionId}"
+//            )
             flushNow(now)
         }
     }
@@ -727,11 +816,28 @@ class TelemetryFacade(
     fun observeState(): StateFlow<TripRuntimeState> = orchestrator.state
 
     suspend fun restore() = orchestrator.restore()
-    suspend fun startTrip() = orchestrator.startTrip()
+
+    suspend fun startTrip(
+        mode: TrackingMode = TrackingMode.SINGLE_TRIP,
+    ) = orchestrator.startTrip(mode = mode)
+
     suspend fun stopTrip() = orchestrator.stopTrip()
+
     suspend fun pauseCollection() = orchestrator.pauseCollection()
+
     suspend fun resumeCollection() = orchestrator.resumeCollection()
+
     suspend fun flushNow() = orchestrator.flushNow()
+
+    suspend fun setDayMonitoringState(
+        enabled: Boolean,
+        autoTripActive: Boolean,
+        autoStartedSessionId: String?,
+    ) = orchestrator.setDayMonitoringState(
+        enabled = enabled,
+        autoTripActive = autoTripActive,
+        autoStartedSessionId = autoStartedSessionId,
+    )
 
     suspend fun recordActivitySample(sample: ActivitySample) =
         orchestrator.recordActivitySample(sample)
@@ -745,7 +851,6 @@ class TelemetryFacade(
     suspend fun recordScreenInteractionSample(sample: ScreenInteractionSample) =
         orchestrator.recordScreenInteractionSample(sample)
 }
-
 private fun ImuSample?.merge(newValue: ImuSample): ImuSample =
     ImuSample(
         timestamp = newValue.timestamp,
@@ -768,24 +873,82 @@ private fun haversineMeters(lat1: Double, lon1: Double, lat2: Double, lon2: Doub
     return r * c
 }
 
-private fun buildClientTripMetrics(state: TripRuntimeState): ClientTripMetricsDto {
-    val distanceKm = state.distanceM / 1000.0
+private data class TripEventAgg(
+    var count: Int = 0,
+    var sumIntensity: Double = 0.0,
+    var maxIntensity: Double = 0.0,
+) {
+    fun add(intensity: Double) {
+        val safeIntensity = abs(intensity)
+        count += 1
+        sumIntensity += safeIntensity
+        if (safeIntensity > maxIntensity) {
+            maxIntensity = safeIntensity
+        }
+    }
 
-    val zeroAgg = ClientAggDto(
-        count = 0,
-        sumIntensity = 0.0,
-        maxIntensity = 0.0,
-        countPerKm = 0.0,
-        sumPerKm = 0.0,
-    )
+    fun reset() {
+        count = 0
+        sumIntensity = 0.0
+        maxIntensity = 0.0
+    }
+
+    fun toDto(distanceKm: Double): ClientAggDto {
+        val safeDistanceKm = distanceKm.takeIf { it > 0.0 } ?: 0.0
+
+        return ClientAggDto(
+            count = count,
+            sumIntensity = sumIntensity,
+            maxIntensity = maxIntensity,
+            countPerKm = if (safeDistanceKm > 0.0) count / safeDistanceKm else 0.0,
+            sumPerKm = if (safeDistanceKm > 0.0) sumIntensity / safeDistanceKm else 0.0,
+        )
+    }
+}
+
+private class TripMetricsAccumulator {
+    val brake = TripEventAgg()
+    val accel = TripEventAgg()
+    val road = TripEventAgg()
+    val turn = TripEventAgg()
+
+    fun addEvents(events: List<com.alex.android_telemetry.telemetry.domain.model.DetectedTelemetryEvent>) {
+        events.forEach { event ->
+            when (event.type) {
+                TelemetryEventType.BRAKE,
+                TelemetryEventType.BRAKE_IN_TURN -> brake.add(event.intensity)
+
+                TelemetryEventType.ACCEL,
+                TelemetryEventType.ACCEL_IN_TURN -> accel.add(event.intensity)
+
+                TelemetryEventType.TURN -> turn.add(event.intensity)
+
+                TelemetryEventType.ROAD_ANOMALY -> road.add(event.intensity)
+            }
+        }
+    }
+
+    fun reset() {
+        brake.reset()
+        accel.reset()
+        road.reset()
+        turn.reset()
+    }
+}
+
+private fun buildClientTripMetrics(
+    distanceM: Double,
+    accumulator: TripMetricsAccumulator,
+): ClientTripMetricsDto {
+    val distanceKm = distanceM / 1000.0
 
     return ClientTripMetricsDto(
-        tripDistanceM = state.distanceM,
+        tripDistanceM = distanceM,
         tripDistanceKmFromGps = distanceKm,
-        brake = zeroAgg,
-        accel = zeroAgg,
-        road = zeroAgg,
-        turn = zeroAgg,
+        brake = accumulator.brake.toDto(distanceKm),
+        accel = accumulator.accel.toDto(distanceKm),
+        road = accumulator.road.toDto(distanceKm),
+        turn = accumulator.turn.toDto(distanceKm),
     )
 }
 

@@ -1,0 +1,20 @@
+[
+  {
+    "name": "swift_trace_sample_0001",
+    "input": {
+      "accelRefNorthG": 0.021,
+      "accelRefEastG": -0.114,
+      "accelRefUpG": 0.008,
+      "speedMS": 12.4,
+      "courseRad": 1.5707963267948966,
+      "imuForwardAxisRefNorth": null,
+      "imuForwardAxisRefEast": null,
+      "preferGpsProjection": true
+    },
+    "expected": {
+      "aLongG": -0.114,
+      "aLatG": -0.021,
+      "aVertG": 0.008
+    }
+  }
+]

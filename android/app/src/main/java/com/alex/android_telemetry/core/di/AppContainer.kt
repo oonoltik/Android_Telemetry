@@ -12,16 +12,6 @@ import com.alex.android_telemetry.core.log.TelemetryLogger
 import com.alex.android_telemetry.core.time.ClockProvider
 import com.alex.android_telemetry.core.time.SystemClockProvider
 import com.alex.android_telemetry.telemetry.auth.TelemetryDeviceIdProvider
-import com.alex.android_telemetry.telemetry.batching.BatchFlushPolicy
-import com.alex.android_telemetry.telemetry.batching.BatchSequenceStore
-import com.alex.android_telemetry.telemetry.batching.InMemoryBatchSequenceStore
-import com.alex.android_telemetry.telemetry.batching.TelemetryBatchAssembler
-import com.alex.android_telemetry.telemetry.batching.TelemetryBatchWindow
-import com.alex.android_telemetry.telemetry.capture.TelemetryCaptureCoordinator
-import com.alex.android_telemetry.telemetry.capture.location.FusedLocationTelemetrySource
-import com.alex.android_telemetry.telemetry.capture.location.LocationCaptureConfig
-import com.alex.android_telemetry.telemetry.capture.location.LocationSampleMapper
-import com.alex.android_telemetry.telemetry.capture.location.LocationTelemetrySource
 import com.alex.android_telemetry.telemetry.delivery.TelemetryDeliveryGraph
 import com.alex.android_telemetry.telemetry.delivery.storage.TelemetryDatabase
 import com.alex.android_telemetry.telemetry.integration.CurrentPipelineBridge
@@ -31,20 +21,12 @@ import com.alex.android_telemetry.telemetry.integration.RuntimeDeliveryFacade
 import com.alex.android_telemetry.telemetry.integration.RuntimeFinishDispatchFacade
 import com.alex.android_telemetry.telemetry.recovery.RecoverActiveTripUseCase
 import com.alex.android_telemetry.telemetry.recovery.TripRecoveryManager
-import com.alex.android_telemetry.telemetry.runtime.InMemoryTripRuntimeStore
-import com.alex.android_telemetry.telemetry.runtime.TripRuntimeStore
-import com.alex.android_telemetry.telemetry.runtime.TripSessionRuntime
-import com.alex.android_telemetry.telemetry.runtime.TripStateMachine
 import com.alex.android_telemetry.telemetry.service.TelemetryServiceController
 import com.alex.android_telemetry.telemetry.service.TelemetryServiceStarter
-import com.alex.android_telemetry.telemetry.session.TripFinishCoordinator
 import com.alex.android_telemetry.telemetry.session.TripSessionRepository
 import com.alex.android_telemetry.telemetry.session.TripSessionRepositoryImpl
-import com.alex.android_telemetry.telemetry.session.TripSessionStarter
-import com.alex.android_telemetry.telemetry.session.TripSessionStopper
 import com.alex.android_telemetry.telemetry.storage.runtime.ActiveTripDao
 import com.alex.android_telemetry.telemetry.storage.runtime.RuntimeStateMapper
-import com.alex.android_telemetry.telemetry.usecase.ObserveTripStateUseCase
 import com.alex.android_telemetry.telemetry.usecase.StartTripUseCase
 import com.alex.android_telemetry.telemetry.usecase.StopTripUseCase
 
@@ -61,7 +43,6 @@ class AppContainer(
     val batchIdFactory: BatchIdFactory = DefaultBatchIdFactory()
 
     val notificationFactory: NotificationFactory = NotificationFactory(appContext)
-    val runtimeStore: TripRuntimeStore = InMemoryTripRuntimeStore()
 
     private val mapper = RuntimeStateMapper()
 
@@ -82,23 +63,11 @@ class AppContainer(
     }
 
     val sessionRepository: TripSessionRepository by lazy {
-        TripSessionRepositoryImpl(activeTripDao = activeTripDao, mapper = mapper)
+        TripSessionRepositoryImpl(
+            activeTripDao = activeTripDao,
+            mapper = mapper
+        )
     }
-
-    val batchSequenceStore: BatchSequenceStore = InMemoryBatchSequenceStore()
-    val batchWindow: TelemetryBatchWindow = TelemetryBatchWindow()
-    val batchFlushPolicy: BatchFlushPolicy = BatchFlushPolicy()
-    val batchAssembler: TelemetryBatchAssembler = TelemetryBatchAssembler(clockProvider, batchIdFactory)
-
-    private val locationConfig = LocationCaptureConfig()
-    private val locationMapper = LocationSampleMapper(clockProvider)
-
-    val locationTelemetrySource: LocationTelemetrySource = FusedLocationTelemetrySource(
-        context = appContext,
-        config = locationConfig,
-        sampleMapper = locationMapper,
-        logger = telemetryLogger
-    )
 
     val deliveryFacade: DeliveryFacade by lazy {
         RuntimeDeliveryFacade(
@@ -113,43 +82,8 @@ class AppContainer(
         )
     }
 
-    val pipelineBridge: CurrentPipelineBridge = CurrentPipelineBridge(deliveryFacade, finishDispatchFacade)
-    val tripFinishCoordinator: TripFinishCoordinator = TripFinishCoordinator(finishDispatchFacade)
-
-    val captureCoordinator: TelemetryCaptureCoordinator = TelemetryCaptureCoordinator(
-        clockProvider = clockProvider,
-        logger = telemetryLogger,
-        runtimeStore = runtimeStore,
-        locationTelemetrySource = locationTelemetrySource,
-        batchWindow = batchWindow,
-        batchFlushPolicy = batchFlushPolicy,
-        batchSequenceStore = batchSequenceStore,
-        batchAssembler = batchAssembler,
-        deliveryFacade = deliveryFacade
-    )
-
-    private val stateMachine = TripStateMachine()
-
-    private val tripSessionStarter: TripSessionStarter by lazy {
-        TripSessionStarter(sessionIdFactory, clockProvider, sessionRepository)
-    }
-
-    private val tripSessionStopper: TripSessionStopper by lazy {
-        TripSessionStopper(clockProvider, tripFinishCoordinator, sessionRepository, runtimeStore)
-    }
-
-    val tripSessionRuntime: TripSessionRuntime by lazy {
-        TripSessionRuntime(
-            logger = telemetryLogger,
-            clockProvider = clockProvider,
-            runtimeStore = runtimeStore,
-            stateMachine = stateMachine,
-            sessionRepository = sessionRepository,
-            tripSessionStarter = tripSessionStarter,
-            tripSessionStopper = tripSessionStopper,
-            captureCoordinator = captureCoordinator
-        )
-    }
+    val pipelineBridge: CurrentPipelineBridge =
+        CurrentPipelineBridge(deliveryFacade, finishDispatchFacade)
 
     private val telemetryServiceStarter = TelemetryServiceStarter(appContext)
 
@@ -171,5 +105,4 @@ class AppContainer(
 
     val startTripUseCase: StartTripUseCase = StartTripUseCase(serviceController)
     val stopTripUseCase: StopTripUseCase = StopTripUseCase(serviceController)
-    val observeTripStateUseCase: ObserveTripStateUseCase = ObserveTripStateUseCase(runtimeStore)
 }

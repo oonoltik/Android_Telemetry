@@ -265,7 +265,7 @@ class TelemetryAppGraph private constructor(
                     telemetryServiceStarter.autoStartTrip(
                         deviceId = telemetryDeviceIdProvider.get(),
                         driverId = driverIdStore.get(),
-                        transportMode = TransportMode.CAR,
+                        transportMode = TransportMode.UNKNOWN,
                     )
                 },
                 onAutoStopRequested = {
