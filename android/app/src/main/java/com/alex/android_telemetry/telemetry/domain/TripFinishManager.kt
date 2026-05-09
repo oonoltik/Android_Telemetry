@@ -14,9 +14,9 @@ import com.alex.android_telemetry.telemetry.trips.api.TripCoreDto
 import com.alex.android_telemetry.telemetry.trips.api.TripMetricsRawDto
 import com.alex.android_telemetry.telemetry.trips.api.TripReportDto
 import com.alex.android_telemetry.telemetry.trips.api.TripSummaryPayloadDto
-import com.alex.android_telemetry.telemetry.trips.finish.FinishRetryScheduler
-import com.alex.android_telemetry.telemetry.trips.storage.PendingTripFinishStore
-import com.alex.android_telemetry.telemetry.trips.storage.TripDeliveryStatsStore
+import com.alex.android_telemetry.telemetry.trips.finish.FinishRetryGateway
+import com.alex.android_telemetry.telemetry.trips.storage.PendingTripFinishGateway
+import com.alex.android_telemetry.telemetry.trips.storage.TripDeliveryStatsReader
 import kotlinx.datetime.Clock
 import java.util.Locale
 import java.util.TimeZone
@@ -24,14 +24,13 @@ import kotlin.math.exp
 
 class TripFinishManager(
     private val tripApi: TripApi,
-    private val pendingStore: PendingTripFinishStore,
-    private val deliveryStatsStore: TripDeliveryStatsStore,
-    private val finishRetryScheduler: FinishRetryScheduler,
+    private val pendingStore: PendingTripFinishGateway,
+    private val deliveryStatsStore: TripDeliveryStatsReader,
+    private val finishRetryScheduler: FinishRetryGateway,
 ) {
     suspend fun finishTrip(command: FinishCommand): TripFinishResult {
         val pending = buildPending(command)
-        val deliveryStats = deliveryStatsStore.get(command.sessionId)
-        val deliveredBatches = deliveryStats.deliveredBatches
+        val deliveredBatches = deliveryStatsStore.getDeliveredBatches(command.sessionId)
 
         Log.d(
             "TelemetryTrip",
@@ -165,8 +164,7 @@ class TripFinishManager(
         )
 
         for (item in items) {
-            val deliveryStats = deliveryStatsStore.get(item.sessionId)
-            val deliveredBatches = deliveryStats.deliveredBatches
+            val deliveredBatches = deliveryStatsStore.getDeliveredBatches(item.sessionId)
 
             Log.d(
                 "TelemetryTrip",

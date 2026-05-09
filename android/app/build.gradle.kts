@@ -7,11 +7,17 @@ plugins {
 }
 
 android {
+
+
     namespace = "com.alex.android_telemetry"
     compileSdk {
         version = release(36) {
             minorApiLevel = 1
         }
+    }
+
+    testOptions {
+        unitTests.isReturnDefaultValues = true
     }
 
     defaultConfig {

@@ -68,6 +68,21 @@ class MotionVectorComputer {
         val suppressed: Boolean,
     )
 
+
+
+    private fun normalizedAxisOrNull(
+        north: Double?,
+        east: Double?,
+    ): Pair<Double, Double>? {
+        if (north == null || east == null) return null
+        if (!north.isFinite() || !east.isFinite()) return null
+
+        val norm = sqrt(north * north + east * east)
+        if (norm <= 1e-9) return null
+
+        return north / norm to east / norm
+    }
+
     private enum class CalibState { NONE, CALIBRATING, READY }
 
     private var calibState = CalibState.NONE
@@ -171,6 +186,70 @@ class MotionVectorComputer {
         }
 
         return MotionVector(aLongG = aLong, aLatG = aLat, aVertG = aU, yawRate = null, speedMS = location?.speedMS)
+    }
+
+    /**
+     * Pure projection helper for golden parity tests.
+     *
+     * This method intentionally does not mutate calibration state.
+     * It lets tests compare Android projection math with Swift output using
+     * already-normalized reference-frame acceleration:
+     *
+     * North/East/Up -> longitudinal/lateral/vertical.
+     */
+    fun computeProjected(
+        accelRefNorthG: Double?,
+        accelRefEastG: Double?,
+        accelRefUpG: Double?,
+        speedMS: Double?,
+        courseRad: Double?,
+        imuForwardAxisRefNorth: Double?,
+        imuForwardAxisRefEast: Double?,
+        preferGpsProjection: Boolean,
+    ): MotionVector {
+        val aNorth = accelRefNorthG
+        val aEast = accelRefEastG
+
+        val projection = if (aNorth != null && aEast != null) {
+            when {
+                preferGpsProjection && courseRad != null -> {
+                    projectWithCourse(aNorth, aEast, courseRad)
+                }
+
+                imuForwardAxisRefNorth != null && imuForwardAxisRefEast != null -> {
+                    val norm = sqrt(
+                        imuForwardAxisRefNorth * imuForwardAxisRefNorth +
+                                imuForwardAxisRefEast * imuForwardAxisRefEast
+                    )
+
+                    if (norm > 1e-9) {
+                        val axisNorth = imuForwardAxisRefNorth / norm
+                        val axisEast = imuForwardAxisRefEast / norm
+
+                        val aLong = aNorth * axisNorth + aEast * axisEast
+                        val aLat = aNorth * -axisEast + aEast * axisNorth
+
+                        aLong to aLat
+                    } else {
+                        null
+                    }
+                }
+
+                else -> {
+                    aEast to aNorth
+                }
+            }
+        } else {
+            null
+        }
+
+        return MotionVector(
+            aLongG = projection?.first,
+            aLatG = projection?.second,
+            aVertG = accelRefUpG,
+            yawRate = null,
+            speedMS = speedMS,
+        )
     }
 
     fun resetCalibration() {

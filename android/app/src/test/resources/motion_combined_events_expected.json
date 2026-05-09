@@ -1,0 +1,94 @@
+[
+  {
+    "name": "accel_in_turn_sharp",
+    "detector": "accel_in_turn",
+    "input": {
+      "t": "2026-04-30T12:00:01.000Z",
+      "speed_m_s": 14.0,
+      "a_long_g": 0.24,
+      "a_lat_g": 0.40,
+      "a_vert_g": 0.02
+    },
+    "expected": {
+      "type": "ACCEL_IN_TURN",
+      "intensity": 0.24,
+      "speed_m_s": 14.0,
+      "event_class": "sharp"
+    }
+  },
+  {
+    "name": "accel_in_turn_emergency",
+    "detector": "accel_in_turn",
+    "input": {
+      "t": "2026-04-30T12:00:03.000Z",
+      "speed_m_s": 16.0,
+      "a_long_g": 0.33,
+      "a_lat_g": -0.42,
+      "a_vert_g": 0.01
+    },
+    "expected": {
+      "type": "ACCEL_IN_TURN",
+      "intensity": 0.33,
+      "speed_m_s": 16.0,
+      "event_class": "emergency"
+    }
+  },
+  {
+    "name": "brake_in_turn_sharp",
+    "detector": "brake_in_turn",
+    "input": {
+      "t": "2026-04-30T12:00:05.000Z",
+      "speed_m_s": 15.0,
+      "a_long_g": -0.24,
+      "a_lat_g": 0.39,
+      "a_vert_g": 0.02
+    },
+    "expected": {
+      "type": "BRAKE_IN_TURN",
+      "intensity": 0.24,
+      "speed_m_s": 15.0,
+      "event_class": "sharp"
+    }
+  },
+  {
+    "name": "brake_in_turn_emergency",
+    "detector": "brake_in_turn",
+    "input": {
+      "t": "2026-04-30T12:00:07.000Z",
+      "speed_m_s": 17.0,
+      "a_long_g": -0.37,
+      "a_lat_g": -0.45,
+      "a_vert_g": 0.01
+    },
+    "expected": {
+      "type": "BRAKE_IN_TURN",
+      "intensity": 0.37,
+      "speed_m_s": 17.0,
+      "event_class": "emergency"
+    }
+  },
+  {
+    "name": "no_accel_in_turn_when_lateral_below_gate",
+    "detector": "accel_in_turn",
+    "input": {
+      "t": "2026-04-30T12:00:09.000Z",
+      "speed_m_s": 14.0,
+      "a_long_g": 0.34,
+      "a_lat_g": 0.20,
+      "a_vert_g": 0.01
+    },
+    "expected": null
+  },
+  {
+    "name": "no_brake_in_turn_when_speed_below_gate",
+    "detector": "brake_in_turn",
+    "input": {
+      "t": "2026-04-30T12:00:11.000Z",
+      "speed_m_s": 4.0,
+      "a_long_g": -0.40,
+      "a_lat_g": 0.45,
+      "a_vert_g": 0.01
+    },
+    "expected": null
+  }
+]

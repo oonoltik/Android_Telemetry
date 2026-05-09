@@ -6,39 +6,86 @@ import com.alex.android_telemetry.telemetry.trips.api.PendingTripFinishDto
 import kotlinx.serialization.builtins.ListSerializer
 import kotlinx.serialization.json.Json
 
+interface PendingTripFinishGateway {
+    fun getAll(): List<PendingTripFinishDto>
+
+    fun getBySessionId(sessionId: String): PendingTripFinishDto?
+
+    fun upsert(item: PendingTripFinishDto)
+
+    fun markAttempt(
+        sessionId: String,
+        attemptedAt: String,
+        errorMessage: String?,
+    )
+
+    fun remove(sessionId: String)
+
+    fun exists(sessionId: String): Boolean
+}
+
 class PendingTripFinishStore(
     context: Context,
     private val json: Json,
-) {
-    private val prefs = context.getSharedPreferences("telemetry_trip_finish", Context.MODE_PRIVATE)
+) : PendingTripFinishGateway {
 
-    fun getAll(): List<PendingTripFinishDto> {
-        val raw = prefs.getString(KEY_ITEMS, null) ?: return emptyList()
+    private val prefs =
+        context.getSharedPreferences(
+            "telemetry_trip_finish",
+            Context.MODE_PRIVATE
+        )
+
+    override fun getAll(): List<PendingTripFinishDto> {
+        val raw = prefs.getString(KEY_ITEMS, null)
+            ?: return emptyList()
+
         return runCatching {
-            json.decodeFromString(ListSerializer(PendingTripFinishDto.serializer()), raw)
+            json.decodeFromString(
+                ListSerializer(PendingTripFinishDto.serializer()),
+                raw
+            )
         }.getOrElse {
-            Log.e("TelemetryTrip", "PendingTripFinishStore.getAll(): decode failed ${it.message}", it)
+            Log.e(
+                "TelemetryTrip",
+                "PendingTripFinishStore.getAll(): decode failed ${it.message}",
+                it
+            )
             emptyList()
         }
     }
 
-    fun getBySessionId(sessionId: String): PendingTripFinishDto? {
-        val item = getAll().firstOrNull { it.sessionId == sessionId }
+    override fun getBySessionId(
+        sessionId: String
+    ): PendingTripFinishDto? {
+
+        val item = getAll().firstOrNull {
+            it.sessionId == sessionId
+        }
+
         Log.d(
             "TelemetryTrip",
             "PendingTripFinishStore.getBySessionId(): sessionId=$sessionId found=${item != null}"
         )
+
         return item
     }
 
-    fun upsert(item: PendingTripFinishDto) {
+    override fun upsert(
+        item: PendingTripFinishDto
+    ) {
+
         val current = getAll().toMutableList()
-        val index = current.indexOfFirst { it.sessionId == item.sessionId }
+
+        val index = current.indexOfFirst {
+            it.sessionId == item.sessionId
+        }
+
         if (index >= 0) {
             current[index] = item
         } else {
             current.add(item)
         }
+
         saveAll(current)
 
         Log.d(
@@ -47,27 +94,36 @@ class PendingTripFinishStore(
         )
     }
 
-    fun markAttempt(
+    override fun markAttempt(
         sessionId: String,
         attemptedAt: String,
         errorMessage: String?,
     ) {
+
         val current = getAll().toMutableList()
-        val index = current.indexOfFirst { it.sessionId == sessionId }
+
+        val index = current.indexOfFirst {
+            it.sessionId == sessionId
+        }
+
         if (index < 0) {
+
             Log.d(
                 "TelemetryTrip",
                 "PendingTripFinishStore.markAttempt(): sessionId=$sessionId not found"
             )
+
             return
         }
 
         val item = current[index]
+
         current[index] = item.copy(
             retryCount = item.retryCount + 1,
             lastAttemptAt = attemptedAt,
             lastError = errorMessage,
         )
+
         saveAll(current)
 
         Log.d(
@@ -76,26 +132,48 @@ class PendingTripFinishStore(
         )
     }
 
-    fun remove(sessionId: String) {
-        saveAll(getAll().filterNot { it.sessionId == sessionId })
+    override fun remove(
+        sessionId: String
+    ) {
+
+        saveAll(
+            getAll().filterNot {
+                it.sessionId == sessionId
+            }
+        )
+
         Log.d(
             "TelemetryTrip",
             "PendingTripFinishStore.remove(): sessionId=$sessionId removed=true"
         )
     }
 
-    fun exists(sessionId: String): Boolean {
+    override fun exists(
+        sessionId: String
+    ): Boolean {
+
         val exists = getBySessionId(sessionId) != null
+
         Log.d(
             "TelemetryTrip",
             "PendingTripFinishStore.exists(): sessionId=$sessionId exists=$exists"
         )
+
         return exists
     }
 
-    private fun saveAll(items: List<PendingTripFinishDto>) {
-        val raw = json.encodeToString(ListSerializer(PendingTripFinishDto.serializer()), items)
-        prefs.edit().putString(KEY_ITEMS, raw).apply()
+    private fun saveAll(
+        items: List<PendingTripFinishDto>
+    ) {
+
+        val raw = json.encodeToString(
+            ListSerializer(PendingTripFinishDto.serializer()),
+            items
+        )
+
+        prefs.edit()
+            .putString(KEY_ITEMS, raw)
+            .apply()
     }
 
     private companion object {

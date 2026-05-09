@@ -2,19 +2,55 @@
   {
     "name": "swift_trace_sample_0001",
     "input": {
-      "accelRefNorthG": 0.021,
-      "accelRefEastG": -0.114,
-      "accelRefUpG": 0.008,
-      "speedMS": 12.4,
-      "courseRad": 1.5707963267948966,
+      "accelRefNorthG": 0,
+      "accelRefEastG": 0,
+      "accelRefUpG": 1,
+      "speedMS": 12.0,
+      "courseRad": null,
       "imuForwardAxisRefNorth": null,
       "imuForwardAxisRefEast": null,
-      "preferGpsProjection": true
+      "preferGpsProjection": false
     },
     "expected": {
-      "aLongG": -0.114,
-      "aLatG": -0.021,
-      "aVertG": 0.008
+      "aLongG": 0,
+      "aLatG": 0,
+      "aVertG": 1
+    }
+  },
+  {
+    "name": "swift_trace_sample_0002",
+    "input": {
+      "accelRefNorthG": 0.03,
+      "accelRefEastG": 0.18,
+      "accelRefUpG": 0.99,
+      "speedMS": 12.2,
+      "courseRad": null,
+      "imuForwardAxisRefNorth": null,
+      "imuForwardAxisRefEast": null,
+      "preferGpsProjection": false
+    },
+    "expected": {
+      "aLongG": 0.18,
+      "aLatG": 0.03,
+      "aVertG": 0.99
+    }
+  },
+  {
+    "name": "swift_trace_sample_0003",
+    "input": {
+      "accelRefNorthG": 0.04,
+      "accelRefEastG": 0.24,
+      "accelRefUpG": 1.01,
+      "speedMS": 12.4,
+      "courseRad": null,
+      "imuForwardAxisRefNorth": null,
+      "imuForwardAxisRefEast": null,
+      "preferGpsProjection": false
+    },
+    "expected": {
+      "aLongG": 0.24,
+      "aLatG": 0.04,
+      "aVertG": 1.01
     }
   }
 ]

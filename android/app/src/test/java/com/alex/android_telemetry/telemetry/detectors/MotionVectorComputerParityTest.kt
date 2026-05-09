@@ -3,6 +3,7 @@ package com.alex.android_telemetry.telemetry.detectors
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
 import org.junit.Test
 
@@ -32,6 +33,10 @@ class MotionVectorComputerParityTest {
                 preferGpsProjection = fixture.input.preferGpsProjection,
             )
 
+            assertFinite("${fixture.name}.aLongG", actual.aLongG)
+            assertFinite("${fixture.name}.aLatG", actual.aLatG)
+            assertFinite("${fixture.name}.aVertG", actual.aVertG)
+
             assertAlmostEquals("${fixture.name}.aLongG", fixture.expected.aLongG, actual.aLongG)
             assertAlmostEquals("${fixture.name}.aLatG", fixture.expected.aLatG, actual.aLatG)
             assertAlmostEquals("${fixture.name}.aVertG", fixture.expected.aVertG, actual.aVertG)
@@ -42,6 +47,7 @@ class MotionVectorComputerParityTest {
     private fun loadFixtures(): List<MotionVectorFixture> {
         val stream = javaClass.classLoader?.getResourceAsStream("motion_vector_golden.json")
         assertNotNull("Missing test resource motion_vector_golden.json", stream)
+
         return stream!!.use {
             json.decodeFromString<List<MotionVectorFixture>>(it.bufferedReader().readText())
         }
@@ -57,7 +63,15 @@ class MotionVectorComputerParityTest {
             assertEquals(label, expected, actual)
             return
         }
+
         assertEquals(label, expected, actual, tolerance)
+    }
+
+    private fun assertFinite(label: String, value: Double?) {
+        if (value == null) return
+
+        assertFalse("$label is NaN", value.isNaN())
+        assertFalse("$label is infinite", value.isInfinite())
     }
 }
 

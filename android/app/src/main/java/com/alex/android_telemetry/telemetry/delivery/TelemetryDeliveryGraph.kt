@@ -78,6 +78,12 @@ class TelemetryDeliveryGraph(
                 com.alex.android_telemetry.telemetry.runtime.PersistentTripRuntimeStateStore(context)
             val finishRetryScheduler = FinishRetryScheduler(context)
 
+            val deliveryFinishRetryHook = DeliveryFinishRetryHook(
+                pendingStore = pendingTripFinishStore,
+                statsStore = tripDeliveryStatsStore,
+                retryScheduler = finishRetryScheduler,
+            )
+
             val euTripApi = OkHttpTripApi(
                 baseUrl = TelemetryBackendConfig.EU_BASE_URL,
                 authTokenProvider = { deviceId -> authManager.getValidToken() },
@@ -169,37 +175,10 @@ class TelemetryDeliveryGraph(
                     result
                 },
                 onBatchDelivered = { sessionId, route ->
-                    val hadPendingFinish = pendingTripFinishStore.exists(sessionId)
-                    val before = tripDeliveryStatsStore.get(sessionId)
-
-                    Log.d(
-                        "TelemetryTrip",
-                        "onBatchDelivered(): before sessionId=$sessionId route=$route deliveredBatches=${before.deliveredBatches} hadPendingFinish=$hadPendingFinish"
+                    deliveryFinishRetryHook.onBatchDelivered(
+                        sessionId = sessionId,
+                        route = route,
                     )
-
-                    tripDeliveryStatsStore.recordBatchDelivery(sessionId, route)
-
-                    val after = tripDeliveryStatsStore.get(sessionId)
-
-                    Log.d(
-                        "TelemetryTrip",
-                        "onBatchDelivered(): after sessionId=$sessionId route=$route deliveredBatches=${after.deliveredBatches} hadPendingFinish=$hadPendingFinish"
-                    )
-
-                    if (hadPendingFinish) {
-                        if (before.deliveredBatches == 0 && after.deliveredBatches > 0) {
-                            Log.d(
-                                "TelemetryTrip",
-                                "onBatchDelivered(): first delivered batch for pending finish sessionId=$sessionId route=$route deliveredBatches=${after.deliveredBatches} -> scheduleFinishRetryImmediate()"
-                            )
-                            finishRetryScheduler.scheduleImmediate()
-                        } else {
-                            Log.d(
-                                "TelemetryTrip",
-                                "onBatchDelivered(): delivered with existing pending finish sessionId=$sessionId route=$route deliveredBatches=${after.deliveredBatches}"
-                            )
-                        }
-                    }
                 },
             )
 
