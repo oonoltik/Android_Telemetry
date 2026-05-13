@@ -22,6 +22,7 @@ import kotlinx.serialization.json.Json
 import okhttp3.OkHttpClient
 import com.alex.android_telemetry.telemetry.trips.api.FallbackTripApi
 import com.alex.android_telemetry.telemetry.trips.api.TripApi
+import com.alex.android_telemetry.telemetry.domain.PendingTelemetryBatchesReader
 
 class TelemetryDeliveryGraph(
     val processor: TelemetryDeliveryProcessor,
@@ -110,6 +111,11 @@ class TelemetryDeliveryGraph(
                 pendingStore = pendingTripFinishStore,
                 deliveryStatsStore = tripDeliveryStatsStore,
                 finishRetryScheduler = finishRetryScheduler,
+                pendingBatchesReader = object : PendingTelemetryBatchesReader {
+                    override suspend fun countUndeliveredForSession(sessionId: String): Int {
+                        return repository.countUndeliveredForSession(sessionId)
+                    }
+                },
             )
 
             val tripRepository = TripRepository(

@@ -22,15 +22,22 @@ import java.util.Locale
 import java.util.TimeZone
 import kotlin.math.exp
 
+interface PendingTelemetryBatchesReader {
+    suspend fun countUndeliveredForSession(sessionId: String): Int
+}
+
 class TripFinishManager(
     private val tripApi: TripApi,
     private val pendingStore: PendingTripFinishGateway,
     private val deliveryStatsStore: TripDeliveryStatsReader,
     private val finishRetryScheduler: FinishRetryGateway,
+    private val pendingBatchesReader: PendingTelemetryBatchesReader? = null,
 ) {
     suspend fun finishTrip(command: FinishCommand): TripFinishResult {
         val pending = buildPending(command)
         val deliveredBatches = deliveryStatsStore.getDeliveredBatches(command.sessionId)
+        val undeliveredBatches =
+            pendingBatchesReader?.countUndeliveredForSession(command.sessionId) ?: 0
 
         Log.d(
             "TelemetryTrip",
@@ -165,6 +172,8 @@ class TripFinishManager(
 
         for (item in items) {
             val deliveredBatches = deliveryStatsStore.getDeliveredBatches(item.sessionId)
+            val undeliveredBatches =
+                pendingBatchesReader?.countUndeliveredForSession(item.sessionId) ?: 0
 
             Log.d(
                 "TelemetryTrip",

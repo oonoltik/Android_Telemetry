@@ -14,8 +14,10 @@ class FinishRetryWorker(
     override suspend fun doWork(): Result {
         return runCatching {
             Log.d("TelemetryTrip", "FinishRetryWorker started")
+
             val graph = TelemetryDeliveryGraph.from(applicationContext)
             graph.tripRepository.retryPendingFinishes()
+
             Result.success()
         }.getOrElse {
             Log.e("TelemetryTrip", "FinishRetryWorker failed", it)

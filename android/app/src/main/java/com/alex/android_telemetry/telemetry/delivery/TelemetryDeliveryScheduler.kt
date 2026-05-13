@@ -15,8 +15,6 @@ class TelemetryDeliveryScheduler(
     private val context: Context,
 ) {
     fun scheduleImmediate() {
-        Log.d("TelemetryDelivery", "scheduleImmediate()")
-
         val request = OneTimeWorkRequestBuilder<TelemetryDeliveryWorker>()
             .setConstraints(
                 Constraints.Builder()
@@ -24,6 +22,11 @@ class TelemetryDeliveryScheduler(
                     .build()
             )
             .build()
+
+        Log.d(
+            "TelemetryDelivery",
+            "scheduleImmediate() workId=${request.id}"
+        )
 
         WorkManager.getInstance(context).enqueueUniqueWork(
             IMMEDIATE_WORK_NAME,
@@ -33,10 +36,13 @@ class TelemetryDeliveryScheduler(
     }
 
     fun scheduleImmediateDebug() {
-        Log.d("TelemetryDelivery", "scheduleImmediateDebug()")
-
         val request = OneTimeWorkRequestBuilder<TelemetryDeliveryWorker>()
             .build()
+
+        Log.d(
+            "TelemetryDelivery",
+            "scheduleImmediateDebug() workId=${request.id}"
+        )
 
         WorkManager.getInstance(context).enqueueUniqueWork(
             IMMEDIATE_WORK_NAME,
