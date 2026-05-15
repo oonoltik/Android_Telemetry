@@ -55,10 +55,13 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.serialization.json.Json
 import okhttp3.OkHttpClient
+import com.alex.android_telemetry.telemetry.trips.api.TripApi
+import com.alex.android_telemetry.core.recovery.RecoveryUxStore
 
 class TelemetryAppGraph private constructor(
     val facade: TelemetryFacade,
     val scheduler: TelemetryDeliveryScheduler,
+    val tripApi: TripApi,
     val driverRepository: DriverRepository,
     val driverPrepareManager: DriverPrepareManager,
     val driverRegisterManager: DriverRegisterManager,
@@ -66,6 +69,7 @@ class TelemetryAppGraph private constructor(
     val accountDeleteManager: AccountDeleteManager,
     val deviceIdProvider: TelemetryDeviceIdProvider,
     val dayMonitoringManager: DayMonitoringManager,
+    val recoveryUxStore: RecoveryUxStore,
 ) {
     companion object {
         @Volatile
@@ -78,6 +82,7 @@ class TelemetryAppGraph private constructor(
 
         private fun build(context: Context): TelemetryAppGraph {
             val applicationScope = CoroutineScope(Dispatchers.Default)
+            val recoveryUxStore = RecoveryUxStore(context)
 
             val database =
                 com.alex.android_telemetry.telemetry.delivery.storage.TelemetryDatabase.get(context)
@@ -278,6 +283,7 @@ class TelemetryAppGraph private constructor(
             return TelemetryAppGraph(
                 facade = facade,
                 scheduler = scheduler,
+                tripApi = deliveryGraph.tripApi,
                 driverRepository = driverRepository,
                 driverPrepareManager = driverPrepareManager,
                 driverRegisterManager = driverRegisterManager,
@@ -285,6 +291,7 @@ class TelemetryAppGraph private constructor(
                 accountDeleteManager = accountDeleteManager,
                 deviceIdProvider = telemetryDeviceIdProvider,
                 dayMonitoringManager = dayMonitoringManager,
+                recoveryUxStore = recoveryUxStore,
             )
         }
     }

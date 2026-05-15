@@ -27,6 +27,7 @@ import com.alex.android_telemetry.telemetry.domain.PendingTelemetryBatchesReader
 class TelemetryDeliveryGraph(
     val processor: TelemetryDeliveryProcessor,
     val tripRepository: TripRepository,
+    val tripApi: TripApi,
 ) {
     companion object {
         fun from(context: Context): TelemetryDeliveryGraph {
@@ -191,6 +192,7 @@ class TelemetryDeliveryGraph(
             return TelemetryDeliveryGraph(
                 processor = processor,
                 tripRepository = tripRepository,
+                tripApi = tripApi,
             )
         }
     }

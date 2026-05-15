@@ -162,6 +162,9 @@ class TelemetryOrchestrator(
     private var latestAltimeter: AltimeterSample? = null
     private var latestScreenInteraction: ScreenInteractionSample? = null
 
+    private var manualNonAutomotiveSinceMs: Long? = null
+    private var manualAutoStoppingNow: Boolean = false
+
     private var collectionJob: Job? = null
     private val flushMutex = Mutex()
     private val tripMetricsAccumulator = TripMetricsAccumulator()
@@ -383,6 +386,9 @@ class TelemetryOrchestrator(
 
         tripMetricsAccumulator.reset()
 
+        manualNonAutomotiveSinceMs = null
+        manualAutoStoppingNow = false
+
         val started = stateMachine.start(mode, now)
         mutableState.emit(started)
         runtimeStateStore.save(started)
@@ -418,6 +424,9 @@ class TelemetryOrchestrator(
 
     suspend fun stopTrip(now: Instant = kotlinx.datetime.Clock.System.now()) {
         Log.d("TelemetryTrip", "stopTrip() CALLED")
+
+        manualNonAutomotiveSinceMs = null
+        manualAutoStoppingNow = false
 
         val current = state.value
         val sessionId = current.sessionId
@@ -488,7 +497,10 @@ class TelemetryOrchestrator(
                 deviceId = deviceId,
                 clientEndedAt = now.toString(),
                 trackingMode = current.trackingMode?.toWireValue(),
-                transportMode = transportMode,
+                transportMode = when (current.trackingMode) {
+                    TrackingMode.DAY_MONITORING -> "car"
+                    else -> transportMode
+                },
                 tripDurationSec = tripDurationSec,
                 finishReason = "app_stop",
                 clientMetrics = clientMetrics,
@@ -605,7 +617,10 @@ class TelemetryOrchestrator(
                 driverId = driverIdProvider(),
                 sessionId = sessionId,
                 trackingMode = current.trackingMode,
-                transportMode = transportModeProvider(),
+                transportMode = when (current.trackingMode) {
+                    TrackingMode.DAY_MONITORING -> "car"
+                    else -> transportModeProvider()
+                },
                 latestDeviceState = latestDeviceState,
                 latestNetworkState = latestNetworkState,
                 headingSummary = latestHeading,
@@ -662,6 +677,50 @@ class TelemetryOrchestrator(
         val updated = state.value.copy(lastSampleAt = sample.timestamp)
         mutableState.emit(updated)
         runtimeStateStore.save(updated)
+
+        maybeAutoFinishManualTrip(sample)
+    }
+
+    private suspend fun maybeAutoFinishManualTrip(sample: ActivitySample) {
+        val current = state.value
+
+        if (current.telemetryMode != TelemetryMode.COLLECTING) return
+        if (current.trackingMode != TrackingMode.SINGLE_TRIP) return
+        if (manualAutoStoppingNow) return
+
+        val speedKmh = (latestLocation?.speedMS ?: 0.0) * 3.6
+        val dominant = sample.dominant ?: "unknown"
+        val nowMs = sample.timestamp.toEpochMilliseconds()
+
+        if (speedKmh > 7.0) {
+            manualNonAutomotiveSinceMs = null
+            return
+        }
+
+        if (dominant == "automotive") {
+            manualNonAutomotiveSinceMs = null
+            return
+        }
+
+        val startedAt = manualNonAutomotiveSinceMs
+        if (startedAt == null) {
+            manualNonAutomotiveSinceMs = nowMs
+            return
+        }
+
+        val elapsedSec = (nowMs - startedAt) / 1000.0
+
+        if (elapsedSec >= 150.0 && speedKmh < 5.0) {
+            manualAutoStoppingNow = true
+            manualNonAutomotiveSinceMs = null
+
+            Log.d(
+                "TelemetryTrip",
+                "manualAutoFinish(): nonAutomotive=${elapsedSec.toInt()}s speedKmh=%.1f -> stopTrip".format(speedKmh)
+            )
+
+            stopTrip(sample.timestamp)
+        }
     }
 
     suspend fun recordPedometerSample(sample: PedometerSample) {

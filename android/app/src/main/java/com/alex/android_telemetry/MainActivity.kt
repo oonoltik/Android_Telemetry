@@ -41,6 +41,18 @@ import com.alex.android_telemetry.telemetry.driver.DriverRegisterResult
 import com.alex.android_telemetry.telemetry.service.TelemetryServiceStarter
 import com.alex.android_telemetry.ui.theme.Android_TelemetryTheme
 import kotlinx.coroutines.launch
+import com.alex.android_telemetry.ui.trips.TripsArchiveScreen
+import com.alex.android_telemetry.ui.driver.DriverAccountScreen
+import com.alex.android_telemetry.ui.permissions.PermissionsBackgroundScreen
+import com.alex.android_telemetry.ui.status.RuntimeWarningBanner
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.material3.Card
+
+import com.alex.android_telemetry.ui.home.TelemetryHomeScreen
+import com.alex.android_telemetry.ui.settings.SettingsScreen
+
+
+
 class MainActivity : ComponentActivity() {
 
     private lateinit var graph: TelemetryAppGraph
@@ -75,9 +87,138 @@ class MainActivity : ComponentActivity() {
                 var registerStatus by remember { mutableStateOf("-") }
                 var loginStatus by remember { mutableStateOf("-") }
                 var deleteStatus by remember { mutableStateOf("-") }
+                var showTripsArchive by remember { mutableStateOf(false) }
+                var showPermissionsBackground by remember { mutableStateOf(false) }
+                var showDiagnostics by remember { mutableStateOf(false) }
+                var showSettingsScreen by remember { mutableStateOf(false) }
+                var telemetryRestored by remember { mutableStateOf(graph.recoveryUxStore.consumeTelemetryRestored()) }
+                var replayResumed by remember { mutableStateOf(graph.recoveryUxStore.consumeReplayResumed()) }
+
+                if (showTripsArchive) {
+                    TripsArchiveScreen(
+                        tripApi = graph.tripApi,
+                        deviceId = graph.deviceIdProvider.get(),
+                        driverId = graph.driverRepository.getCurrentDriverId().orEmpty(),
+                        onBack = { showTripsArchive = false },
+                    )
+                    return@Android_TelemetryTheme
+                }
+                var showDriverAccount by remember { mutableStateOf(false) }
+
+                if (showDriverAccount) {
+                    DriverAccountScreen(
+                        state = state,
+                        deviceId = graph.deviceIdProvider.get(),
+                        driverRepository = graph.driverRepository,
+                        driverPrepareManager = graph.driverPrepareManager,
+                        driverRegisterManager = graph.driverRegisterManager,
+                        driverLoginManager = graph.driverLoginManager,
+                        accountDeleteManager = graph.accountDeleteManager,
+                        telemetryFacade = graph.facade,
+                        onBack = { showDriverAccount = false },
+                    )
+                    return@Android_TelemetryTheme
+                }
+
+                if (showPermissionsBackground) {
+                    PermissionsBackgroundScreen(
+                        onBack = { showPermissionsBackground = false },
+                    )
+                    return@Android_TelemetryTheme
+                }
+
+                if (showSettingsScreen) {
+                    SettingsScreen(
+                        currentDriverId = graph.driverRepository.getCurrentDriverId(),
+                        onDone = {
+                            showSettingsScreen = false
+                        },
+                        onOpenDriverAccount = {
+                            showSettingsScreen = false
+                            showDriverAccount = true
+                        },
+                        onOpenPermissionsBackground = {
+                            showSettingsScreen = false
+                            showPermissionsBackground = true
+                        },
+                        onOpenDiagnostics = {
+                            showSettingsScreen = false
+                            showDiagnostics = true
+                        },
+                        onDeleteLocalData = {
+                            // TODO: wire local cleanup flow later
+                        },
+                        onDeleteAccount = {
+                            showSettingsScreen = false
+                            showDriverAccount = true
+                        },
+                    )
+                    return@Android_TelemetryTheme
+                }
+
+                if (!showDiagnostics) {
+                    TelemetryHomeScreen(
+                        state = state,
+                        currentDriverId = graph.driverRepository.getCurrentDriverId(),
+                        onStartTrip = {
+                            Log.d("UI", "HOME START BUTTON CLICKED")
+                            scope.launch {
+                                try {
+                                    val driverId = driverIdInput.trim().ifEmpty { null }
+                                    serviceStarter.startTrip(
+                                        deviceId = graph.deviceIdProvider.get(),
+                                        driverId = driverId,
+                                        trackingMode = TrackingMode.SINGLE_TRIP,
+                                        transportMode = TransportMode.UNKNOWN,
+                                    )
+                                    Log.d("UI", "home single trip start invoked")
+                                } catch (t: Throwable) {
+                                    Log.e("UI", "home single trip start FAILED", t)
+                                }
+                            }
+                        },
+                        onStopTrip = {
+                            Log.d("UI", "HOME STOP BUTTON CLICKED")
+                            scope.launch {
+                                try {
+                                    graph.facade.stopTrip()
+                                    Log.d("UI", "home stopTrip() invoked")
+                                } catch (t: Throwable) {
+                                    Log.e("UI", "home stopTrip() FAILED", t)
+                                }
+                            }
+                        },
+                        onOpenTripsArchive = {
+                            showTripsArchive = true
+                        },
+                        onOpenDriverAccount = {
+                            showDriverAccount = true
+                        },
+                        onOpenPermissionsBackground = {
+                            showSettingsScreen = true
+                        },
+                        onOpenDiagnostics = {
+                            showDiagnostics = true
+                        },
+                    )
+                    return@Android_TelemetryTheme
+                    return@Android_TelemetryTheme
+                }
 
                 DebugTelemetryScreen(
                     state = state,
+                    currentDriverId = graph.driverRepository.getCurrentDriverId(),
+
+                    telemetryRestored = telemetryRestored,
+                    replayResumed = replayResumed,
+                    onDismissRecoveryUx = {
+                        telemetryRestored = false
+                        replayResumed = false
+                    },
+
+                    onCloseDiagnostics = {
+                        showDiagnostics = false
+                    },
 
                     driverIdInput = driverIdInput,
                     passwordInput = passwordInput,
@@ -87,6 +228,10 @@ class MainActivity : ComponentActivity() {
                     deleteStatus = deleteStatus,
                     onDriverIdChanged = { driverIdInput = it },
                     onPasswordChanged = { passwordInput = it },
+                    onOpenPermissionsBackground = {
+                        showPermissionsBackground = true
+                    },
+
                     onPrepareDriver = {
                         scope.launch {
                             try {
@@ -301,6 +446,12 @@ class MainActivity : ComponentActivity() {
                             }
                         }
                     },
+                    onOpenTripsArchive = {
+                        showTripsArchive = true
+                    },
+                    onOpenDriverAccount = {
+                        showDriverAccount = true
+                    },
                     onFlushNow = {
                         Log.d("UI", "FLUSH BUTTON CLICKED")
                         scope.launch {
@@ -334,6 +485,7 @@ class MainActivity : ComponentActivity() {
 
 private fun DebugTelemetryScreen(
     state: TripRuntimeState,
+    currentDriverId: String?,
     driverIdInput: String,
     passwordInput: String,
     prepareStatus: String,
@@ -351,6 +503,13 @@ private fun DebugTelemetryScreen(
     onDisableMdMonitoring: () -> Unit,
     onStopTrip: () -> Unit,
     onFlushNow: () -> Unit,
+    onOpenTripsArchive: () -> Unit,
+    onOpenDriverAccount: () -> Unit,
+    onOpenPermissionsBackground: () -> Unit,
+    telemetryRestored: Boolean,
+    replayResumed: Boolean,
+    onDismissRecoveryUx: () -> Unit,
+    onCloseDiagnostics: () -> Unit,
 ){
     val scrollState = rememberScrollState()
 
@@ -363,7 +522,41 @@ private fun DebugTelemetryScreen(
     ) {
         Text(text = "Telemetry debug")
 
+        RuntimeWarningBanner(
+            state = state,
+            currentDriverId = currentDriverId,
+        )
+
+        if (telemetryRestored || replayResumed) {
+            Card(modifier = Modifier.fillMaxWidth()) {
+                Column(
+                    modifier = Modifier.padding(12.dp),
+                    verticalArrangement = Arrangement.spacedBy(6.dp),
+                ) {
+                    Text("Recovery status")
+
+                    if (telemetryRestored) {
+                        Text("Telemetry restored after reboot/app restart")
+                    }
+
+                    if (replayResumed) {
+                        Text("Pending trip replay resumed")
+                    }
+
+                    Button(onClick = onDismissRecoveryUx) {
+                        Text("Dismiss")
+                    }
+                }
+            }
+        }
+
+
+
         HorizontalDivider()
+
+        Button(onClick = onCloseDiagnostics) {
+            Text("Back to home")
+        }
 
         OutlinedTextField(
             value = driverIdInput,
@@ -426,6 +619,17 @@ private fun DebugTelemetryScreen(
 
         HorizontalDivider()
 
+        Button(onClick = onOpenDriverAccount) {
+            Text("Driver / Account")
+        }
+
+        Button(onClick = onOpenTripsArchive) {
+            Text("Trips archive")
+        }
+        Button(onClick = onOpenPermissionsBackground) {
+            Text("Permissions / Background")
+        }
+
         Button(onClick = onStartSingleTrip) {
             Text("Single trip")
         }
@@ -453,7 +657,11 @@ private fun DebugTelemetryScreen(
 private fun DebugTelemetryScreenPreview() {
     Android_TelemetryTheme {
         DebugTelemetryScreen(
+            onOpenTripsArchive = {},
+            onOpenDriverAccount = {},
+
             state = TripRuntimeState(),
+            currentDriverId = null,
             driverIdInput = "analitik7",
 
             passwordInput = "secret123",
@@ -472,6 +680,11 @@ private fun DebugTelemetryScreenPreview() {
             onDisableMdMonitoring = {},
             onStopTrip = {},
             onFlushNow = {},
+            onOpenPermissionsBackground = {},
+            telemetryRestored = false,
+            replayResumed = false,
+            onDismissRecoveryUx = {},
+            onCloseDiagnostics = {},
         )
     }
 }

@@ -15,6 +15,7 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.launch
 
+
 class TelemetryForegroundService : Service() {
     private val serviceScope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
 
@@ -93,10 +94,12 @@ class TelemetryForegroundService : Service() {
     private fun handleRecoverTrip() {
         serviceScope.launch {
             appGraph.facade.restore()
+            appGraph.recoveryUxStore.markTelemetryRestored()
+            appGraph.recoveryUxStore.markReplayResumed()
 
             startForeground(
                 ForegroundIds.TELEMETRY_NOTIFICATION_ID,
-                ServiceLocator.appContainer.notificationFactory.buildActiveTripNotification(
+                ServiceLocator.appContainer.notificationFactory.buildReplayingNotification(
                     appGraph.facade.observeState().value.toSnapshot()
                 )
             )
@@ -105,11 +108,23 @@ class TelemetryForegroundService : Service() {
 
     private fun handleEnableDayMonitoring() {
         appGraph.dayMonitoringManager.enable()
+
+        startForeground(
+            ForegroundIds.TELEMETRY_NOTIFICATION_ID,
+            ServiceLocator.appContainer.notificationFactory.buildDayMonitoringNotification()
+        )
+
         Log.d("TelemetryService", "day monitoring enabled")
     }
 
     private fun handleDisableDayMonitoring() {
         appGraph.dayMonitoringManager.disable()
+
+        startForeground(
+            ForegroundIds.TELEMETRY_NOTIFICATION_ID,
+            ServiceLocator.appContainer.notificationFactory.buildIdleNotification()
+        )
+
         Log.d("TelemetryService", "day monitoring disabled")
     }
 

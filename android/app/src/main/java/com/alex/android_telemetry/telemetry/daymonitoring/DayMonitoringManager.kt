@@ -51,11 +51,29 @@ class DayMonitoringManager(
 
     fun disable() {
         stateStore.setEnabled(false)
-        stateStore.markAutoTripStopped()
         tripGate.reset()
+
         scope.launch {
+            val dmState = stateStore.load()
+            val runtime = telemetryFacade.observeState().value
+            val currentSessionId = runtime.sessionId
+
+            if (
+                dmState.autoStartedTripActive &&
+                currentSessionId != null &&
+                dmState.autoStartedSessionId == currentSessionId
+            ) {
+                Log.d(
+                    "DayMonitoring",
+                    "disable(): stopping owned auto trip sessionId=$currentSessionId"
+                )
+                onAutoStopRequested()
+            }
+
+            stateStore.markAutoTripStopped()
             syncRuntimeState()
         }
+
         Log.d("DayMonitoring", "enabled=false")
     }
 
