@@ -51,6 +51,8 @@ import androidx.compose.material3.Card
 import com.alex.android_telemetry.ui.home.TelemetryHomeScreen
 import com.alex.android_telemetry.ui.settings.SettingsScreen
 
+import androidx.compose.runtime.saveable.rememberSaveable
+
 
 
 class MainActivity : ComponentActivity() {
@@ -87,10 +89,11 @@ class MainActivity : ComponentActivity() {
                 var registerStatus by remember { mutableStateOf("-") }
                 var loginStatus by remember { mutableStateOf("-") }
                 var deleteStatus by remember { mutableStateOf("-") }
-                var showTripsArchive by remember { mutableStateOf(false) }
-                var showPermissionsBackground by remember { mutableStateOf(false) }
-                var showDiagnostics by remember { mutableStateOf(false) }
-                var showSettingsScreen by remember { mutableStateOf(false) }
+                var showTripsArchive by rememberSaveable { mutableStateOf(false) }
+                var showDriverAccount by rememberSaveable { mutableStateOf(false) }
+                var showPermissionsBackground by rememberSaveable { mutableStateOf(false) }
+                var showSettingsScreen by rememberSaveable { mutableStateOf(false) }
+                var showDiagnostics by rememberSaveable { mutableStateOf(false) }
                 var telemetryRestored by remember { mutableStateOf(graph.recoveryUxStore.consumeTelemetryRestored()) }
                 var replayResumed by remember { mutableStateOf(graph.recoveryUxStore.consumeReplayResumed()) }
 
@@ -103,7 +106,7 @@ class MainActivity : ComponentActivity() {
                     )
                     return@Android_TelemetryTheme
                 }
-                var showDriverAccount by remember { mutableStateOf(false) }
+
 
                 if (showDriverAccount) {
                     DriverAccountScreen(
@@ -159,6 +162,8 @@ class MainActivity : ComponentActivity() {
                 if (!showDiagnostics) {
                     TelemetryHomeScreen(
                         state = state,
+                        deviceId = graph.deviceIdProvider.get(),
+                        tripApi = graph.tripApi,
                         currentDriverId = graph.driverRepository.getCurrentDriverId(),
                         onStartTrip = {
                             Log.d("UI", "HOME START BUTTON CLICKED")
@@ -205,7 +210,7 @@ class MainActivity : ComponentActivity() {
                     return@Android_TelemetryTheme
                 }
 
-                DebugTelemetryScreen(
+                DiagnosticsScreen(
                     state = state,
                     currentDriverId = graph.driverRepository.getCurrentDriverId(),
 
@@ -483,7 +488,7 @@ class MainActivity : ComponentActivity() {
 
 @Composable
 
-private fun DebugTelemetryScreen(
+private fun DiagnosticsScreen(
     state: TripRuntimeState,
     currentDriverId: String?,
     driverIdInput: String,
@@ -654,9 +659,9 @@ private fun DebugTelemetryScreen(
 
 @Preview(showBackground = true)
 @Composable
-private fun DebugTelemetryScreenPreview() {
+private fun DiagnosticsScreenPreview() {
     Android_TelemetryTheme {
-        DebugTelemetryScreen(
+        DiagnosticsScreen(
             onOpenTripsArchive = {},
             onOpenDriverAccount = {},
 

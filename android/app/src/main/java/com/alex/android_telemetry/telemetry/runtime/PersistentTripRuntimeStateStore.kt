@@ -22,6 +22,7 @@ class PersistentTripRuntimeStateStore(
             .putString(KEY_LAST_LOCATION_AT, state.lastLocationAt?.toString())
             .putString(KEY_LAST_EVENT_AT, state.lastEventAt?.toString())
             .putFloat(KEY_DISTANCE_M, state.distanceM.toFloat())
+            .putFloat(KEY_CURRENT_SPEED_MS, (state.currentSpeedMS ?: 0.0).toFloat())
             .putBoolean(KEY_IS_FOREGROUND, state.isForegroundCollection)
             .putBoolean(KEY_PENDING_FINISH, state.pendingFinish)
             .putBoolean(KEY_DAY_MONITORING_ENABLED, state.dayMonitoringEnabled)
@@ -49,6 +50,7 @@ class PersistentTripRuntimeStateStore(
             lastLocationAt = prefs.getString(KEY_LAST_LOCATION_AT, null)?.let(::parseInstant),
             lastEventAt = prefs.getString(KEY_LAST_EVENT_AT, null)?.let(::parseInstant),
             distanceM = prefs.getFloat(KEY_DISTANCE_M, 0f).toDouble(),
+            currentSpeedMS = prefs.getFloat(KEY_CURRENT_SPEED_MS, 0f).toDouble(),
             isForegroundCollection = prefs.getBoolean(KEY_IS_FOREGROUND, false),
             pendingFinish = prefs.getBoolean(KEY_PENDING_FINISH, false),
             dayMonitoringEnabled = prefs.getBoolean(KEY_DAY_MONITORING_ENABLED, false),
@@ -73,6 +75,7 @@ class PersistentTripRuntimeStateStore(
         const val KEY_LAST_LOCATION_AT = "last_location_at"
         const val KEY_LAST_EVENT_AT = "last_event_at"
         const val KEY_DISTANCE_M = "distance_m"
+        const val KEY_CURRENT_SPEED_MS = "current_speed_ms"
         const val KEY_IS_FOREGROUND = "is_foreground"
         const val KEY_PENDING_FINISH = "pending_finish"
         const val KEY_DAY_MONITORING_ENABLED = "day_monitoring_enabled"

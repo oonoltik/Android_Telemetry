@@ -1,6 +1,7 @@
 package com.alex.android_telemetry.ui.settings
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -12,17 +13,22 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
+import com.alex.android_telemetry.ui.design.TelemetrySpacing
+import com.alex.android_telemetry.ui.design.TelemetrySwiftColors
+import com.alex.android_telemetry.ui.design.TelemetryTypography
+
 import androidx.compose.foundation.layout.ColumnScope
+
+
 
 @Composable
 fun SettingsScreen(
@@ -37,125 +43,129 @@ fun SettingsScreen(
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .background(Color(0xFFF1F1F4))
+            .background(TelemetrySwiftColors.ScreenBackground)
             .verticalScroll(rememberScrollState())
-            .padding(horizontal = 16.dp, vertical = 18.dp),
-        verticalArrangement = Arrangement.spacedBy(22.dp),
+            .padding(horizontal = TelemetrySpacing.ScreenHorizontal)
+            .padding(top = 10.dp, bottom = 28.dp),
     ) {
-        SettingsTopBar(onDone = onDone)
+        SettingsNavigationBar(
+            onDone = onDone,
+        )
 
-        SettingsSectionTitle("Язык")
-        SettingsCard {
-            SettingsRow(
-                title = "Язык",
-                value = "Русский⌄",
-            )
-        }
+        Spacer(Modifier.height(12.dp))
 
-        SettingsSectionTitle("Имя пользователя")
-        SettingsCard {
+        Text(
+            text = "Настройки",
+            color = TelemetrySwiftColors.TextPrimary,
+            style = TelemetryTypography.LargeTitle,
+        )
+
+        Spacer(Modifier.height(26.dp))
+
+        SettingsSectionTitle("Профиль")
+
+        SettingsGroup {
             SettingsRow(
-                title = "Текущий",
-                value = currentDriverId?.takeIf { it.isNotBlank() } ?: "—",
+                title = "Водитель",
+                value = currentDriverId?.takeIf { it.isNotBlank() } ?: "Не выбран",
+                onClick = onOpenDriverAccount,
             )
 
             SettingsDivider()
 
-            SettingsBlueAction(
-                text = "Изменить имя пользователя",
+            SettingsRow(
+                title = "Изменить имя",
+                value = null,
                 onClick = onOpenDriverAccount,
             )
         }
 
-        SettingsSectionTitle("Конфиденциальность")
-        SettingsCard {
-            Text(
-                text = "В данной версии приложения технические идентификаторы скрыты из публичного интерфейса. Вы можете удалить локально сохранённые данные приложения на этом устройстве.",
-                color = Color(0xFF8A8A8E),
-                fontSize = 18.sp,
-                lineHeight = 25.sp,
-            )
+        Spacer(Modifier.height(24.dp))
 
-            SettingsDivider()
+        SettingsSectionTitle("Приложение")
 
-            SettingsBlueAction(
-                text = "Политика конфиденциальности",
+        SettingsGroup {
+            SettingsRow(
+                title = "Язык",
+                value = "Русский",
                 onClick = {},
             )
 
             SettingsDivider()
 
-            SettingsBlueAction(
-                text = "Условия использования",
-                onClick = {},
-            )
-
-            SettingsDivider()
-
-            SettingsRedAction(
-                text = "Удалить локальные данные",
-                onClick = onDeleteLocalData,
-            )
-        }
-
-        SettingsSectionTitle("Аккаунт")
-        SettingsCard {
-            SettingsRedAction(
-                text = "Удалить аккаунт",
-                onClick = onDeleteAccount,
-            )
-        }
-
-        SettingsSectionTitle("Локация (фон)")
-        SettingsCaption(
-            "Для стабильной работы GPS в фоне Android требует разрешение Always/Background location, уведомления и отключение ограничений батареи."
-        )
-
-        SettingsCard {
-            SettingsBlueAction(
-                text = "Проверить доступы и фоновые ограничения",
+            SettingsRow(
+                title = "Доступы и фон",
+                value = "Проверить",
                 onClick = onOpenPermissionsBackground,
             )
         }
 
-        SettingsSectionTitle("Диагностика")
-        SettingsCard {
-            SettingsBlueAction(
-                text = "Открыть диагностику телематики",
+        SettingsFootnote(
+            text = "Разрешения нужны для корректной записи поездок, фонового мониторинга и восстановления состояния после перезапуска устройства.",
+        )
+
+        Spacer(Modifier.height(24.dp))
+
+        SettingsSectionTitle("Система")
+
+        SettingsGroup {
+            SettingsRow(
+                title = "Диагностика",
+                value = "Для разработчика",
                 onClick = onOpenDiagnostics,
             )
         }
 
+        SettingsFootnote(
+            text = "Диагностика скрыта от основного сценария и используется только для проверки telemetry/runtime слоя.",
+        )
+
         Spacer(Modifier.height(24.dp))
+
+        SettingsSectionTitle("Данные")
+
+        SettingsGroup {
+            SettingsDestructiveRow(
+                title = "Удалить локальные данные",
+                onClick = onDeleteLocalData,
+            )
+
+            SettingsDivider()
+
+            SettingsDestructiveRow(
+                title = "Удалить аккаунт",
+                onClick = onDeleteAccount,
+            )
+        }
+
+        Spacer(Modifier.height(18.dp))
+
+        Text(
+            text = "Android Telemetry",
+            modifier = Modifier.fillMaxWidth(),
+            color = TelemetrySwiftColors.TextSecondary,
+            style = TelemetryTypography.Caption,
+            textAlign = TextAlign.Center,
+        )
     }
 }
 
 @Composable
-private fun SettingsTopBar(
+private fun SettingsNavigationBar(
     onDone: () -> Unit,
 ) {
     Row(
-        modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.SpaceBetween,
-        verticalAlignment = Alignment.Top,
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(46.dp),
+        horizontalArrangement = Arrangement.End,
+        verticalAlignment = Alignment.CenterVertically,
     ) {
-        Text(
-            text = "Настройки",
-            color = Color.Black,
-            fontSize = 38.sp,
-            fontWeight = FontWeight.Bold,
-        )
-
-        TextButton(
-            onClick = onDone,
-            modifier = Modifier
-                .background(Color.White, RoundedCornerShape(28.dp))
-                .padding(horizontal = 14.dp, vertical = 4.dp),
-        ) {
+        TextButton(onClick = onDone) {
             Text(
                 text = "Готово",
-                color = Color.Black,
-                fontSize = 20.sp,
+                color = Color(0xFF0A84FF),
+                style = TelemetryTypography.BodyEmphasis,
             )
         }
     }
@@ -166,37 +176,22 @@ private fun SettingsSectionTitle(
     text: String,
 ) {
     Text(
-        text = text,
-        color = Color(0xFF8A8A8E),
-        fontSize = 22.sp,
-        fontWeight = FontWeight.Bold,
-        modifier = Modifier.padding(start = 20.dp, bottom = 0.dp),
+        text = text.uppercase(),
+        modifier = Modifier.padding(start = 16.dp, bottom = 7.dp),
+        color = TelemetrySwiftColors.TextSecondary,
+        style = TelemetryTypography.CaptionEmphasis,
     )
 }
 
 @Composable
-private fun SettingsCaption(
-    text: String,
-) {
-    Text(
-        text = text,
-        color = Color(0xFF8A8A8E),
-        fontSize = 18.sp,
-        lineHeight = 25.sp,
-        modifier = Modifier.padding(horizontal = 20.dp),
-    )
-}
-
-@Composable
-private fun SettingsCard(
+private fun SettingsGroup(
     content: @Composable ColumnScope.() -> Unit,
 ) {
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .background(Color.White, RoundedCornerShape(28.dp))
-            .padding(horizontal = 20.dp, vertical = 18.dp),
-        verticalArrangement = Arrangement.spacedBy(14.dp),
+            .clip(RoundedCornerShape(18.dp))
+            .background(TelemetrySwiftColors.CardBackground),
         content = content,
     )
 }
@@ -204,67 +199,80 @@ private fun SettingsCard(
 @Composable
 private fun SettingsRow(
     title: String,
-    value: String,
+    value: String?,
+    onClick: () -> Unit,
 ) {
     Row(
-        modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.SpaceBetween,
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(onClick = onClick)
+            .padding(horizontal = 16.dp, vertical = 15.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Text(
             text = title,
-            color = Color.Black,
-            fontSize = 22.sp,
+            modifier = Modifier.weight(1f),
+            color = TelemetrySwiftColors.TextPrimary,
+            style = TelemetryTypography.Body,
         )
 
-        Text(
-            text = value,
-            color = Color(0xFF8A8A8E),
-            fontSize = 22.sp,
-        )
-    }
-}
+        if (value != null) {
+            Text(
+                text = value,
+                color = TelemetrySwiftColors.TextSecondary,
+                style = TelemetryTypography.Body,
+                textAlign = TextAlign.End,
+            )
+        }
 
-@Composable
-private fun SettingsBlueAction(
-    text: String,
-    onClick: () -> Unit,
-) {
-    TextButton(
-        onClick = onClick,
-        modifier = Modifier.fillMaxWidth(),
-    ) {
         Text(
-            text = text,
-            color = Color(0xFF3B82F6),
-            fontSize = 22.sp,
-            modifier = Modifier.fillMaxWidth(),
+            text = "  ›",
+            color = TelemetrySwiftColors.TextSecondary,
+            style = TelemetryTypography.Body,
         )
     }
 }
 
 @Composable
-private fun SettingsRedAction(
-    text: String,
+private fun SettingsDestructiveRow(
+    title: String,
     onClick: () -> Unit,
 ) {
-    TextButton(
-        onClick = onClick,
-        modifier = Modifier.fillMaxWidth(),
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(onClick = onClick)
+            .padding(horizontal = 16.dp, vertical = 15.dp),
+        verticalAlignment = Alignment.CenterVertically,
     ) {
         Text(
-            text = text,
+            text = title,
+            modifier = Modifier.weight(1f),
             color = Color(0xFFFF3B30),
-            fontSize = 22.sp,
-            modifier = Modifier.fillMaxWidth(),
+            style = TelemetryTypography.Body,
         )
     }
 }
 
 @Composable
 private fun SettingsDivider() {
-    HorizontalDivider(
-        color = Color(0xFFE0E0E0),
-        thickness = 1.dp,
+    Spacer(
+        modifier = Modifier
+            .padding(start = 16.dp)
+            .fillMaxWidth()
+            .height(1.dp)
+            .background(TelemetrySwiftColors.Divider),
+    )
+}
+
+@Composable
+private fun SettingsFootnote(
+    text: String,
+) {
+    Text(
+        text = text,
+        modifier = Modifier.padding(start = 16.dp, end = 16.dp, top = 7.dp),
+        color = TelemetrySwiftColors.TextSecondary,
+        style = TelemetryTypography.Caption,
     )
 }

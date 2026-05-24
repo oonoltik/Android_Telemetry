@@ -135,6 +135,7 @@ data class TripRuntimeState(
     val lastLocationAt: Instant? = null,
     val lastEventAt: Instant? = null,
     val distanceM: Double = 0.0,
+    val currentSpeedMS: Double? = null,
     val isForegroundCollection: Boolean = false,
     val pendingFinish: Boolean = false,
     val finishUiState: TripFinishUiState = TripFinishUiState.IDLE,

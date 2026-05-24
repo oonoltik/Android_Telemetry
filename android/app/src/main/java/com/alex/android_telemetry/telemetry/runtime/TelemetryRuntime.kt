@@ -830,6 +830,7 @@ class TelemetryOrchestrator(
         val updated = state.value.copy(
             lastSampleAt = now,
             lastLocationAt = latestLocation?.timestamp ?: state.value.lastLocationAt,
+            currentSpeedMS = latestLocation?.speedMS,
         )
         mutableState.emit(updated)
         runtimeStateStore.save(updated)

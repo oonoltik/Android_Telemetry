@@ -1,6 +1,9 @@
 package com.alex.android_telemetry.ui.home
 
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -12,27 +15,53 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.Divider
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableLongStateOf
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import com.alex.android_telemetry.telemetry.domain.model.TelemetryMode
 import com.alex.android_telemetry.telemetry.domain.model.TripRuntimeState
-import com.alex.android_telemetry.ui.status.RuntimeWarningBanner
+import com.alex.android_telemetry.telemetry.trips.api.DriverHomeResponseDto
+import com.alex.android_telemetry.telemetry.trips.api.TripApi
+import com.alex.android_telemetry.ui.design.TelemetrySwiftColors
+import com.alex.android_telemetry.ui.design.TelemetryTypography
+import kotlinx.coroutines.delay
+
+import kotlin.math.abs
+import kotlin.math.roundToInt
+
+private val HomeScreenBackground = Color.White
+private val SwiftSecondarySystemBackground = Color(0xFFF2F2F7)
+private val SwiftButtonGray = Color(0xFFE9E9EC)
+private val SwiftBlue = Color(0xFF0A84FF)
+private val SwiftOrange = Color(0xFFF28C28)
+private val SwiftGreen = Color(0xFF34C759)
+private val SwiftRed = Color(0xFFFF3B30)
+private val SwiftSecondaryText = Color(0xFF8E8E93)
 
 @Composable
 fun TelemetryHomeScreen(
     state: TripRuntimeState,
+    deviceId: String,
+    tripApi: TripApi,
     currentDriverId: String?,
     onStartTrip: () -> Unit,
     onStopTrip: () -> Unit,
@@ -42,64 +71,94 @@ fun TelemetryHomeScreen(
     onOpenDiagnostics: () -> Unit,
 ) {
     val isTripActive = state.telemetryMode != TelemetryMode.IDLE
-    val statusText = when {
-        isTripActive -> "Поездка активна"
-        state.dayMonitoringEnabled -> "Мониторинг"
-        else -> "Готово"
+    val hasDriver = !currentDriverId.isNullOrBlank()
+
+    var homeMetrics by remember { mutableStateOf<DriverHomeResponseDto?>(null) }
+    var homeMetricsError by remember { mutableStateOf<String?>(null) }
+    var isLoadingHomeMetrics by remember { mutableStateOf(false) }
+
+    var nowEpochMs by remember { mutableLongStateOf(System.currentTimeMillis()) }
+
+    LaunchedEffect(isTripActive, state.startedAt) {
+        while (true) {
+            nowEpochMs = System.currentTimeMillis()
+            delay(1000)
+        }
     }
 
-    val statusColor = when {
-        isTripActive -> Color(0xFF3B82F6)
-        state.dayMonitoringEnabled -> Color(0xFFF28C28)
-        else -> Color(0xFF5AC85A)
+    LaunchedEffect(deviceId, currentDriverId) {
+        if (deviceId.isBlank() || currentDriverId.isNullOrBlank()) {
+            homeMetrics = null
+            homeMetricsError = null
+            isLoadingHomeMetrics = false
+            return@LaunchedEffect
+        }
+
+        isLoadingHomeMetrics = true
+        homeMetricsError = null
+
+        runCatching {
+            tripApi.fetchDriverHome(
+                deviceId = deviceId,
+                driverId = currentDriverId,
+            )
+        }.onSuccess { response ->
+            homeMetrics = response
+            homeMetricsError = null
+        }.onFailure { throwable ->
+            homeMetrics = null
+            homeMetricsError = throwable.message ?: "Не удалось загрузить рейтинг"
+        }
+
+        isLoadingHomeMetrics = false
     }
 
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .background(Color(0xFFF3F3F6))
+            .background(HomeScreenBackground)
             .verticalScroll(rememberScrollState())
-            .padding(horizontal = 16.dp, vertical = 18.dp),
-        verticalArrangement = Arrangement.spacedBy(18.dp),
+            .padding(horizontal = 16.dp)
+            .padding(top = 18.dp, bottom = 34.dp),
+        verticalArrangement = Arrangement.spacedBy(16.dp),
     ) {
-        HomeTopBar(
+        HomeToolbar(
             onOpenSettings = onOpenPermissionsBackground,
         )
 
-        DrivingScoreHero(
-            score = 0,
-            subtitle = if (currentDriverId.isNullOrBlank()) {
-                "Водитель не выбран"
-            } else {
-                "Водитель подключён"
-            },
-        )
-
-        StatusPill(
-            text = statusText,
-            color = statusColor,
-        )
-
-        RuntimeWarningBanner(
-            state = state,
+        DriverScoreCard(
+            metrics = homeMetrics,
+            isLoading = isLoadingHomeMetrics,
+            errorText = homeMetricsError,
             currentDriverId = currentDriverId,
+            onTripsTap = onOpenTripsArchive,
         )
 
-        MainActionsRow(
+        TripStateBadge(
             isTripActive = isTripActive,
+        )
+
+        TripSummaryCard(
+            state = state,
+            nowEpochMs = nowEpochMs,
+        )
+
+        StartStopControls(
+            canStart = !isTripActive && hasDriver,
+            canStop = isTripActive,
             onStartTrip = onStartTrip,
             onStopTrip = onStopTrip,
         )
 
-        SecondaryActions(
+        ArchiveActions(
             onOpenTripsArchive = onOpenTripsArchive,
-            onOpenDriverAccount = onOpenDriverAccount,
-            onOpenPermissionsBackground = onOpenPermissionsBackground,
         )
 
-        ModeSegment()
+        VideoModeButton()
 
-        GameButton()
+        TrackingModeSegment()
+
+        SaveFishButton()
 
         TextButton(
             onClick = onOpenDiagnostics,
@@ -107,252 +166,418 @@ fun TelemetryHomeScreen(
         ) {
             Text(
                 text = "Диагностика",
-                color = Color(0xFF8A8A8E),
-                fontSize = 16.sp,
+                color = SwiftSecondaryText,
+                style = TelemetryTypography.Callout,
             )
         }
     }
 }
 
 @Composable
-private fun HomeTopBar(
+private fun HomeToolbar(
     onOpenSettings: () -> Unit,
 ) {
     Row(
         modifier = Modifier.fillMaxWidth(),
         horizontalArrangement = Arrangement.End,
+        verticalAlignment = Alignment.CenterVertically,
     ) {
         TextButton(
             onClick = onOpenSettings,
             modifier = Modifier
-                .background(Color.White, RoundedCornerShape(28.dp))
-                .padding(horizontal = 16.dp, vertical = 4.dp),
+                .clip(RoundedCornerShape(28.dp))
+                .background(Color.White)
+                .border(
+                    width = 1.dp,
+                    color = Color(0x11000000),
+                    shape = RoundedCornerShape(28.dp),
+                )
+                .padding(horizontal = 18.dp, vertical = 5.dp),
         ) {
             Text(
                 text = "Настройки",
                 color = Color.Black,
-                fontSize = 20.sp,
+                style = TelemetryTypography.Title2,
             )
         }
     }
 }
 
 @Composable
-private fun DrivingScoreHero(
-    score: Int,
-    subtitle: String,
+private fun DriverScoreCard(
+    metrics: DriverHomeResponseDto?,
+    isLoading: Boolean,
+    errorText: String?,
+    currentDriverId: String?,
+    onTripsTap: () -> Unit,
 ) {
-    Column(
-        modifier = Modifier
-            .fillMaxWidth()
-            .background(Color(0xFFEFEFF3), RoundedCornerShape(28.dp))
-            .padding(horizontal = 20.dp, vertical = 28.dp),
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.spacedBy(12.dp),
+    val scoreText = when {
+        currentDriverId.isNullOrBlank() -> "— / 100"
+        isLoading -> "…"
+        metrics?.avgScore != null -> "${metrics.avgScore.roundToInt()} / 100"
+        else -> "— / 100"
+    }
+
+    val primarySubtitle = when {
+        currentDriverId.isNullOrBlank() -> "Водитель не выбран"
+        isLoading -> "Загружаем рейтинг…"
+        errorText != null -> "Рейтинг временно недоступен"
+        metrics?.driverLevel != null -> localizedDriverLevel(metrics.driverLevel)
+        metrics?.ratingStatus == "forming" -> "Рейтинг формируется"
+        metrics != null -> "Рейтинг рассчитан"
+        else -> "Рейтинг появится после поездок"
+    }
+
+    val ratingFormingText = if (metrics?.ratingStatus == "forming") {
+        "Рейтинг формируется · осталось поездок: ${metrics.tripsToUnlockPercentile}"
+    } else {
+        null
+    }
+
+    val deltaText = formatScoreDelta(metrics?.scoreDeltaRecent)
+    val percentileText = formatPercentile(metrics)
+    val nextLevelText = formatLevelText(metrics)
+
+    SwiftCard(
+        cornerRadius = 18,
+        padding = 24,
     ) {
-        Text(
-            text = "Оценка вождения",
-            color = Color.Black,
-            fontSize = 28.sp,
-            fontWeight = FontWeight.Bold,
-        )
-
-        Text(
-            text = "$score / 100",
-            color = Color(0xFF3B82F6),
-            fontSize = 56.sp,
-            fontWeight = FontWeight.Bold,
-        )
-
-        Text(
-            text = subtitle,
-            color = Color(0xFF8A8A8E),
-            fontSize = 20.sp,
-        )
-
-        Text(
-            text = "↘ - за последние 5 поездок",
-            color = Color(0xFFF28C28),
-            fontSize = 20.sp,
-            fontWeight = FontWeight.SemiBold,
-        )
-
-        ThinDivider()
-
-        Text(
-            text = "Топ 44% водителей",
-            color = Color.Black,
-            fontSize = 21.sp,
-            fontWeight = FontWeight.Bold,
-        )
-
-        Text(
-            text = "До уровня Спокойный водитель осталось 0.7",
-            color = Color(0xFF8A8A8E),
-            fontSize = 18.sp,
-            textAlign = TextAlign.Center,
-        )
-
-        Row(
-            horizontalArrangement = Arrangement.spacedBy(12.dp),
-            verticalAlignment = Alignment.CenterVertically,
+        Column(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(8.dp),
         ) {
-            Dot(Color(0xFF5AC85A))
-            Dot(Color(0xFFFF4D4D))
-            Dot(Color(0xFFFF4D4D))
-            Dot(Color(0xFFFF4D4D))
-            Dot(Color(0xFFFF4D4D))
+            Text(
+                text = "Оценка вождения",
+                color = Color.Black,
+                style = TelemetryTypography.Title1,
+                textAlign = TextAlign.Center,
+            )
+
+            Text(
+                text = scoreText,
+                color = SwiftBlue,
+                style = TelemetryTypography.ScoreHero,
+                textAlign = TextAlign.Center,
+            )
+
+            Text(
+                text = primarySubtitle,
+                color = SwiftSecondaryText,
+                style = TelemetryTypography.Body,
+                textAlign = TextAlign.Center,
+            )
+
+            if (!currentDriverId.isNullOrBlank()) {
+                Text(
+                    text = "Водитель: $currentDriverId",
+                    color = SwiftSecondaryText,
+                    style = TelemetryTypography.Body,
+                    textAlign = TextAlign.Center,
+                )
+            }
+
+            if (deltaText != null) {
+                Text(
+                    text = deltaText,
+                    color = if ((metrics?.scoreDeltaRecent ?: 0.0) >= 0.0) SwiftGreen else SwiftOrange,
+                    style = TelemetryTypography.Title2,
+                    textAlign = TextAlign.Center,
+                )
+
+                SwiftDivider()
+            }
+
+            if (ratingFormingText != null) {
+                Text(
+                    text = ratingFormingText,
+                    color = SwiftSecondaryText,
+                    style = TelemetryTypography.Body,
+                    textAlign = TextAlign.Center,
+                )
+            } else if (percentileText != null) {
+                Text(
+                    text = percentileText,
+                    color = Color.Black,
+                    style = TelemetryTypography.Title2,
+                    textAlign = TextAlign.Center,
+                )
+            }
+
+            if (nextLevelText != null) {
+                Text(
+                    text = nextLevelText,
+                    color = SwiftSecondaryText,
+                    style = TelemetryTypography.Body,
+                    textAlign = TextAlign.Center,
+                )
+            }
+
+            if (metrics?.recentTripScores?.isNotEmpty() == true) {
+                SwiftDivider()
+
+                TextButton(
+                    onClick = onTripsTap,
+                    modifier = Modifier.fillMaxWidth(),
+                ) {
+                    Column(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.spacedBy(8.dp),
+                    ) {
+                        RecentTripDots(
+                            scores = metrics.recentTripScores,
+                            colors = metrics.recentTripColors,
+                        )
+
+                        Text(
+                            text = recentTripsSummary(metrics.recentTripScores),
+                            color = Color.Black,
+                            style = TelemetryTypography.Title2,
+                            textAlign = TextAlign.Center,
+                        )
+
+                        Text(
+                            text = "Сохраните зелёную серию в следующей поездке",
+                            color = SwiftSecondaryText,
+                            style = TelemetryTypography.Body,
+                            textAlign = TextAlign.Center,
+                        )
+                    }
+                }
+            }
+
+            if (errorText != null) {
+                Text(
+                    text = "Данные рейтинга временно недоступны",
+                    color = SwiftSecondaryText,
+                    style = TelemetryTypography.Caption,
+                    textAlign = TextAlign.Center,
+                )
+            }
         }
-
-        Text(
-            text = "Есть поездка, которую можно улучшить",
-            color = Color.Black,
-            fontSize = 20.sp,
-            fontWeight = FontWeight.Bold,
-            textAlign = TextAlign.Center,
-        )
-
-        Text(
-            text = "Сохраните зелёную серию в следующей поездке",
-            color = Color(0xFF8A8A8E),
-            fontSize = 18.sp,
-            textAlign = TextAlign.Center,
-        )
     }
 }
 
 @Composable
-private fun StatusPill(
-    text: String,
-    color: Color,
+private fun TripStateBadge(
+    isTripActive: Boolean,
+) {
+    val dotColor by animateColorAsState(
+        label = "tripStateDot",
+        targetValue = if (isTripActive) SwiftRed else SwiftGreen,
+    )
+
+    SwiftCard(
+        cornerRadius = 18,
+        padding = 18,
+    ) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(14.dp),
+        ) {
+            Box(
+                modifier = Modifier
+                    .width(12.dp)
+                    .height(12.dp)
+                    .clip(CircleShape)
+                    .background(dotColor),
+            )
+
+            Text(
+                text = if (isTripActive) "Запись" else "Готово",
+                color = Color.Black,
+                style = TelemetryTypography.Title2,
+            )
+
+            Spacer(Modifier.weight(1f))
+        }
+    }
+}
+
+@Composable
+private fun TripSummaryCard(
+    state: TripRuntimeState,
+    nowEpochMs: Long,
+) {
+    val elapsedSec = elapsedSeconds(
+        startedAt = state.startedAt,
+        nowEpochMs = nowEpochMs,
+    )
+
+    val distanceKm = state.distanceM / 1000.0
+
+
+    SwiftCard(
+        cornerRadius = 16,
+        padding = 18,
+    ) {
+        Column(
+            modifier = Modifier.fillMaxWidth(),
+            verticalArrangement = Arrangement.spacedBy(9.dp),
+        ) {
+            TripSummaryRow(
+                icon = "◴",
+                label = "Текущая скорость",
+                value = "${formatOneDecimal((state.currentSpeedMS ?: 0.0) * 3.6)} km/h",
+            )
+
+            TripSummaryRow(
+                icon = "↻",
+                label = "Время поездки",
+                value = formatElapsed(elapsedSec),
+            )
+
+            TripSummaryRow(
+                icon = "▤",
+                label = "Дистанция",
+                value = "${formatTwoDecimals(distanceKm)} км",
+            )
+        }
+    }
+}
+
+@Composable
+private fun TripSummaryRow(
+    icon: String,
+    label: String,
+    value: String,
 ) {
     Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .background(Color(0xFFEFEFF3), RoundedCornerShape(22.dp))
-            .padding(horizontal = 18.dp, vertical = 18.dp),
+        modifier = Modifier.fillMaxWidth(),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Box(
-            modifier = Modifier
-                .width(14.dp)
-                .height(14.dp)
-                .background(color, RoundedCornerShape(999.dp)),
+        Text(
+            text = icon,
+            modifier = Modifier.width(34.dp),
+            color = SwiftSecondaryText,
+            style = TelemetryTypography.Title2,
         )
 
-        Spacer(Modifier.width(14.dp))
+        Text(
+            text = label,
+            modifier = Modifier.weight(1f),
+            color = SwiftSecondaryText,
+            style = TelemetryTypography.Title2,
+        )
 
         Text(
-            text = text,
+            text = value,
             color = Color.Black,
-            fontSize = 22.sp,
-            fontWeight = FontWeight.Bold,
+            style = TelemetryTypography.Title2,
+            textAlign = TextAlign.End,
         )
     }
 }
 
 @Composable
-private fun MainActionsRow(
-    isTripActive: Boolean,
+private fun StartStopControls(
+    canStart: Boolean,
+    canStop: Boolean,
     onStartTrip: () -> Unit,
     onStopTrip: () -> Unit,
 ) {
     Row(
         modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.spacedBy(14.dp),
+        horizontalArrangement = Arrangement.spacedBy(16.dp),
     ) {
         Button(
             onClick = onStartTrip,
-            enabled = !isTripActive,
+            enabled = canStart,
             modifier = Modifier
                 .weight(1f)
-                .height(74.dp),
+                .height(70.dp),
+            shape = RoundedCornerShape(36.dp),
             colors = ButtonDefaults.buttonColors(
-                containerColor = Color(0xFF3B82F6),
-                disabledContainerColor = Color(0xFFE4E4E7),
+                containerColor = SwiftBlue,
+                disabledContainerColor = SwiftButtonGray,
                 contentColor = Color.White,
                 disabledContentColor = Color(0xFFB8B8BE),
             ),
-            shape = RoundedCornerShape(34.dp),
         ) {
             Text(
                 text = "Старт",
-                fontSize = 22.sp,
+                style = TelemetryTypography.Title2,
             )
         }
 
         Button(
             onClick = onStopTrip,
-            enabled = isTripActive,
+            enabled = canStop,
             modifier = Modifier
                 .weight(1f)
-                .height(74.dp),
+                .height(70.dp),
+            shape = RoundedCornerShape(36.dp),
             colors = ButtonDefaults.buttonColors(
-                containerColor = Color(0xFF3B82F6),
-                disabledContainerColor = Color(0xFFE4E4E7),
-                contentColor = Color.White,
+                containerColor = SwiftButtonGray,
+                disabledContainerColor = SwiftButtonGray,
+                contentColor = SwiftBlue,
                 disabledContentColor = Color(0xFFB8B8BE),
             ),
-            shape = RoundedCornerShape(34.dp),
         ) {
             Text(
                 text = "Стоп",
-                fontSize = 22.sp,
+                style = TelemetryTypography.Title2,
             )
         }
     }
 }
 
 @Composable
-private fun SecondaryActions(
+private fun ArchiveActions(
     onOpenTripsArchive: () -> Unit,
-    onOpenDriverAccount: () -> Unit,
-    onOpenPermissionsBackground: () -> Unit,
 ) {
     Row(
         modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.spacedBy(14.dp),
+        horizontalArrangement = Arrangement.spacedBy(12.dp),
     ) {
-        HomePillButton(
-            text = "↺ Архив поездок",
+        PillButton(
+            text = "Архив поездок",
             modifier = Modifier.weight(1f),
+            height = 58,
             onClick = onOpenTripsArchive,
         )
 
-        HomePillButton(
-            text = "🚘 Водитель",
+        PillButton(
+            text = "Архив видео",
             modifier = Modifier.weight(1f),
-            onClick = onOpenDriverAccount,
+            height = 58,
+            onClick = {},
         )
     }
-
-    HomePillButton(
-        text = "⚙ Настройки доступа",
+}
+@Composable
+private fun VideoModeButton() {
+    PillButton(
+        text = "Видеорежим",
         modifier = Modifier.fillMaxWidth(),
-        onClick = onOpenPermissionsBackground,
+        height = 64,
+        onClick = {},
     )
 }
 
 @Composable
-private fun ModeSegment() {
+private fun TrackingModeSegment() {
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .background(Color(0xFFE4E4E7), RoundedCornerShape(22.dp))
+            .clip(RoundedCornerShape(24.dp))
+            .background(SwiftButtonGray)
             .padding(3.dp),
     ) {
         Box(
             modifier = Modifier
                 .weight(1f)
-                .background(Color.White, RoundedCornerShape(20.dp))
+                .clip(RoundedCornerShape(22.dp))
+                .background(Color.White)
                 .padding(vertical = 12.dp),
             contentAlignment = Alignment.Center,
         ) {
             Text(
                 text = "Дорога",
                 color = Color.Black,
-                fontSize = 18.sp,
-                fontWeight = FontWeight.Bold,
+                style = TelemetryTypography.Headline,
             )
         }
 
@@ -365,60 +590,231 @@ private fun ModeSegment() {
             Text(
                 text = "Водитель",
                 color = Color.Black,
-                fontSize = 18.sp,
+                style = TelemetryTypography.Headline,
             )
         }
     }
 }
 
 @Composable
-private fun GameButton() {
-    HomePillButton(
-        text = "≋ Игра Спаси Рыбку",
+private fun SaveFishButton() {
+    PillButton(
+        text = "≋  Игра Спаси Рыбку",
         modifier = Modifier.fillMaxWidth(),
+        height = 64,
         onClick = {},
     )
 }
 
 @Composable
-private fun HomePillButton(
+private fun PillButton(
     text: String,
     modifier: Modifier = Modifier,
+    height: Int = 58,
     onClick: () -> Unit,
 ) {
     Button(
         onClick = onClick,
-        modifier = modifier.height(64.dp),
+        modifier = modifier.height(height.dp),
+        shape = RoundedCornerShape((height / 2).dp),
         colors = ButtonDefaults.buttonColors(
-            containerColor = Color(0xFFE4E4E7),
-            contentColor = Color(0xFF3B82F6),
+            containerColor = SwiftButtonGray,
+            contentColor = SwiftBlue,
         ),
-        shape = RoundedCornerShape(32.dp),
+        elevation = ButtonDefaults.buttonElevation(defaultElevation = 0.dp),
+        contentPadding = androidx.compose.foundation.layout.PaddingValues(
+            horizontal = 10.dp,
+            vertical = 6.dp,
+        ),
     ) {
         Text(
             text = text,
-            fontSize = 20.sp,
-            fontWeight = FontWeight.Medium,
+            style = TelemetryTypography.BodyEmphasis,
+            textAlign = TextAlign.Center,
+
+            lineHeight = androidx.compose.ui.unit.TextUnit.Unspecified,
         )
     }
 }
 
 @Composable
-private fun Dot(color: Color) {
+private fun SwiftCard(
+    cornerRadius: Int,
+    padding: Int,
+    content: @Composable () -> Unit,
+) {
     Box(
         modifier = Modifier
-            .width(18.dp)
-            .height(18.dp)
-            .background(color, RoundedCornerShape(999.dp)),
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(cornerRadius.dp))
+            .background(SwiftSecondarySystemBackground)
+            .border(
+                width = 1.dp,
+                color = TelemetrySwiftColors.Divider.copy(alpha = 0.25f),
+                shape = RoundedCornerShape(cornerRadius.dp),
+            )
+            .padding(padding.dp),
+    ) {
+        content()
+    }
+}
+
+@Composable
+private fun SwiftDivider() {
+    Divider(
+        modifier = Modifier.padding(vertical = 3.dp),
+        color = TelemetrySwiftColors.Divider,
     )
 }
 
 @Composable
-private fun ThinDivider() {
+private fun RecentTripDots(
+    scores: List<Double>,
+    colors: List<String>,
+) {
+    Row(
+        horizontalArrangement = Arrangement.spacedBy(10.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        scores.takeLast(5).forEachIndexed { index, score ->
+            val colorName = colors.getOrNull(index)
+            RecentTripDot(
+                color = recentTripColor(score = score, colorName = colorName),
+                size = if (index == 0) 18 else 14,
+            )
+        }
+    }
+}
+
+@Composable
+private fun RecentTripDot(
+    color: Color,
+    size: Int,
+) {
     Box(
         modifier = Modifier
-            .fillMaxWidth()
-            .height(1.dp)
-            .background(Color(0xFFD8D8DD)),
+            .width(size.dp)
+            .height(size.dp)
+            .clip(CircleShape)
+            .background(color),
     )
+}
+
+private fun formatScoreDelta(value: Double?): String? {
+    if (value == null) return null
+
+    val rounded = formatOneDecimal(abs(value))
+    return when {
+        value > 0.0 -> "↗ +$rounded за последние 5 поездок"
+        value < 0.0 -> "↘ -$rounded за последние 5 поездок"
+        else -> "→ без изменений за последние 5 поездок"
+    }
+}
+
+private fun formatPercentile(metrics: DriverHomeResponseDto?): String? {
+    if (metrics == null) return null
+
+    val pct = metrics.betterThanDriversPct
+    if (pct != null) {
+        val roundedPct = pct.roundToInt()
+
+        return if (roundedPct <= 50) {
+            "Лучше $roundedPct% водителей"
+        } else {
+            "Топ ${maxOf(1, 100 - roundedPct)}% водителей"
+        }
+    }
+
+    val rank = metrics.driverRank
+    val total = metrics.totalDrivers
+    if (rank != null && total > 0) {
+        return "Место $rank из $total"
+    }
+
+    return null
+}
+
+private fun formatLevelText(metrics: DriverHomeResponseDto?): String? {
+    if (metrics == null) return null
+
+    val nextLevel = metrics.nextLevel
+    val points = metrics.pointsToNextLevel
+
+    return when {
+        nextLevel != null && points != null -> {
+            "До уровня ${localizedDriverLevel(nextLevel)} осталось ${formatOneDecimal(points)}"
+        }
+        metrics.driverLevel != null -> {
+            localizedDriverLevel(metrics.driverLevel)
+        }
+        else -> null
+    }
+}
+
+private fun recentTripsSummary(scores: List<Double>): String {
+    if (scores.isEmpty()) return "Недавних поездок пока нет"
+
+    val last = scores.last()
+    val best = scores.maxOrNull()
+
+    return if (best != null && last >= best) {
+        "Последняя поездка — лучшая в серии"
+    } else {
+        "Есть поездка, которую можно улучшить"
+    }
+}
+
+private fun recentTripColor(
+    score: Double,
+    colorName: String?,
+): Color {
+    return when (colorName?.lowercase()) {
+        "green" -> SwiftGreen
+        "red" -> SwiftRed
+        "orange", "yellow" -> SwiftOrange
+        else -> {
+            if (score >= 80.0) {
+                SwiftGreen
+            } else if (score >= 60.0) {
+                SwiftOrange
+            } else {
+                SwiftRed
+            }
+        }
+    }
+}
+
+private fun localizedDriverLevel(raw: String): String {
+    return when (raw.trim().lowercase()) {
+        "risky_driver", "risky driver", "risky" -> "Рискованный водитель"
+        "average_driver", "average driver", "average" -> "Средний водитель"
+        "calm_driver", "calm driver", "calm" -> "Спокойный водитель"
+        "safe_driver", "safe driver", "safe" -> "Безопасный водитель"
+        else -> raw
+    }
+}
+
+private fun elapsedSeconds(
+    startedAt: kotlinx.datetime.Instant?,
+    nowEpochMs: Long,
+): Long {
+    if (startedAt == null) return 0L
+
+    val startedEpochMs = startedAt.toEpochMilliseconds()
+    return maxOf(0L, (nowEpochMs - startedEpochMs) / 1000L)
+}
+
+private fun formatElapsed(seconds: Long): String {
+    val safe = maxOf(0L, seconds)
+    val minutes = safe / 60
+    val sec = safe % 60
+    return "%02d:%02d".format(minutes, sec)
+}
+
+private fun formatOneDecimal(value: Double): String {
+    return "%.1f".format(value)
+}
+
+private fun formatTwoDecimals(value: Double): String {
+    return "%.2f".format(value)
 }

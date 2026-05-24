@@ -1,481 +1,302 @@
 package com.alex.android_telemetry.ui.permissions
 
-import android.Manifest
-import android.content.Context
-import android.content.Intent
-import android.location.LocationManager
-import android.net.Uri
-import android.os.Build
-import android.os.PowerManager
-import android.provider.Settings
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableIntStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
-import androidx.core.content.ContextCompat
-import android.content.pm.PackageManager
-import androidx.activity.compose.rememberLauncherForActivityResult
-import androidx.activity.result.contract.ActivityResultContracts
-import com.alex.android_telemetry.core.recovery.BackgroundRestrictionDetector
-import com.alex.android_telemetry.core.recovery.BackgroundRestrictionSnapshot
-import android.content.ComponentName
+import com.alex.android_telemetry.ui.design.TelemetrySpacing
+import com.alex.android_telemetry.ui.design.TelemetrySwiftColors
+import com.alex.android_telemetry.ui.design.TelemetryTypography
 
 @Composable
 fun PermissionsBackgroundScreen(
     onBack: () -> Unit,
+    onOpenLocationSettings: () -> Unit = {},
+    onOpenBatterySettings: () -> Unit = {},
+    onOpenAppSettings: () -> Unit = {},
 ) {
-    val context = LocalContext.current
-    var refreshKey by remember { mutableIntStateOf(0) }
-    val notificationPermissionLauncher =
-        rememberLauncherForActivityResult(
-            contract = ActivityResultContracts.RequestPermission(),
-        ) {
-            refreshKey += 1
-        }
-
-
-    val snapshot = remember(refreshKey) {
-        PermissionBackgroundSnapshot.from(context)
-    }
-
-    val backgroundRestriction = remember(refreshKey) {
-        BackgroundRestrictionDetector.detect(context)
-    }
-
     Column(
         modifier = Modifier
             .fillMaxSize()
+            .background(TelemetrySwiftColors.ScreenBackground)
             .verticalScroll(rememberScrollState())
-            .padding(16.dp),
-        verticalArrangement = Arrangement.spacedBy(12.dp),
+            .padding(horizontal = TelemetrySpacing.ScreenHorizontal)
+            .padding(top = 10.dp, bottom = 28.dp),
     ) {
         Row(
-            modifier = Modifier.fillMaxWidth(),
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(46.dp),
             horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically,
         ) {
-            Text(
-                text = "Permissions / Background",
-                style = MaterialTheme.typography.titleLarge,
-            )
             TextButton(onClick = onBack) {
-                Text("Назад")
+                Text(
+                    text = "‹ Назад",
+                    color = Color(0xFF0A84FF),
+                    style = TelemetryTypography.BodyEmphasis,
+                )
             }
         }
 
-        PermissionStatusCard(snapshot)
+        Spacer(Modifier.height(12.dp))
 
-        BackgroundRestrictionCard(backgroundRestriction)
-
-        OemGuidanceCard(
-            snapshot = backgroundRestriction,
-            onOpenBatterySettings = { context.openBatteryOptimizationSettings() },
-            onOpenAppBatterySettings = { context.openAppBatterySettings() },
-            onOpenVendorAutostartSettings = { context.openVendorAutostartSettings() },
+        Text(
+            text = "Доступы",
+            color = TelemetrySwiftColors.TextPrimary,
+            style = TelemetryTypography.LargeTitle,
         )
 
-        PermissionActionsCard(
-            onRefresh = { refreshKey += 1 },
-            onOpenAppSettings = { context.openAppSettings() },
-            onOpenLocationSettings = { context.openLocationSettings() },
-            onOpenBatteryOptimizationSettings = { context.openBatteryOptimizationSettings() },
-            onRequestIgnoreBatteryOptimization = { context.requestIgnoreBatteryOptimization() },
-            onRequestNotifications = {
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-                    notificationPermissionLauncher.launch(
-                        Manifest.permission.POST_NOTIFICATIONS
-                    )
-                }
-            },
-        )
-    }
-}
+        Spacer(Modifier.height(8.dp))
 
-@Composable
-private fun PermissionStatusCard(
-    snapshot: PermissionBackgroundSnapshot,
-) {
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
-    ) {
-        Column(
-            modifier = Modifier.padding(12.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp),
+        Text(
+            text = "Настройте разрешения, чтобы поездки записывались стабильно даже после блокировки экрана, перезапуска приложения или перезагрузки телефона.",
+            color = TelemetrySwiftColors.TextSecondary,
+            style = TelemetryTypography.Body,
+        )
+
+        Spacer(Modifier.height(24.dp))
+
+        PermissionsHeroCard()
+
+        Spacer(Modifier.height(24.dp))
+
+        PermissionsSectionTitle("Рекомендуется")
+
+        PermissionsGroup {
+            PermissionRow(
+                icon = "📍",
+                title = "Геолокация",
+                subtitle = "Нужна для корректного определения поездки и маршрута.",
+                status = "Проверить",
+                onClick = onOpenLocationSettings,
+            )
+
+            PermissionsDivider()
+
+            PermissionRow(
+                icon = "🔋",
+                title = "Работа в фоне",
+                subtitle = "Помогает не терять поездку при выключенном экране.",
+                status = "Проверить",
+                onClick = onOpenBatterySettings,
+            )
+
+            PermissionsDivider()
+
+            PermissionRow(
+                icon = "⚙",
+                title = "Настройки приложения",
+                subtitle = "Откройте системные параметры, если запись работает нестабильно.",
+                status = "Открыть",
+                onClick = onOpenAppSettings,
+            )
+        }
+
+        Spacer(Modifier.height(24.dp))
+
+        PermissionsSectionTitle("Почему это важно")
+
+        PermissionsGroup {
+            ExplanationRow(
+                title = "Replay-safe",
+                subtitle = "Если приложение остановится, незавершённая поездка может быть восстановлена.",
+            )
+
+            PermissionsDivider()
+
+            ExplanationRow(
+                title = "Offline-safe",
+                subtitle = "Данные сохраняются локально и отправляются позже.",
+            )
+
+            PermissionsDivider()
+
+            ExplanationRow(
+                title = "Reboot-safe",
+                subtitle = "После перезагрузки устройство может продолжить корректную обработку состояния.",
+            )
+        }
+
+        Spacer(Modifier.height(28.dp))
+
+        Button(
+            onClick = onBack,
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(58.dp),
+            shape = RoundedCornerShape(29.dp),
+            colors = ButtonDefaults.buttonColors(
+                containerColor = Color(0xFF0A84FF),
+                contentColor = Color.White,
+            ),
         ) {
             Text(
-                text = "Current status",
-                style = MaterialTheme.typography.titleMedium,
+                text = "Готово",
+                style = TelemetryTypography.Headline,
             )
-
-            StatusLine("Fine location", snapshot.fineLocation)
-            StatusLine("Coarse location", snapshot.coarseLocation)
-            StatusLine("Background location", snapshot.backgroundLocation)
-            StatusLine("Notifications", snapshot.notifications)
-            StatusLine("Location services", snapshot.locationServicesEnabled)
-            StatusLine("Battery unrestricted", snapshot.batteryUnrestricted)
-            StatusLine("SDK", "Android ${Build.VERSION.SDK_INT}")
-
-            if (!snapshot.readyForBackgroundTelemetry) {
-                Text("Background telemetry может быть нестабильной. Проверь location, notification и battery settings.")
-            } else {
-                Text("Background telemetry permissions выглядят готовыми.")
-            }
         }
     }
 }
 
 @Composable
-private fun PermissionActionsCard(
-    onRefresh: () -> Unit,
-    onOpenAppSettings: () -> Unit,
-    onOpenLocationSettings: () -> Unit,
-    onOpenBatteryOptimizationSettings: () -> Unit,
-    onRequestIgnoreBatteryOptimization: () -> Unit,
-    onRequestNotifications: () -> Unit,
-) {
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
+private fun PermissionsHeroCard() {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(28.dp))
+            .background(Color(0xFFEFEFF4))
+            .padding(horizontal = 22.dp, vertical = 28.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
-        Column(
-            modifier = Modifier.padding(12.dp),
-            verticalArrangement = Arrangement.spacedBy(10.dp),
-        ) {
-            Text(
-                text = "Actions",
-                style = MaterialTheme.typography.titleMedium,
-            )
+        Text(
+            text = "🚘",
+            style = TelemetryTypography.ScoreHero,
+            textAlign = TextAlign.Center,
+        )
 
-            Button(onClick = onRefresh) {
-                Text("Refresh")
-            }
+        Text(
+            text = "Стабильная запись поездок",
+            color = TelemetrySwiftColors.TextPrimary,
+            style = TelemetryTypography.Title1,
+            textAlign = TextAlign.Center,
+        )
 
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-                Button(onClick = onRequestNotifications) {
-                    Text("Request notifications")
-                }
-            }
-
-            OutlinedButton(onClick = onOpenAppSettings) {
-                Text("Open app settings")
-            }
-
-            OutlinedButton(onClick = onOpenLocationSettings) {
-                Text("Open location settings")
-            }
-
-            OutlinedButton(onClick = onOpenBatteryOptimizationSettings) {
-                Text("Open battery optimization settings")
-            }
-
-            OutlinedButton(onClick = onRequestIgnoreBatteryOptimization) {
-                Text("Request unrestricted battery")
-            }
-        }
+        Text(
+            text = "Android может ограничивать фоновые процессы. Эти настройки помогают приложению работать ближе к поведению Swift-сборки.",
+            color = TelemetrySwiftColors.TextSecondary,
+            style = TelemetryTypography.Body,
+            textAlign = TextAlign.Center,
+        )
     }
 }
 
 @Composable
-private fun StatusLine(
-    label: String,
-    value: Boolean,
+private fun PermissionsSectionTitle(
+    text: String,
 ) {
-    Text("$label: ${if (value) "OK" else "MISSING"}")
-}
-
-@Composable
-private fun StatusLine(
-    label: String,
-    value: String,
-) {
-    Text("$label: $value")
-}
-
-@Composable
-private fun OemGuidanceCard(
-    snapshot: BackgroundRestrictionSnapshot,
-    onOpenBatterySettings: () -> Unit,
-    onOpenAppBatterySettings: () -> Unit,
-    onOpenVendorAutostartSettings: () -> Unit,
-) {
-    if (!snapshot.isSamsung && !snapshot.isXiaomi && !snapshot.isHuawei) return
-
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
-    ) {
-        Column(
-            modifier = Modifier.padding(12.dp),
-            verticalArrangement = Arrangement.spacedBy(10.dp),
-        ) {
-            Text(
-                text = "OEM background guidance",
-                style = MaterialTheme.typography.titleMedium,
-            )
-
-            when {
-                snapshot.isSamsung -> {
-                    Text("Samsung checklist:")
-                    Text("• Remove app from Sleeping apps")
-                    Text("• Remove app from Deep sleeping apps")
-                    Text("• Set battery mode to Unrestricted")
-                    Text("• Keep notifications enabled")
-                    Text("• Disable aggressive adaptive battery if telemetry stops")
-                }
-
-                snapshot.isXiaomi -> {
-                    Text("Xiaomi / MIUI checklist:")
-                    Text("• Enable Autostart for this app")
-                    Text("• Set Battery saver to No restrictions")
-                    Text("• Allow background location")
-                    Text("• Lock app in recent apps if telemetry stops")
-                }
-
-                snapshot.isHuawei -> {
-                    Text("Huawei / Honor checklist:")
-                    Text("• Allow app launch manually and automatically")
-                    Text("• Disable aggressive battery optimization")
-                    Text("• Allow background activity")
-                    Text("• Keep location and notifications enabled")
-                }
-            }
-
-            Button(onClick = onOpenAppBatterySettings) {
-                Text("Open app battery settings")
-            }
-
-            OutlinedButton(onClick = onOpenBatterySettings) {
-                Text("Open battery optimization settings")
-            }
-
-            OutlinedButton(onClick = onOpenVendorAutostartSettings) {
-                Text("Open OEM autostart/background settings")
-            }
-        }
-    }
-}
-@Composable
-private fun BackgroundRestrictionCard(
-    snapshot: BackgroundRestrictionSnapshot,
-) {
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
-    ) {
-        Column(
-            modifier = Modifier.padding(12.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp),
-        ) {
-            Text(
-                text = "Background restrictions",
-                style = MaterialTheme.typography.titleMedium,
-            )
-
-            Text("Manufacturer: ${snapshot.manufacturer}")
-            Text("Model: ${snapshot.model}")
-            Text("Battery unrestricted: ${if (snapshot.isBatteryOptimizationIgnoring) "OK" else "MISSING"}")
-            Text("System background restricted: ${if (snapshot.isBackgroundRestricted) "YES" else "NO"}")
-            Text(
-                "Standby bucket: ${
-                    BackgroundRestrictionDetector.standbyBucketLabel(snapshot.standbyBucket)
-                }"
-            )
-
-            if (snapshot.warnings.isEmpty()) {
-                Text("No obvious background restrictions detected.")
-            } else {
-                Text("Warnings:")
-                snapshot.warnings.forEach {
-                    Text("• $it")
-                }
-            }
-        }
-    }
-}
-
-private data class PermissionBackgroundSnapshot(
-    val fineLocation: Boolean,
-    val coarseLocation: Boolean,
-    val backgroundLocation: Boolean,
-    val notifications: Boolean,
-    val locationServicesEnabled: Boolean,
-    val batteryUnrestricted: Boolean,
-) {
-    val readyForBackgroundTelemetry: Boolean
-        get() = fineLocation &&
-                backgroundLocation &&
-                notifications &&
-                locationServicesEnabled &&
-                batteryUnrestricted
-
-    companion object {
-        fun from(context: Context): PermissionBackgroundSnapshot {
-            return PermissionBackgroundSnapshot(
-                fineLocation = context.hasPermission(Manifest.permission.ACCESS_FINE_LOCATION),
-                coarseLocation = context.hasPermission(Manifest.permission.ACCESS_COARSE_LOCATION),
-                backgroundLocation = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-                    context.hasPermission(Manifest.permission.ACCESS_BACKGROUND_LOCATION)
-                } else {
-                    true
-                },
-                notifications = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-                    context.hasPermission(Manifest.permission.POST_NOTIFICATIONS)
-                } else {
-                    true
-                },
-                locationServicesEnabled = context.isLocationServicesEnabled(),
-                batteryUnrestricted = context.isIgnoringBatteryOptimizations(),
-            )
-        }
-    }
-}
-
-private fun Context.openAppBatterySettings() {
-    val intent = Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS)
-        .setData(Uri.fromParts("package", packageName, null))
-        .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-
-    startActivity(intent)
-}
-
-private fun Context.openVendorAutostartSettings() {
-    val manufacturer = Build.MANUFACTURER.orEmpty().lowercase()
-
-    val candidates = when {
-        manufacturer.contains("samsung") -> listOf(
-            Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS)
-                .setData(Uri.fromParts("package", packageName, null)),
-            Intent(Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS),
-        )
-
-        manufacturer.contains("xiaomi") ||
-                manufacturer.contains("redmi") ||
-                manufacturer.contains("poco") -> listOf(
-            Intent().setComponent(
-                ComponentName(
-                    "com.miui.securitycenter",
-                    "com.miui.permcenter.autostart.AutoStartManagementActivity",
-                ),
-            ),
-            Intent().setComponent(
-                ComponentName(
-                    "com.miui.securitycenter",
-                    "com.miui.powercenter.PowerSettings",
-                ),
-            ),
-            Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS)
-                .setData(Uri.fromParts("package", packageName, null)),
-        )
-
-        manufacturer.contains("huawei") ||
-                manufacturer.contains("honor") -> listOf(
-            Intent().setComponent(
-                ComponentName(
-                    "com.huawei.systemmanager",
-                    "com.huawei.systemmanager.startupmgr.ui.StartupNormalAppListActivity",
-                ),
-            ),
-            Intent().setComponent(
-                ComponentName(
-                    "com.huawei.systemmanager",
-                    "com.huawei.systemmanager.optimize.process.ProtectActivity",
-                ),
-            ),
-            Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS)
-                .setData(Uri.fromParts("package", packageName, null)),
-        )
-
-        else -> listOf(
-            Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS)
-                .setData(Uri.fromParts("package", packageName, null)),
-        )
-    }
-
-    val intent = candidates.firstOrNull { candidate ->
-        candidate.resolveActivity(packageManager) != null
-    } ?: Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS)
-        .setData(Uri.fromParts("package", packageName, null))
-
-    runCatching {
-        startActivity(intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
-    }.onFailure {
-        openAppSettings()
-    }
-}
-
-private fun Context.hasPermission(permission: String): Boolean {
-    return ContextCompat.checkSelfPermission(this, permission) == PackageManager.PERMISSION_GRANTED
-}
-
-private fun Context.isLocationServicesEnabled(): Boolean {
-    val locationManager = getSystemService(Context.LOCATION_SERVICE) as LocationManager
-
-    return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
-        locationManager.isLocationEnabled
-    } else {
-        @Suppress("DEPRECATION")
-        val gps = Settings.Secure.getInt(
-            contentResolver,
-            Settings.Secure.LOCATION_MODE,
-            Settings.Secure.LOCATION_MODE_OFF,
-        )
-        gps != Settings.Secure.LOCATION_MODE_OFF
-    }
-}
-
-private fun Context.isIgnoringBatteryOptimizations(): Boolean {
-    val powerManager = getSystemService(Context.POWER_SERVICE) as PowerManager
-    return powerManager.isIgnoringBatteryOptimizations(packageName)
-}
-
-private fun Context.openAppSettings() {
-    startActivity(
-        Intent(
-            Settings.ACTION_APPLICATION_DETAILS_SETTINGS,
-            Uri.fromParts("package", packageName, null),
-        ).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
+    Text(
+        text = text.uppercase(),
+        modifier = Modifier.padding(start = 16.dp, bottom = 7.dp),
+        color = TelemetrySwiftColors.TextSecondary,
+        style = TelemetryTypography.CaptionEmphasis,
     )
 }
 
-private fun Context.openLocationSettings() {
-    startActivity(
-        Intent(Settings.ACTION_LOCATION_SOURCE_SETTINGS)
-            .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
+@Composable
+private fun PermissionsGroup(
+    content: @Composable ColumnScope.() -> Unit,
+) {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(18.dp))
+            .background(TelemetrySwiftColors.CardBackground),
+        content = content,
     )
 }
 
-private fun Context.openBatteryOptimizationSettings() {
-    startActivity(
-        Intent(Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS)
-            .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
-    )
+@Composable
+private fun PermissionRow(
+    icon: String,
+    title: String,
+    subtitle: String,
+    status: String,
+    onClick: () -> Unit,
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(onClick = onClick)
+            .padding(horizontal = 16.dp, vertical = 15.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Text(
+            text = icon,
+            modifier = Modifier.padding(end = 12.dp),
+            style = TelemetryTypography.Title2,
+        )
+
+        Column(
+            modifier = Modifier.weight(1f),
+            verticalArrangement = Arrangement.spacedBy(3.dp),
+        ) {
+            Text(
+                text = title,
+                color = TelemetrySwiftColors.TextPrimary,
+                style = TelemetryTypography.BodyEmphasis,
+            )
+
+            Text(
+                text = subtitle,
+                color = TelemetrySwiftColors.TextSecondary,
+                style = TelemetryTypography.Caption,
+            )
+        }
+
+        Text(
+            text = "$status  ›",
+            color = Color(0xFF0A84FF),
+            style = TelemetryTypography.Callout,
+            textAlign = TextAlign.End,
+        )
+    }
 }
 
-private fun Context.requestIgnoreBatteryOptimization() {
-    if (isIgnoringBatteryOptimizations()) return
+@Composable
+private fun ExplanationRow(
+    title: String,
+    subtitle: String,
+) {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp, vertical = 15.dp),
+        verticalArrangement = Arrangement.spacedBy(4.dp),
+    ) {
+        Text(
+            text = title,
+            color = TelemetrySwiftColors.TextPrimary,
+            style = TelemetryTypography.BodyEmphasis,
+        )
 
-    startActivity(
-        Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS)
-            .setData(Uri.parse("package:$packageName"))
-            .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
+        Text(
+            text = subtitle,
+            color = TelemetrySwiftColors.TextSecondary,
+            style = TelemetryTypography.Caption,
+        )
+    }
+}
+
+@Composable
+private fun PermissionsDivider() {
+    Spacer(
+        modifier = Modifier
+            .padding(start = 16.dp)
+            .fillMaxWidth()
+            .height(1.dp)
+            .background(TelemetrySwiftColors.Divider),
     )
 }
