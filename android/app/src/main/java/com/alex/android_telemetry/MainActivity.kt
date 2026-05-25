@@ -53,6 +53,8 @@ import com.alex.android_telemetry.ui.settings.SettingsScreen
 
 import androidx.compose.runtime.saveable.rememberSaveable
 
+import com.alex.android_telemetry.ui.savefish.SaveFishGameScreen
+
 
 
 class MainActivity : ComponentActivity() {
@@ -96,6 +98,7 @@ class MainActivity : ComponentActivity() {
                 var showDiagnostics by rememberSaveable { mutableStateOf(false) }
                 var telemetryRestored by remember { mutableStateOf(graph.recoveryUxStore.consumeTelemetryRestored()) }
                 var replayResumed by remember { mutableStateOf(graph.recoveryUxStore.consumeReplayResumed()) }
+                var showSaveFishGame by rememberSaveable { mutableStateOf(false) }
 
                 if (showTripsArchive) {
                     TripsArchiveScreen(
@@ -159,6 +162,19 @@ class MainActivity : ComponentActivity() {
                     return@Android_TelemetryTheme
                 }
 
+                if (showSaveFishGame) {
+                    SaveFishGameScreen(
+                        deviceId = graph.deviceIdProvider.get(),
+                        driverId = graph.driverRepository.getCurrentDriverId(),
+                        sessionId = state.sessionId ?: "glass-${System.currentTimeMillis()}",
+                        glassGameApi = graph.glassGameApi,
+                        onBack = {
+                            showSaveFishGame = false
+                        },
+                    )
+                    return@Android_TelemetryTheme
+                }
+
                 if (!showDiagnostics) {
                     TelemetryHomeScreen(
                         state = state,
@@ -195,6 +211,9 @@ class MainActivity : ComponentActivity() {
                         },
                         onOpenTripsArchive = {
                             showTripsArchive = true
+                        },
+                        onOpenSaveFishGame = {
+                            showSaveFishGame = true
                         },
                         onOpenDriverAccount = {
                             showDriverAccount = true
@@ -454,6 +473,7 @@ class MainActivity : ComponentActivity() {
                     onOpenTripsArchive = {
                         showTripsArchive = true
                     },
+
                     onOpenDriverAccount = {
                         showDriverAccount = true
                     },

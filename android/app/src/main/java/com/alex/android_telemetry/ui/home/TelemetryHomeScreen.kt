@@ -66,6 +66,7 @@ fun TelemetryHomeScreen(
     onStartTrip: () -> Unit,
     onStopTrip: () -> Unit,
     onOpenTripsArchive: () -> Unit,
+    onOpenSaveFishGame: () -> Unit,
     onOpenDriverAccount: () -> Unit,
     onOpenPermissionsBackground: () -> Unit,
     onOpenDiagnostics: () -> Unit,
@@ -158,7 +159,9 @@ fun TelemetryHomeScreen(
 
         TrackingModeSegment()
 
-        SaveFishButton()
+        SaveFishButton(
+            onClick = onOpenSaveFishGame,
+        )
 
         TextButton(
             onClick = onOpenDiagnostics,
@@ -597,12 +600,14 @@ private fun TrackingModeSegment() {
 }
 
 @Composable
-private fun SaveFishButton() {
+private fun SaveFishButton(
+    onClick: () -> Unit,
+) {
     PillButton(
         text = "≋  Игра Спаси Рыбку",
         modifier = Modifier.fillMaxWidth(),
         height = 64,
-        onClick = {},
+        onClick = onClick,
     )
 }
 

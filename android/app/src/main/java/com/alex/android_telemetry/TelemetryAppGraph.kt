@@ -57,6 +57,7 @@ import kotlinx.serialization.json.Json
 import okhttp3.OkHttpClient
 import com.alex.android_telemetry.telemetry.trips.api.TripApi
 import com.alex.android_telemetry.core.recovery.RecoveryUxStore
+import com.alex.android_telemetry.telemetry.glass.GlassGameApi
 
 class TelemetryAppGraph private constructor(
     val facade: TelemetryFacade,
@@ -70,6 +71,7 @@ class TelemetryAppGraph private constructor(
     val deviceIdProvider: TelemetryDeviceIdProvider,
     val dayMonitoringManager: DayMonitoringManager,
     val recoveryUxStore: RecoveryUxStore,
+    val glassGameApi: GlassGameApi,
 ) {
     companion object {
         @Volatile
@@ -116,6 +118,11 @@ class TelemetryAppGraph private constructor(
                 tokenStore = telemetryTokenStore,
                 keyIdStore = telemetryKeyIdStore,
                 deviceIdProvider = telemetryDeviceIdProvider,
+            )
+            val glassGameApi = GlassGameApi(
+                client = okHttpClient,
+                json = appJson,
+                authManager = telemetryAuthManager,
             )
 
             val deliveryGraph = TelemetryDeliveryGraph.from(context)
@@ -292,6 +299,7 @@ class TelemetryAppGraph private constructor(
                 deviceIdProvider = telemetryDeviceIdProvider,
                 dayMonitoringManager = dayMonitoringManager,
                 recoveryUxStore = recoveryUxStore,
+                glassGameApi = glassGameApi,
             )
         }
     }
