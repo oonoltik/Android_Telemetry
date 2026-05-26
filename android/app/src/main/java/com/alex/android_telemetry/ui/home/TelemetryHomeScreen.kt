@@ -1,6 +1,17 @@
 package com.alex.android_telemetry.ui.home
 
+import android.Manifest
+import android.content.pm.PackageManager
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+
+import android.view.ViewGroup.LayoutParams.MATCH_PARENT
+import androidx.camera.core.CameraSelector
+import androidx.camera.lifecycle.ProcessCameraProvider
+import androidx.camera.view.PreviewView
+
 import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -13,6 +24,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
@@ -28,14 +40,22 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableLongStateOf
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.viewinterop.AndroidView
+import androidx.core.content.ContextCompat
+import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.sp
 import androidx.compose.ui.unit.dp
 import com.alex.android_telemetry.telemetry.domain.model.TelemetryMode
 import com.alex.android_telemetry.telemetry.domain.model.TripRuntimeState
@@ -47,6 +67,20 @@ import kotlinx.coroutines.delay
 
 import kotlin.math.abs
 import kotlin.math.roundToInt
+
+
+import android.widget.Toast
+
+import androidx.camera.video.Quality
+import androidx.camera.video.QualitySelector
+import androidx.camera.video.Recorder
+import androidx.camera.video.Recording
+import androidx.camera.video.VideoCapture
+import androidx.camera.video.VideoRecordEvent
+
+import android.os.Environment
+import androidx.camera.video.FileOutputOptions
+import java.io.File
 
 private val HomeScreenBackground = Color.White
 private val SwiftSecondarySystemBackground = Color(0xFFF2F2F7)
@@ -70,6 +104,8 @@ fun TelemetryHomeScreen(
     onOpenDriverAccount: () -> Unit,
     onOpenPermissionsBackground: () -> Unit,
     onOpenDiagnostics: () -> Unit,
+    onOpenVideoMode: () -> Unit,
+    onOpenVideoArchive: () -> Unit,
 ) {
     val isTripActive = state.telemetryMode != TelemetryMode.IDLE
     val hasDriver = !currentDriverId.isNullOrBlank()
@@ -80,10 +116,38 @@ fun TelemetryHomeScreen(
 
     var nowEpochMs by remember { mutableLongStateOf(System.currentTimeMillis()) }
 
+    var isVideoRecording by rememberSaveable {
+        mutableStateOf(false)
+    }
+
+    var showCameraPreview by rememberSaveable {
+        mutableStateOf(false)
+    }
+
+    var useFrontCamera by rememberSaveable {
+        mutableStateOf(false)
+    }
+
+    var videoRecordingSeconds by rememberSaveable {
+        mutableIntStateOf(0)
+    }
+
+
+
     LaunchedEffect(isTripActive, state.startedAt) {
         while (true) {
             nowEpochMs = System.currentTimeMillis()
             delay(1000)
+        }
+    }
+
+    LaunchedEffect(isVideoRecording) {
+
+        while (isVideoRecording) {
+
+            kotlinx.coroutines.delay(1000)
+
+            videoRecordingSeconds++
         }
     }
 
@@ -153,9 +217,33 @@ fun TelemetryHomeScreen(
 
         ArchiveActions(
             onOpenTripsArchive = onOpenTripsArchive,
+            onOpenVideoArchive = onOpenVideoArchive,
         )
 
-        VideoModeButton()
+        DashcamBlock(
+            isRecording = isVideoRecording,
+            recordingSeconds = videoRecordingSeconds,
+            showPreview = showCameraPreview,
+            useFrontCamera = useFrontCamera,
+            onToggleRecording = {
+
+                isVideoRecording = !isVideoRecording
+
+                if (!isVideoRecording) {
+                    videoRecordingSeconds = 0
+                }
+            },
+            onTogglePreview = {
+                showCameraPreview = !showCameraPreview
+            },
+
+            onSelectRoadCamera = {
+                useFrontCamera = false
+            },
+            onSelectDriverCamera = {
+                useFrontCamera = true
+            },
+        )
 
         TrackingModeSegment()
 
@@ -527,9 +615,11 @@ private fun StartStopControls(
     }
 }
 
+
 @Composable
 private fun ArchiveActions(
     onOpenTripsArchive: () -> Unit,
+    onOpenVideoArchive: () -> Unit,
 ) {
     Row(
         modifier = Modifier.fillMaxWidth(),
@@ -546,57 +636,26 @@ private fun ArchiveActions(
             text = "Архив видео",
             modifier = Modifier.weight(1f),
             height = 58,
-            onClick = {},
+            onClick = onOpenVideoArchive,
         )
     }
 }
+
 @Composable
-private fun VideoModeButton() {
+private fun VideoModeButton(
+    onOpenVideoMode: () -> Unit,
+) {
     PillButton(
         text = "Видеорежим",
         modifier = Modifier.fillMaxWidth(),
         height = 64,
-        onClick = {},
+        onClick = onOpenVideoMode,
     )
 }
 
 @Composable
 private fun TrackingModeSegment() {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clip(RoundedCornerShape(24.dp))
-            .background(SwiftButtonGray)
-            .padding(3.dp),
-    ) {
-        Box(
-            modifier = Modifier
-                .weight(1f)
-                .clip(RoundedCornerShape(22.dp))
-                .background(Color.White)
-                .padding(vertical = 12.dp),
-            contentAlignment = Alignment.Center,
-        ) {
-            Text(
-                text = "Дорога",
-                color = Color.Black,
-                style = TelemetryTypography.Headline,
-            )
-        }
 
-        Box(
-            modifier = Modifier
-                .weight(1f)
-                .padding(vertical = 12.dp),
-            contentAlignment = Alignment.Center,
-        ) {
-            Text(
-                text = "Водитель",
-                color = Color.Black,
-                style = TelemetryTypography.Headline,
-            )
-        }
-    }
 }
 
 @Composable
@@ -616,6 +675,8 @@ private fun PillButton(
     text: String,
     modifier: Modifier = Modifier,
     height: Int = 58,
+    backgroundColor: Color = SwiftButtonGray,
+    contentColor: Color = SwiftBlue,
     onClick: () -> Unit,
 ) {
     Button(
@@ -623,8 +684,8 @@ private fun PillButton(
         modifier = modifier.height(height.dp),
         shape = RoundedCornerShape((height / 2).dp),
         colors = ButtonDefaults.buttonColors(
-            containerColor = SwiftButtonGray,
-            contentColor = SwiftBlue,
+            containerColor = backgroundColor,
+            contentColor = contentColor,
         ),
         elevation = ButtonDefaults.buttonElevation(defaultElevation = 0.dp),
         contentPadding = androidx.compose.foundation.layout.PaddingValues(
@@ -636,12 +697,10 @@ private fun PillButton(
             text = text,
             style = TelemetryTypography.BodyEmphasis,
             textAlign = TextAlign.Center,
-
             lineHeight = androidx.compose.ui.unit.TextUnit.Unspecified,
         )
     }
 }
-
 @Composable
 private fun SwiftCard(
     cornerRadius: Int,
@@ -702,6 +761,383 @@ private fun RecentTripDot(
             .height(size.dp)
             .clip(CircleShape)
             .background(color),
+    )
+}
+
+@Composable
+private fun DashcamBlock(
+    isRecording: Boolean,
+    recordingSeconds: Int,
+    showPreview: Boolean,
+    useFrontCamera: Boolean,
+    onToggleRecording: () -> Unit,
+    onTogglePreview: () -> Unit,
+    onSelectRoadCamera: () -> Unit,
+    onSelectDriverCamera: () -> Unit,
+) {
+
+    Column(
+        modifier = Modifier.fillMaxWidth(),
+    ) {
+
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+
+                Box(
+                    modifier = Modifier
+                        .size(14.dp)
+                        .clip(CircleShape)
+                        .background(
+                            if (isRecording) {
+                                Color(0xFFFF4D4F)
+                            } else {
+                                Color.LightGray
+                            }
+                        )
+                )
+
+                Spacer(modifier = Modifier.width(12.dp))
+
+                Text(
+                    text =
+                        if (isRecording) {
+                            "Идёт видеозапись"
+                        } else {
+                            "Видеорежим"
+                        },
+                    fontSize = 18.sp,
+                    fontWeight = FontWeight.SemiBold,
+                )
+            }
+
+            Text(
+                text = formatDashcamTime(recordingSeconds),
+                fontSize = 18.sp,
+                fontWeight = FontWeight.Medium,
+            )
+        }
+
+        Spacer(modifier = Modifier.height(18.dp))
+
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(14.dp),
+        ) {
+
+            PillButton(
+                text =
+                    if (showPreview) {
+                        "Скрыть камеру"
+                    } else {
+                        "Показать камеру"
+                    },
+                modifier = Modifier.weight(1f),
+                height = 72,
+                onClick = onTogglePreview,
+            )
+
+            PillButton(
+                text =
+                    if (isRecording) {
+                        "Стоп видео"
+                    } else {
+                        "Старт видео"
+                    },
+                modifier = Modifier.weight(1f),
+                height = 72,
+                backgroundColor =
+                    if (isRecording) {
+                        Color(0xFFFF4D4F)
+                    } else {
+                        Color(0xFF3B82F6)
+                    },
+                contentColor = Color.White,
+                onClick = onToggleRecording,
+            )
+        }
+
+        Spacer(modifier = Modifier.height(18.dp))
+
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(48.dp)
+                .clip(RoundedCornerShape(24.dp))
+                .background(Color(0xFFF1F1F3))
+                .padding(3.dp),
+            horizontalArrangement = Arrangement.spacedBy(4.dp),
+        ) {
+            CameraSegmentButton(
+                text = "Дорога",
+                selected = !useFrontCamera,
+                modifier = Modifier.weight(1f),
+                onClick = onSelectRoadCamera,
+            )
+
+            CameraSegmentButton(
+                text = "Водитель",
+                selected = useFrontCamera,
+                modifier = Modifier.weight(1f),
+                onClick = onSelectDriverCamera,
+            )
+        }
+
+        AnimatedVisibility(showPreview) {
+
+            InlineCameraPreview(
+                useFrontCamera = useFrontCamera,
+                isRecording = isRecording,
+                modifier = Modifier
+                    .padding(top = 18.dp)
+                    .fillMaxWidth()
+                    .height(240.dp)
+                    .clip(RoundedCornerShape(28.dp))
+            )
+        }
+    }
+}
+
+@Composable
+private fun CameraSegmentButton(
+    text: String,
+    selected: Boolean,
+    modifier: Modifier = Modifier,
+    onClick: () -> Unit,
+) {
+    Button(
+        onClick = onClick,
+        modifier = modifier.fillMaxSize(),
+        shape = RoundedCornerShape(22.dp),
+        colors = ButtonDefaults.buttonColors(
+            containerColor =
+                if (selected) {
+                    Color.White
+                } else {
+                    Color.Transparent
+                },
+            contentColor =
+                if (selected) {
+                    Color.Black
+                } else {
+                    Color.Gray
+                },
+        ),
+        elevation = ButtonDefaults.buttonElevation(defaultElevation = 0.dp),
+        contentPadding = androidx.compose.foundation.layout.PaddingValues(
+            horizontal = 10.dp,
+            vertical = 0.dp,
+        ),
+    ) {
+        Text(
+            text = text,
+            fontSize = 15.sp,
+            fontWeight = FontWeight.Medium,
+        )
+    }
+}
+@Composable
+private fun InlineCameraPreview(
+    useFrontCamera: Boolean,
+    isRecording: Boolean,
+    modifier: Modifier = Modifier,
+) {
+    val context = LocalContext.current
+    val lifecycleOwner = LocalLifecycleOwner.current
+
+    var hasCameraPermission by remember {
+        mutableStateOf(
+            ContextCompat.checkSelfPermission(
+                context,
+                Manifest.permission.CAMERA,
+            ) == PackageManager.PERMISSION_GRANTED
+        )
+    }
+
+    var videoCapture by remember {
+        mutableStateOf<VideoCapture<Recorder>?>(null)
+    }
+
+    var activeRecording by remember {
+        mutableStateOf<Recording?>(null)
+    }
+
+    val permissionLauncher =
+        rememberLauncherForActivityResult(
+            contract = ActivityResultContracts.RequestPermission(),
+        ) { granted ->
+            hasCameraPermission = granted
+        }
+
+    LaunchedEffect(Unit) {
+        if (!hasCameraPermission) {
+            permissionLauncher.launch(Manifest.permission.CAMERA)
+        }
+    }
+
+    LaunchedEffect(isRecording, videoCapture) {
+        val capture = videoCapture
+
+        if (isRecording && capture != null && activeRecording == null) {
+            val dashcamDir =
+                File(
+                    context.getExternalFilesDir(Environment.DIRECTORY_MOVIES),
+                    "dashcam",
+                ).apply {
+                    mkdirs()
+                }
+
+            val outputFile =
+                File(
+                    dashcamDir,
+                    "dashcam_${System.currentTimeMillis()}.mp4",
+                )
+
+            val outputOptions =
+                FileOutputOptions.Builder(outputFile)
+                    .build()
+
+            activeRecording =
+                capture.output
+                    .prepareRecording(context, outputOptions)
+                    .start(ContextCompat.getMainExecutor(context)) { event ->
+
+                        when (event) {
+                            is VideoRecordEvent.Finalize -> {
+                                activeRecording = null
+
+                                if (!event.hasError()) {
+                                    Toast.makeText(
+                                        context,
+                                        "Видео сохранено в архив",
+                                        Toast.LENGTH_SHORT,
+                                    ).show()
+                                } else {
+                                    outputFile.delete()
+
+                                    Toast.makeText(
+                                        context,
+                                        "Ошибка записи видео",
+                                        Toast.LENGTH_SHORT,
+                                    ).show()
+                                }
+                            }
+                        }
+                    }
+        }
+
+        if (!isRecording && activeRecording != null) {
+            activeRecording?.stop()
+            activeRecording = null
+        }
+    }
+
+    androidx.compose.runtime.DisposableEffect(Unit) {
+        onDispose {
+            activeRecording?.stop()
+            activeRecording = null
+        }
+    }
+
+    if (!hasCameraPermission) {
+        Box(
+            modifier = modifier.background(Color.Black),
+            contentAlignment = Alignment.Center,
+        ) {
+            Text(
+                text = "Нужно разрешение камеры",
+                color = Color.White,
+                fontSize = 16.sp,
+            )
+        }
+        return
+    }
+
+    androidx.compose.runtime.key(useFrontCamera) {
+        AndroidView(
+            modifier = modifier.background(Color.Black),
+            factory = { viewContext ->
+
+                PreviewView(viewContext).apply {
+                    layoutParams = android.view.ViewGroup.LayoutParams(
+                        MATCH_PARENT,
+                        MATCH_PARENT,
+                    )
+
+                    implementationMode = PreviewView.ImplementationMode.COMPATIBLE
+                    scaleType = PreviewView.ScaleType.FILL_CENTER
+
+                    val previewView = this
+
+                    val cameraProviderFuture =
+                        ProcessCameraProvider.getInstance(viewContext)
+
+                    cameraProviderFuture.addListener({
+
+                        val cameraProvider =
+                            cameraProviderFuture.get()
+
+                        val preview =
+                            androidx.camera.core.Preview.Builder()
+                                .build()
+                                .also { preview ->
+                                    preview.setSurfaceProvider(previewView.surfaceProvider)
+                                }
+
+                        val recorder =
+                            Recorder.Builder()
+                                .setQualitySelector(
+                                    QualitySelector.from(Quality.HD)
+                                )
+                                .build()
+
+                        val capture =
+                            VideoCapture.withOutput(recorder)
+
+                        try {
+                            cameraProvider.unbindAll()
+
+                            cameraProvider.bindToLifecycle(
+                                lifecycleOwner,
+                                if (useFrontCamera) {
+                                    CameraSelector.DEFAULT_FRONT_CAMERA
+                                } else {
+                                    CameraSelector.DEFAULT_BACK_CAMERA
+                                },
+                                preview,
+                                capture,
+                            )
+
+                            videoCapture = capture
+                        } catch (_: Exception) {
+                            videoCapture = null
+                        }
+
+                    }, ContextCompat.getMainExecutor(viewContext))
+                }
+            },
+        )
+    }
+}
+
+private fun formatDashcamTime(seconds: Int): String {
+
+    val hrs = seconds / 3600
+    val mins = (seconds % 3600) / 60
+    val secs = seconds % 60
+
+    return String.format(
+        java.util.Locale.US,
+        "%02d:%02d:%02d",
+        hrs,
+        mins,
+        secs,
     )
 }
 

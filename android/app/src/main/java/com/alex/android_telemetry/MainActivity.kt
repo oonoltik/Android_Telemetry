@@ -54,6 +54,9 @@ import com.alex.android_telemetry.ui.settings.SettingsScreen
 import androidx.compose.runtime.saveable.rememberSaveable
 
 import com.alex.android_telemetry.ui.savefish.SaveFishGameScreen
+import com.alex.android_telemetry.ui.video.VideoArchiveScreen
+import com.alex.android_telemetry.ui.video.VideoPlayerScreen
+
 
 
 
@@ -92,6 +95,10 @@ class MainActivity : ComponentActivity() {
                 var loginStatus by remember { mutableStateOf("-") }
                 var deleteStatus by remember { mutableStateOf("-") }
                 var showTripsArchive by rememberSaveable { mutableStateOf(false) }
+                var showVideoArchive by rememberSaveable { mutableStateOf(false) }
+
+                var selectedVideoId by rememberSaveable { mutableStateOf<String?>(null) }
+
                 var showDriverAccount by rememberSaveable { mutableStateOf(false) }
                 var showPermissionsBackground by rememberSaveable { mutableStateOf(false) }
                 var showSettingsScreen by rememberSaveable { mutableStateOf(false) }
@@ -106,6 +113,29 @@ class MainActivity : ComponentActivity() {
                         deviceId = graph.deviceIdProvider.get(),
                         driverId = graph.driverRepository.getCurrentDriverId().orEmpty(),
                         onBack = { showTripsArchive = false },
+                    )
+                    return@Android_TelemetryTheme
+                }
+
+                selectedVideoId?.let { videoPath ->
+                    VideoPlayerScreen(
+                        videoPath = videoPath,
+                        onBack = {
+                            selectedVideoId = null
+                        },
+                    )
+                    return@Android_TelemetryTheme
+                }
+
+
+                if (showVideoArchive) {
+                    VideoArchiveScreen(
+                        onBack = {
+                            showVideoArchive = false
+                        },
+                        onOpenVideo = { videoId ->
+                            selectedVideoId = videoId
+                        },
                     )
                     return@Android_TelemetryTheme
                 }
@@ -212,6 +242,11 @@ class MainActivity : ComponentActivity() {
                         onOpenTripsArchive = {
                             showTripsArchive = true
                         },
+                        onOpenVideoArchive = {
+                            showVideoArchive = true
+                        },
+                        onOpenVideoMode = {
+                        },
                         onOpenSaveFishGame = {
                             showSaveFishGame = true
                         },
@@ -225,7 +260,7 @@ class MainActivity : ComponentActivity() {
                             showDiagnostics = true
                         },
                     )
-                    return@Android_TelemetryTheme
+
                     return@Android_TelemetryTheme
                 }
 
