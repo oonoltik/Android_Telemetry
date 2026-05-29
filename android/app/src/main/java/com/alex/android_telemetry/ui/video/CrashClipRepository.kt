@@ -80,19 +80,32 @@ class CrashClipRepository(
                                 segment.endedAtMs >= windowStartMs
 
                     val sameSession =
-                        rollingSessionId != null &&
+                        rollingSessionId == null ||
                                 segment.rollingSessionId == rollingSessionId
 
-                    overlaps || sameSession
+                    overlaps && sameSession
                 }
                 .sortedBy { it.startedAtMs }
+
+        val safeSegments =
+            if (segments.isNotEmpty()) {
+                segments
+            } else {
+                videoRepository
+                    .loadVideos()
+                    .filter { segment ->
+                        segment.startedAtMs <= windowEndMs &&
+                                segment.endedAtMs >= windowStartMs
+                    }
+                    .sortedBy { it.startedAtMs }
+            }
 
         val outputFile =
             File(crashDir, "$crashId.mp4")
 
         val merged =
             assembler.mergeMp4Segments(
-                inputFiles = segments.map { File(it.absolutePath) },
+                inputFiles = safeSegments.map { File(it.absolutePath) },
                 outputFile = outputFile,
             )
 
@@ -104,7 +117,7 @@ class CrashClipRepository(
                 rollingSessionId = rollingSessionId,
                 preCrashMs = preCrashMs,
                 postCrashMs = postCrashMs,
-                segmentPaths = segments.map { it.absolutePath },
+                segmentPaths = safeSegments.map { it.absolutePath },
                 mergedClipPath =
                     if (merged) {
                         outputFile.absolutePath

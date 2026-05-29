@@ -68,7 +68,7 @@ import kotlinx.coroutines.delay
 import kotlin.math.abs
 import kotlin.math.roundToInt
 import androidx.compose.ui.draw.alpha
-import androidx.compose.ui.platform.LocalContext
+
 import androidx.compose.runtime.DisposableEffect
 import com.alex.android_telemetry.telemetry.crash.CrashDetectionManager
 import com.alex.android_telemetry.ui.video.DashcamCrashCoordinator
@@ -88,6 +88,7 @@ import com.alex.android_telemetry.ui.video.DashcamRecordingControllerHost
 import com.alex.android_telemetry.ui.video.DashcamRecordingStateStore
 import com.alex.android_telemetry.ui.video.DashcamTripCoordinatorHolder
 import com.alex.android_telemetry.ui.video.DashcamTripOwnership
+import androidx.compose.foundation.layout.PaddingValues
 
 
 private val HomeScreenBackground = Color.White
@@ -150,6 +151,64 @@ fun TelemetryHomeScreen(
     dashcamTripCoordinator.ownership.collectAsState()
 
     val context = LocalContext.current
+
+    var locationWarningDismissed by rememberSaveable {
+        mutableStateOf(false)
+    }
+
+    var microphoneWarningDismissed by rememberSaveable {
+        mutableStateOf(false)
+    }
+
+    var cameraWarningDismissed by rememberSaveable {
+        mutableStateOf(false)
+    }
+
+    var permissionsRefreshKey by remember {
+        mutableIntStateOf(0)
+    }
+
+    LifecycleEventEffect(Lifecycle.Event.ON_RESUME) {
+        permissionsRefreshKey++
+    }
+
+    permissionsRefreshKey
+
+    val hasFineLocation =
+        ContextCompat.checkSelfPermission(
+            context,
+            Manifest.permission.ACCESS_FINE_LOCATION,
+        ) == PackageManager.PERMISSION_GRANTED
+
+    val hasCoarseLocation =
+        ContextCompat.checkSelfPermission(
+            context,
+            Manifest.permission.ACCESS_COARSE_LOCATION,
+        ) == PackageManager.PERMISSION_GRANTED
+
+    val hasLocationPermission =
+        hasFineLocation || hasCoarseLocation
+
+    val hasCameraPermission =
+        ContextCompat.checkSelfPermission(
+            context,
+            Manifest.permission.CAMERA,
+        ) == PackageManager.PERMISSION_GRANTED
+
+    val hasMicrophonePermission =
+        ContextCompat.checkSelfPermission(
+            context,
+            Manifest.permission.RECORD_AUDIO,
+        ) == PackageManager.PERMISSION_GRANTED
+
+    val openAppSettings = {
+        context.startActivity(
+            Intent(
+                Settings.ACTION_APPLICATION_DETAILS_SETTINGS,
+                Uri.parse("package:${context.packageName}"),
+            )
+        )
+    }
 
     val dashcamRepository =
         remember {
@@ -343,6 +402,40 @@ fun TelemetryHomeScreen(
             onOpenSettings = onOpenPermissionsBackground,
         )
 
+            if (!hasLocationPermission && !locationWarningDismissed) {
+                PermissionWarningCard(
+                    title = "Геолокация отключена",
+                    message = "Телеметрия работает, но данные поездки могут быть менее точными.",
+                    onOpenSettings = openAppSettings,
+                    onDismiss = {
+                        locationWarningDismissed = true
+                    },
+                )
+            }
+
+            if (!hasCameraPermission && !cameraWarningDismissed) {
+                PermissionWarningCard(
+                    title = "Нет доступа к камере",
+                    message = "Видеозапись может быть недоступна.",
+                    onOpenSettings = openAppSettings,
+                    onDismiss = {
+                        cameraWarningDismissed = true
+                    },
+                )
+            }
+
+            if (!hasMicrophonePermission && !microphoneWarningDismissed) {
+                PermissionWarningCard(
+                    title = "Нет доступа к микрофону",
+                    message = "Видео будет записываться без звука.",
+                    onOpenSettings = openAppSettings,
+                    onDismiss = {
+                        microphoneWarningDismissed = true
+                    },
+                )
+            }
+
+
         DriverScoreCard(
             metrics = homeMetrics,
             isLoading = isLoadingHomeMetrics,
@@ -377,6 +470,8 @@ fun TelemetryHomeScreen(
                             .show()
                         return@StartStopControls
                     }
+
+
 
                     dashcamTripCoordinator.handleManualTripStart(
                         startTrip = onStartTrip,
@@ -449,6 +544,11 @@ fun TelemetryHomeScreen(
                 },
             )
 
+            ArchiveActions(
+                onOpenTripsArchive = onOpenTripsArchive,
+                onOpenVideoArchive = onOpenVideoArchive,
+            )
+
         TrackingModeSegment()
 
         SaveFishButton(
@@ -491,6 +591,78 @@ fun TelemetryHomeScreen(
             )
         }
     }
+    }
+}
+
+@Composable
+private fun PermissionWarningCard(
+    title: String,
+    message: String,
+    onOpenSettings: () -> Unit,
+    onDismiss: () -> Unit,
+) {
+    Box(
+        modifier =
+            Modifier
+                .fillMaxWidth()
+                .clip(RoundedCornerShape(18.dp))
+                .background(Color(0xFFFFF4D6))
+                .border(
+                    width = 1.dp,
+                    color = Color(0xFFFFD60A),
+                    shape = RoundedCornerShape(18.dp),
+                )
+                .padding(14.dp),
+    ) {
+        Column(
+            modifier =
+                Modifier
+                    .fillMaxWidth()
+                    .padding(end = 34.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            Text(
+                text = "⚠ $title",
+                color = Color(0xFF5C4300),
+                fontSize = 16.sp,
+                fontWeight = FontWeight.SemiBold,
+            )
+
+            Text(
+                text = message,
+                color = Color(0xFF5C4300),
+                fontSize = 14.sp,
+                lineHeight = 19.sp,
+            )
+
+            TextButton(
+                onClick = onOpenSettings,
+                modifier = Modifier.align(Alignment.Start),
+            ) {
+                Text(
+                    text = "Открыть настройки",
+                    color = SwiftBlue,
+                    fontSize = 14.sp,
+                    fontWeight = FontWeight.SemiBold,
+                )
+            }
+        }
+
+        TextButton(
+            onClick = onDismiss,
+            modifier =
+                Modifier
+                    .align(Alignment.TopEnd)
+                    .size(32.dp),
+            contentPadding = androidx.compose.foundation.layout.PaddingValues(0.dp),
+        ) {
+            Text(
+                text = "×",
+                color = Color(0xFF5C4300),
+                fontSize = 20.sp,
+                fontWeight = FontWeight.SemiBold,
+            )
+        }
     }
 }
 @Composable
@@ -1017,6 +1189,62 @@ private fun DashcamBlock(
     onSelectDriverCamera: () -> Unit,
 ) {
     val context = LocalContext.current
+
+    var permissionsRefreshKey by remember {
+        mutableIntStateOf(0)
+    }
+
+    var locationWarningDismissed by rememberSaveable {
+        mutableStateOf(false)
+    }
+
+    var microphoneWarningDismissed by rememberSaveable {
+        mutableStateOf(false)
+    }
+
+    var cameraWarningDismissed by rememberSaveable {
+        mutableStateOf(false)
+    }
+
+    LifecycleEventEffect(Lifecycle.Event.ON_RESUME) {
+        permissionsRefreshKey++
+    }
+
+    val hasFineLocation =
+        ContextCompat.checkSelfPermission(
+            context,
+            Manifest.permission.ACCESS_FINE_LOCATION,
+        ) == PackageManager.PERMISSION_GRANTED
+
+    val hasCoarseLocation =
+        ContextCompat.checkSelfPermission(
+            context,
+            Manifest.permission.ACCESS_COARSE_LOCATION,
+        ) == PackageManager.PERMISSION_GRANTED
+
+    val hasLocationPermission =
+        hasFineLocation || hasCoarseLocation
+
+    val hasCameraPermission =
+        ContextCompat.checkSelfPermission(
+            context,
+            Manifest.permission.CAMERA,
+        ) == PackageManager.PERMISSION_GRANTED
+
+    val hasMicrophonePermission =
+        ContextCompat.checkSelfPermission(
+            context,
+            Manifest.permission.RECORD_AUDIO,
+        ) == PackageManager.PERMISSION_GRANTED
+
+    val openAppSettings = {
+        context.startActivity(
+            Intent(
+                Settings.ACTION_APPLICATION_DETAILS_SETTINGS,
+                Uri.parse("package:${context.packageName}"),
+            )
+        )
+    }
 
     Column(
         modifier = Modifier.fillMaxWidth(),

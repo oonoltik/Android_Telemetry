@@ -51,7 +51,7 @@ class CrashClipUploadScheduler(
                 .setConstraints(
                     Constraints.Builder()
                         .setRequiredNetworkType(NetworkType.CONNECTED)
-                        .build()
+                        .build(),
                 )
                 .setBackoffCriteria(
                     BackoffPolicy.EXPONENTIAL,
@@ -60,10 +60,15 @@ class CrashClipUploadScheduler(
                 )
                 .build()
 
-        workManager.enqueueUniqueWork(
-            "crash_upload_$crashId",
-            ExistingWorkPolicy.KEEP,
+        workManager.beginUniqueWork(
+            UNIQUE_CRASH_UPLOAD_CHAIN,
+            ExistingWorkPolicy.APPEND_OR_REPLACE,
             request,
-        )
+        ).enqueue()
+    }
+
+    companion object {
+        private const val UNIQUE_CRASH_UPLOAD_CHAIN =
+            "crash_clip_upload_chain"
     }
 }

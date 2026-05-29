@@ -58,12 +58,19 @@ class DashcamCrashCoordinator(
 
         handler.postDelayed(
             {
+                recordingController.rotateSegmentForCrashPackage()
+            },
+            postCrashMs,
+        )
+
+        handler.postDelayed(
+            {
                 val crashPackage =
                     crashClipRepository.createCrashPackage(
                         event = event,
                         rollingSessionId = rollingSessionId,
                         preCrashMs = preCrashMs,
-                        postCrashMs = postCrashMs,
+                        postCrashMs = postCrashMs + 2_000L,
                         telemetrySnapshot = telemetrySnapshot,
                         telemetryTimeline = telemetryTimeline,
                     )

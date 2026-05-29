@@ -75,6 +75,21 @@ fun VideoArchiveScreen(
         mutableStateOf(ArchiveFilter.ALL)
     }
 
+    var selectionMode by remember {
+        mutableStateOf(false)
+    }
+
+    var selectedCrashIds by remember {
+        mutableStateOf(setOf<String>())
+    }
+
+    var selectedVideoPaths by remember {
+        mutableStateOf(setOf<String>())
+    }
+
+    val selectedCount =
+        selectedCrashIds.size + selectedVideoPaths.size
+
     var videos by remember {
         mutableStateOf(videoRepository.loadVideos())
     }
@@ -89,6 +104,8 @@ fun VideoArchiveScreen(
     LaunchedEffect(archiveVersion) {
         videos = videoRepository.loadVideos()
         crashClips = crashClipRepository.loadCrashClips()
+
+
     }
 
     val stats =
@@ -96,7 +113,7 @@ fun VideoArchiveScreen(
 
     val regularVideos =
         videos.filterNot {
-            it.isEmergency || it.isProtected
+            it.isEmergency
         }
 
     val visibleCrashClips =
@@ -143,6 +160,115 @@ fun VideoArchiveScreen(
             selected = filter,
             onSelect = {
                 filter = it
+                selectedCrashIds = emptySet()
+                selectedVideoPaths = emptySet()
+            },
+        )
+
+        Spacer(modifier = Modifier.height(12.dp))
+
+        SelectionActionBar(
+            selectionMode = selectionMode,
+            selectedCount = selectedCount,
+            onToggleSelectionMode = {
+                selectionMode = !selectionMode
+                selectedCrashIds = emptySet()
+                selectedVideoPaths = emptySet()
+            },
+            onExportSelected = {
+                var exportedCount = 0
+
+                selectedCrashIds.forEach { crashId ->
+                    val clip =
+                        crashClips.firstOrNull {
+                            it.crashId == crashId
+                        }
+
+                    val exported =
+                        clip?.mergedClipPath?.let { path ->
+                            videoRepository.exportFileToGallery(
+                                sourceFile = File(path),
+                                displayName = "${clip.crashId}.mp4",
+                            )
+                        } ?: false
+
+                    if (exported) {
+                        exportedCount += 1
+                    }
+                }
+
+                selectedVideoPaths.forEach { path ->
+                    val video =
+                        videos.firstOrNull {
+                            it.absolutePath == path
+                        }
+
+                    val exported =
+                        video?.let {
+                            videoRepository.exportVideoToGallery(it)
+                        } ?: false
+
+                    if (exported) {
+                        exportedCount += 1
+                    }
+                }
+
+                Toast
+                    .makeText(
+                        context,
+                        "Сохранено: $exportedCount из $selectedCount",
+                        Toast.LENGTH_SHORT,
+                    )
+                    .show()
+
+                selectionMode = false
+                selectedCrashIds = emptySet()
+                selectedVideoPaths = emptySet()
+            },
+            onDeleteSelected = {
+                var deletedCount = 0
+
+                selectedCrashIds.forEach { crashId ->
+                    val deleted =
+                        crashClipRepository.deleteCrashClip(crashId)
+
+                    if (deleted) {
+                        deletedCount += 1
+                    }
+                }
+
+                selectedVideoPaths.forEach { path ->
+                    val video =
+                        videos.firstOrNull {
+                            it.absolutePath == path
+                        }
+
+                    val deleted =
+                        video?.let {
+                            videoRepository.deleteVideo(it)
+                        } ?: false
+
+                    if (deleted) {
+                        deletedCount += 1
+                    }
+                }
+
+                videos = videoRepository.loadVideos()
+
+
+                crashClips = crashClipRepository.loadCrashClips()
+
+                Toast
+                    .makeText(
+                        context,
+                        "Удалено: $deletedCount из $selectedCount",
+                        Toast.LENGTH_SHORT,
+                    )
+                    .show()
+
+                selectionMode = false
+                selectedCrashIds = emptySet()
+                selectedVideoPaths = emptySet()
             },
         )
 
@@ -166,6 +292,16 @@ fun VideoArchiveScreen(
                     items(visibleCrashClips) { item ->
                         CrashClipCard(
                             item = item,
+                            selectionMode = selectionMode,
+                            isSelected = selectedCrashIds.contains(item.crashId),
+                            onSelectionToggle = {
+                                selectedCrashIds =
+                                    if (selectedCrashIds.contains(item.crashId)) {
+                                        selectedCrashIds - item.crashId
+                                    } else {
+                                        selectedCrashIds + item.crashId
+                                    }
+                            },
                             onClick = {
                                 item.mergedClipPath?.let(onOpenVideo)
                             },
@@ -228,6 +364,16 @@ fun VideoArchiveScreen(
                     items(visibleRegularVideos) { item ->
                         DashcamVideoCard(
                             item = item,
+                            selectionMode = selectionMode,
+                            isSelected = selectedVideoPaths.contains(item.absolutePath),
+                            onSelectionToggle = {
+                                selectedVideoPaths =
+                                    if (selectedVideoPaths.contains(item.absolutePath)) {
+                                        selectedVideoPaths - item.absolutePath
+                                    } else {
+                                        selectedVideoPaths + item.absolutePath
+                                    }
+                            },
                             onClick = {
                                 onOpenVideo(item.absolutePath)
                             },
@@ -441,6 +587,91 @@ private fun ArchiveFilterButton(
 }
 
 @Composable
+private fun SelectionActionBar(
+    selectionMode: Boolean,
+    selectedCount: Int,
+    onToggleSelectionMode: () -> Unit,
+    onExportSelected: () -> Unit,
+    onDeleteSelected: () -> Unit,
+) {
+    if (!selectionMode) {
+        Button(
+            onClick = onToggleSelectionMode,
+            modifier = Modifier.fillMaxWidth(),
+            colors = ButtonDefaults.buttonColors(
+                containerColor = Color(0xFF1C1C1E),
+                contentColor = Color.White,
+            ),
+            shape = RoundedCornerShape(18.dp),
+            elevation = ButtonDefaults.buttonElevation(defaultElevation = 0.dp),
+        ) {
+            Text("Выбрать записи")
+        }
+
+        return
+    }
+
+    Column(
+        modifier = Modifier.fillMaxWidth(),
+        verticalArrangement = Arrangement.spacedBy(10.dp),
+    ) {
+        Text(
+            text = "Выбрано: $selectedCount",
+            color = Color.White,
+            fontSize = 15.sp,
+            fontWeight = FontWeight.SemiBold,
+        )
+
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(10.dp),
+        ) {
+            Button(
+                onClick = onExportSelected,
+                enabled = selectedCount > 0,
+                modifier = Modifier.weight(1f),
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = Color(0xFF0A84FF),
+                    contentColor = Color.White,
+                    disabledContainerColor = Color(0xFF1C1C1E),
+                    disabledContentColor = Color(0xFF8E8E93),
+                ),
+                shape = RoundedCornerShape(18.dp),
+            ) {
+                Text("Сохранить")
+            }
+
+            Button(
+                onClick = onDeleteSelected,
+                enabled = selectedCount > 0,
+                modifier = Modifier.weight(1f),
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = Color(0xFF3A1D1D),
+                    contentColor = Color(0xFFFF453A),
+                    disabledContainerColor = Color(0xFF1C1C1E),
+                    disabledContentColor = Color(0xFF8E8E93),
+                ),
+                shape = RoundedCornerShape(18.dp),
+            ) {
+                Text("Удалить")
+            }
+
+            Button(
+                onClick = onToggleSelectionMode,
+                modifier = Modifier.weight(1f),
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = Color(0xFF1C1C1E),
+                    contentColor = Color.White,
+                ),
+                shape = RoundedCornerShape(18.dp),
+            ) {
+                Text("Отмена")
+            }
+        }
+    }
+}
+
+@Composable
 private fun SectionTitle(
     title: String,
     count: Int,
@@ -469,10 +700,12 @@ private fun SectionTitle(
         )
     }
 }
-
 @Composable
 private fun CrashClipCard(
     item: CrashClipEntity,
+    selectionMode: Boolean,
+    isSelected: Boolean,
+    onSelectionToggle: () -> Unit,
     onClick: () -> Unit,
     onExport: () -> Unit,
     onDelete: () -> Unit,
@@ -487,8 +720,14 @@ private fun CrashClipCard(
         modifier = Modifier
             .fillMaxWidth()
             .clickable(
-                enabled = hasMergedClip,
-                onClick = onClick,
+                enabled = hasMergedClip || selectionMode,
+                onClick = {
+                    if (selectionMode) {
+                        onSelectionToggle()
+                    } else {
+                        onClick()
+                    }
+                },
             ),
         shape = RoundedCornerShape(26.dp),
         colors = CardDefaults.cardColors(
@@ -511,7 +750,13 @@ private fun CrashClipCard(
                 ) {
                     Text(
                         text =
-                            if (hasMergedClip) {
+                            if (selectionMode) {
+                                if (isSelected) {
+                                    "✓"
+                                } else {
+                                    "○"
+                                }
+                            } else if (hasMergedClip) {
                                 "⚠"
                             } else {
                                 "…"
@@ -572,6 +817,8 @@ private fun CrashClipCard(
             )
             Spacer(modifier = Modifier.height(12.dp))
 
+            if (!selectionMode) {
+
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(10.dp),
@@ -599,6 +846,7 @@ private fun CrashClipCard(
                 ) {
                     Text("Delete")
                 }
+            }
             }
         }
     }
@@ -846,6 +1094,9 @@ private fun EmptyVideoArchive() {
 @Composable
 private fun DashcamVideoCard(
     item: DashcamVideoEntity,
+    selectionMode: Boolean,
+    isSelected: Boolean,
+    onSelectionToggle: () -> Unit,
     onClick: () -> Unit,
     onExport: () -> Unit,
     onDelete: () -> Unit,
@@ -859,7 +1110,15 @@ private fun DashcamVideoCard(
     Card(
         modifier = Modifier
             .fillMaxWidth()
-            .clickable(onClick = onClick),
+            .clickable(
+                onClick = {
+                    if (selectionMode) {
+                        onSelectionToggle()
+                    } else {
+                        onClick()
+                    }
+                },
+            ),
         shape = RoundedCornerShape(24.dp),
         colors = CardDefaults.cardColors(
             containerColor = Color(0xFF111318),
@@ -880,7 +1139,16 @@ private fun DashcamVideoCard(
                 contentAlignment = Alignment.Center,
             ) {
                 Text(
-                    text = "▶",
+                    text =
+                        if (selectionMode) {
+                            if (isSelected) {
+                                "✓"
+                            } else {
+                                "○"
+                            }
+                        } else {
+                            "▶"
+                        },
                     color = Color.White,
                     fontSize = 26.sp,
                 )
@@ -929,6 +1197,8 @@ private fun DashcamVideoCard(
             )
         }
 
+        if (!selectionMode) {
+
         Row(
             modifier = Modifier
                 .fillMaxWidth()
@@ -962,6 +1232,7 @@ private fun DashcamVideoCard(
             ) {
                 Text("Delete")
             }
+        }
         }
     }
 }

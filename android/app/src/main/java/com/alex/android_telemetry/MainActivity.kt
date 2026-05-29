@@ -57,6 +57,11 @@ import com.alex.android_telemetry.ui.savefish.SaveFishGameScreen
 import com.alex.android_telemetry.ui.video.VideoArchiveScreen
 import com.alex.android_telemetry.ui.video.VideoPlayerScreen
 
+import android.content.Intent
+import android.net.Uri
+import android.provider.Settings
+import androidx.core.content.ContextCompat
+
 
 
 
@@ -64,17 +69,17 @@ class MainActivity : ComponentActivity() {
 
     private lateinit var graph: TelemetryAppGraph
 
-    private val activityRecognitionPermissionLauncher =
+    private val essentialPermissionsLauncher =
         registerForActivityResult(
-            ActivityResultContracts.RequestPermission()
-        ) { granted ->
-            Log.d("UI", "ACTIVITY_RECOGNITION granted=$granted")
+            ActivityResultContracts.RequestMultiplePermissions()
+        ) { result ->
+            Log.d("UI", "essential permissions result=$result")
         }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
-        requestActivityRecognitionPermissionIfNeeded()
+        requestEssentialPermissionsIfNeeded()
 
         graph = TelemetryAppGraph.get(applicationContext)
         val serviceStarter = TelemetryServiceStarter(applicationContext)
@@ -159,6 +164,24 @@ class MainActivity : ComponentActivity() {
                 if (showPermissionsBackground) {
                     PermissionsBackgroundScreen(
                         onBack = { showPermissionsBackground = false },
+                        onOpenLocationSettings = {
+                            startActivity(
+                                Intent(Settings.ACTION_LOCATION_SOURCE_SETTINGS)
+                            )
+                        },
+                        onOpenBatterySettings = {
+                            startActivity(
+                                Intent(Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS)
+                            )
+                        },
+                        onOpenAppSettings = {
+                            startActivity(
+                                Intent(
+                                    Settings.ACTION_APPLICATION_DETAILS_SETTINGS,
+                                    Uri.parse("package:$packageName"),
+                                )
+                            )
+                        },
                     )
                     return@Android_TelemetryTheme
                 }
@@ -528,13 +551,33 @@ class MainActivity : ComponentActivity() {
         }
     }
 
-    private fun requestActivityRecognitionPermissionIfNeeded() {
-        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) return
+    private fun requestEssentialPermissionsIfNeeded() {
+        val permissions =
+            buildList {
+                add(Manifest.permission.ACCESS_FINE_LOCATION)
+                add(Manifest.permission.ACCESS_COARSE_LOCATION)
+                add(Manifest.permission.CAMERA)
+                add(Manifest.permission.RECORD_AUDIO)
 
-        val permission = Manifest.permission.ACTIVITY_RECOGNITION
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                    add(Manifest.permission.ACTIVITY_RECOGNITION)
+                }
 
-        if (checkSelfPermission(permission) != PackageManager.PERMISSION_GRANTED) {
-            activityRecognitionPermissionLauncher.launch(permission)
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                    add(Manifest.permission.POST_NOTIFICATIONS)
+                }
+            }
+                .filter {
+                    ContextCompat.checkSelfPermission(
+                        this,
+                        it,
+                    ) != PackageManager.PERMISSION_GRANTED
+                }
+
+        if (permissions.isNotEmpty()) {
+            essentialPermissionsLauncher.launch(
+                permissions.toTypedArray()
+            )
         }
     }
 

@@ -20,6 +20,8 @@ import java.io.File
 import java.util.UUID
 import java.util.concurrent.Executor
 import com.alex.android_telemetry.telemetry.crash.CrashEvent
+import android.Manifest
+import android.content.pm.PackageManager
 
 data class DashcamRecordingState(
     val isRecording: Boolean = false,
@@ -197,10 +199,6 @@ class DashcamRecordingController(
         val session =
             rollingSessionId
 
-        if (session != null) {
-            repository.markEmergencyRollingSession(session)
-        }
-
         repository.protectCrashWindow(
             crashAtMs = event.detectedAtMs,
             preCrashMs = preCrashMs,
@@ -208,13 +206,15 @@ class DashcamRecordingController(
             rollingSessionId = session,
         )
 
-        currentOutputFile?.absolutePath?.let { path ->
-            repository.markEmergency(path)
-        }
-
         emitState(
             isRecording = activeRecording != null,
         )
+    }
+
+    fun rotateSegmentForCrashPackage() {
+        if (activeRecording != null && !userStopRequested) {
+            activeRecording?.stop()
+        }
     }
 
     fun stopRecording() {
@@ -225,12 +225,6 @@ class DashcamRecordingController(
     }
 
     fun markEmergency() {
-        emergencyMode = true
-
-        currentOutputFile?.absolutePath?.let { path ->
-            repository.markEmergency(path)
-        }
-
         emitState(
             isRecording = activeRecording != null,
         )
@@ -263,14 +257,27 @@ class DashcamRecordingController(
             FileOutputOptions.Builder(outputFile)
                 .build()
 
+        val hasAudioPermission =
+            ContextCompat.checkSelfPermission(
+                appContext,
+                Manifest.permission.RECORD_AUDIO,
+            ) == PackageManager.PERMISSION_GRANTED
+
         val pendingRecording: PendingRecording =
             videoCapture.output.prepareRecording(
                 appContext,
                 fileOptions,
             )
 
+        val recordingWithAudio =
+            if (hasAudioPermission) {
+                pendingRecording.withAudioEnabled()
+            } else {
+                pendingRecording
+            }
+
         activeRecording =
-            pendingRecording.start(
+            recordingWithAudio.start(
                 mainExecutor,
             ) { event ->
                 when (event) {
@@ -324,8 +331,8 @@ class DashcamRecordingController(
             cameraType = currentCameraType,
             startedAtMs = currentStartedAtMs,
             endedAtMs = System.currentTimeMillis(),
-            isEmergency = emergencyMode,
-            isProtected = emergencyMode,
+            isEmergency = false,
+            isProtected = false,
             tripId = currentTripId,
             sessionId = currentSessionId,
             rollingSessionId = rollingSessionId,

@@ -76,7 +76,7 @@ class DashcamVideoRepository(
         File(dashcamDir, "dashcam_index.json")
 
     private val maxStorageBytes: Long =
-        2L * 1024L * 1024L * 1024L
+        10L * 1024L * 1024L * 1024L
 
     fun getDashcamDirectory(): File {
         dashcamDir.mkdirs()
@@ -203,10 +203,17 @@ class DashcamVideoRepository(
                     rollingSessionId != null &&
                             item.rollingSessionId == rollingSessionId
 
-                if (overlapsCrashWindow || sameRollingSession) {
+                val shouldProtect =
+                    if (rollingSessionId != null) {
+                        overlapsCrashWindow && sameRollingSession
+                    } else {
+                        overlapsCrashWindow
+                    }
+
+                if (shouldProtect) {
                     item.copy(
-                        isEmergency = true,
-                        isProtected = true,
+                        isEmergency = false,
+                        isProtected = false,
                     )
                 } else {
                     item
@@ -247,7 +254,7 @@ class DashcamVideoRepository(
                 durationMs = durationMs,
                 sizeBytes = file.length(),
                 isEmergency = isEmergency,
-                isProtected = isProtected || isEmergency,
+                isProtected = isEmergency,
                 tripId = tripId,
                 sessionId = sessionId,
                 rollingSessionId = rollingSessionId,
@@ -320,7 +327,7 @@ class DashcamVideoRepository(
     ): Boolean {
         val file = File(entity.absolutePath)
 
-        if (entity.isProtected || entity.isEmergency) {
+        if (entity.isEmergency) {
             return false
         }
 
