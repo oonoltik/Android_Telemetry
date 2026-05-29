@@ -2,16 +2,14 @@ package com.alex.android_telemetry.ui.home
 
 import android.Manifest
 import android.content.pm.PackageManager
+import android.view.ViewGroup.LayoutParams.MATCH_PARENT
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
-
-import android.view.ViewGroup.LayoutParams.MATCH_PARENT
-import androidx.camera.core.CameraSelector
+import androidx.camera.core.Preview
 import androidx.camera.lifecycle.ProcessCameraProvider
 import androidx.camera.view.PreviewView
-
-import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.animateColorAsState
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -39,8 +37,8 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -50,37 +48,47 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.compose.LocalLifecycleOwner
-import androidx.compose.ui.text.style.TextAlign
-import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.unit.sp
-import androidx.compose.ui.unit.dp
 import com.alex.android_telemetry.telemetry.domain.model.TelemetryMode
 import com.alex.android_telemetry.telemetry.domain.model.TripRuntimeState
 import com.alex.android_telemetry.telemetry.trips.api.DriverHomeResponseDto
 import com.alex.android_telemetry.telemetry.trips.api.TripApi
 import com.alex.android_telemetry.ui.design.TelemetrySwiftColors
 import com.alex.android_telemetry.ui.design.TelemetryTypography
+import com.alex.android_telemetry.ui.video.DashcamCameraType
+import com.alex.android_telemetry.ui.video.DashcamRecordingController
+import com.alex.android_telemetry.ui.video.DashcamVideoRepository
 import kotlinx.coroutines.delay
-
 import kotlin.math.abs
 import kotlin.math.roundToInt
+import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.runtime.DisposableEffect
+import com.alex.android_telemetry.telemetry.crash.CrashDetectionManager
+import com.alex.android_telemetry.ui.video.DashcamCrashCoordinator
+import android.content.Intent
+import android.net.Uri
+import android.provider.Settings
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.compose.LifecycleEventEffect
+import kotlinx.coroutines.launch
+import androidx.compose.runtime.rememberCoroutineScope
+import com.alex.android_telemetry.ui.video.CrashClipRepository
+import com.alex.android_telemetry.ui.video.CrashClipUploadRepository
+import com.alex.android_telemetry.ui.video.CrashClipUploadScheduler
+import com.alex.android_telemetry.ui.video.DashcamRecordingService
+import androidx.compose.runtime.collectAsState
+import com.alex.android_telemetry.ui.video.DashcamRecordingControllerHost
+import com.alex.android_telemetry.ui.video.DashcamRecordingStateStore
+import com.alex.android_telemetry.ui.video.DashcamTripCoordinatorHolder
+import com.alex.android_telemetry.ui.video.DashcamTripOwnership
 
-
-import android.widget.Toast
-
-import androidx.camera.video.Quality
-import androidx.camera.video.QualitySelector
-import androidx.camera.video.Recorder
-import androidx.camera.video.Recording
-import androidx.camera.video.VideoCapture
-import androidx.camera.video.VideoRecordEvent
-
-import android.os.Environment
-import androidx.camera.video.FileOutputOptions
-import java.io.File
 
 private val HomeScreenBackground = Color.White
 private val SwiftSecondarySystemBackground = Color(0xFFF2F2F7)
@@ -90,6 +98,7 @@ private val SwiftOrange = Color(0xFFF28C28)
 private val SwiftGreen = Color(0xFF34C759)
 private val SwiftRed = Color(0xFFFF3B30)
 private val SwiftSecondaryText = Color(0xFF8E8E93)
+
 
 @Composable
 fun TelemetryHomeScreen(
@@ -130,6 +139,145 @@ fun TelemetryHomeScreen(
 
     var videoRecordingSeconds by rememberSaveable {
         mutableIntStateOf(0)
+    }
+
+    val dashcamTripCoordinator =
+        remember {
+            DashcamTripCoordinatorHolder.instance
+        }
+
+    val dashcamTripOwnership by
+    dashcamTripCoordinator.ownership.collectAsState()
+
+    val context = LocalContext.current
+
+    val dashcamRepository =
+        remember {
+            DashcamVideoRepository(context)
+        }
+
+    val dashcamController =
+        remember {
+            DashcamRecordingControllerHost.get(context)
+        }
+
+    val dashcamRecordingState by
+    DashcamRecordingStateStore.state.collectAsState()
+
+    LaunchedEffect(dashcamRecordingState.isRecording) {
+        isVideoRecording = dashcamRecordingState.isRecording
+    }
+    LaunchedEffect(
+        isTripActive,
+        isVideoRecording,
+    ) {
+        dashcamTripCoordinator.syncRuntimeState(
+            isTripActive = isTripActive,
+            isVideoRecording = isVideoRecording,
+        )
+    }
+
+
+    val crashDetectionManager =
+        remember {
+            CrashDetectionManager(context)
+        }
+
+    val crashClipRepository =
+        remember {
+            CrashClipRepository(
+                context = context,
+                videoRepository = dashcamRepository,
+            )
+        }
+
+    val crashUploadScheduler =
+        remember {
+            CrashClipUploadScheduler(context)
+        }
+
+    LaunchedEffect(Unit) {
+        crashClipRepository
+            .pendingUploads()
+            .forEach { crashClip ->
+
+                val driverId =
+                    currentDriverId?.trim().orEmpty()
+
+                if (driverId.isBlank()) {
+                    return@forEach
+                }
+
+                val cameraType =
+                    runCatching {
+                        DashcamCameraType.valueOf(
+                            crashClip
+                                .segmentPaths
+                                .firstOrNull()
+                                ?.substringBefore('_')
+                                ?.uppercase()
+                                ?: "ROAD"
+                        )
+                    }.getOrDefault(
+                        DashcamCameraType.ROAD
+                    )
+
+                crashUploadScheduler.enqueueUpload(
+                    crashId = crashClip.crashId,
+                    driverId = driverId,
+                    deviceId = deviceId,
+                    cameraType = cameraType,
+                )
+            }
+    }
+
+    val scope =
+        rememberCoroutineScope()
+
+    val dashcamCrashCoordinator =
+        remember(
+            deviceId,
+            currentDriverId,
+        ) {
+            DashcamCrashCoordinator(
+                recordingController = dashcamController,
+                crashClipRepository = crashClipRepository,
+                uploadScheduler = crashUploadScheduler,
+                deviceId = deviceId,
+                driverIdProvider = {
+                    currentDriverId
+                },
+            )
+        }
+
+    var crashAlertVisible by remember {
+        mutableStateOf(false)
+    }
+
+    var crashAlertText by remember {
+        mutableStateOf("")
+    }
+
+
+    DisposableEffect(Unit) {
+        crashDetectionManager.start { crashEvent ->
+
+            dashcamCrashCoordinator.handleCrashDetected(crashEvent)
+
+            crashAlertText =
+                "Авария обнаружена • ${"%.2f".format(crashEvent.gForce)}g"
+
+            crashAlertVisible = true
+
+            scope.launch {
+                kotlinx.coroutines.delay(20_000L)
+                crashAlertVisible = false
+            }
+        }
+
+        onDispose {
+            crashDetectionManager.stop()
+        }
     }
 
 
@@ -178,15 +326,19 @@ fun TelemetryHomeScreen(
         isLoadingHomeMetrics = false
     }
 
-    Column(
+    Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(HomeScreenBackground)
-            .verticalScroll(rememberScrollState())
-            .padding(horizontal = 16.dp)
-            .padding(top = 18.dp, bottom = 34.dp),
-        verticalArrangement = Arrangement.spacedBy(16.dp),
+            .background(HomeScreenBackground),
     ) {
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .verticalScroll(rememberScrollState())
+                .padding(horizontal = 16.dp)
+                .padding(top = 18.dp, bottom = 34.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp),
+        ) {
         HomeToolbar(
             onOpenSettings = onOpenPermissionsBackground,
         )
@@ -203,47 +355,99 @@ fun TelemetryHomeScreen(
             isTripActive = isTripActive,
         )
 
-        TripSummaryCard(
-            state = state,
-            nowEpochMs = nowEpochMs,
-        )
+            TripSummaryCard(
+                state = state,
+                nowEpochMs = nowEpochMs,
+            )
 
-        StartStopControls(
-            canStart = !isTripActive && hasDriver,
-            canStop = isTripActive,
-            onStartTrip = onStartTrip,
-            onStopTrip = onStopTrip,
-        )
+            StartStopControls(
+                canStart =
+                    !isTripActive ||
+                            dashcamTripOwnership == DashcamTripOwnership.VIDEO_IMPLICIT,
+                canStop = isTripActive,
+                hasDriver = hasDriver,
+                onStartTrip = {
+                    if (!hasDriver) {
+                        android.widget.Toast
+                            .makeText(
+                                context,
+                                "Сначала выбери водителя в настройках",
+                                android.widget.Toast.LENGTH_SHORT,
+                            )
+                            .show()
+                        return@StartStopControls
+                    }
 
-        ArchiveActions(
-            onOpenTripsArchive = onOpenTripsArchive,
-            onOpenVideoArchive = onOpenVideoArchive,
-        )
+                    dashcamTripCoordinator.handleManualTripStart(
+                        startTrip = onStartTrip,
+                        stopTrip = onStopTrip,
+                    )
+                },
+                onStopTrip = {
+                    dashcamTripCoordinator.handleManualTripStop(
+                        isVideoRecording = isVideoRecording,
+                        startTrip = onStartTrip,
+                        stopTrip = onStopTrip,
+                    )
+                },
+            )
 
-        DashcamBlock(
-            isRecording = isVideoRecording,
-            recordingSeconds = videoRecordingSeconds,
-            showPreview = showCameraPreview,
-            useFrontCamera = useFrontCamera,
-            onToggleRecording = {
+            DashcamBlock(
+                isRecording = isVideoRecording,
+                recordingSeconds = videoRecordingSeconds,
+                showPreview = showCameraPreview,
+                useFrontCamera = useFrontCamera,
+                dashcamController = dashcamController,
+                onToggleRecording = {
+                    if (isVideoRecording) {
+                        DashcamRecordingService.stop(context)
 
-                isVideoRecording = !isVideoRecording
+                        dashcamTripCoordinator.handleVideoStop(
+                            stopTrip = onStopTrip,
+                        )
 
-                if (!isVideoRecording) {
-                    videoRecordingSeconds = 0
-                }
-            },
-            onTogglePreview = {
-                showCameraPreview = !showCameraPreview
-            },
+                        isVideoRecording = false
+                        videoRecordingSeconds = 0
+                    } else {
+                        if (!hasDriver) {
+                            android.widget.Toast
+                                .makeText(
+                                    context,
+                                    "Сначала выбери водителя в настройках",
+                                    android.widget.Toast.LENGTH_SHORT,
+                                )
+                                .show()
+                            return@DashcamBlock
+                        }
 
-            onSelectRoadCamera = {
-                useFrontCamera = false
-            },
-            onSelectDriverCamera = {
-                useFrontCamera = true
-            },
-        )
+                        dashcamTripCoordinator.handleVideoStart(
+                            isTripActive = isTripActive,
+                            startTrip = onStartTrip,
+                        )
+
+                        videoRecordingSeconds = 0
+
+                        DashcamRecordingService.start(
+                            context = context,
+                            cameraType =
+                                if (useFrontCamera) {
+                                    DashcamCameraType.DRIVER
+                                } else {
+                                    DashcamCameraType.ROAD
+                                },
+                        )
+                    }
+                },
+                onTogglePreview = {
+                    showCameraPreview = !showCameraPreview
+                },
+                onSelectRoadCamera = {
+                    useFrontCamera = false
+                },
+                onSelectDriverCamera = {
+                    useFrontCamera = true
+                },
+            )
 
         TrackingModeSegment()
 
@@ -262,8 +466,33 @@ fun TelemetryHomeScreen(
             )
         }
     }
+    AnimatedVisibility(
+        visible = crashAlertVisible,
+        modifier =
+            Modifier
+                .align(Alignment.TopCenter)
+                .padding(top = 18.dp),
+    ) {
+        Box(
+            modifier =
+                Modifier
+                    .clip(RoundedCornerShape(24.dp))
+                    .background(Color(0xFFFF453A))
+                    .padding(
+                        horizontal = 18.dp,
+                        vertical = 14.dp,
+                    ),
+        ) {
+            Text(
+                text = crashAlertText,
+                color = Color.White,
+                fontSize = 15.sp,
+                fontWeight = FontWeight.SemiBold,
+            )
+        }
+    }
+    }
 }
-
 @Composable
 private fun HomeToolbar(
     onOpenSettings: () -> Unit,
@@ -566,6 +795,7 @@ private fun TripSummaryRow(
 private fun StartStopControls(
     canStart: Boolean,
     canStop: Boolean,
+    hasDriver: Boolean,
     onStartTrip: () -> Unit,
     onStopTrip: () -> Unit,
 ) {
@@ -575,15 +805,25 @@ private fun StartStopControls(
     ) {
         Button(
             onClick = onStartTrip,
-            enabled = canStart,
+            enabled = true,
             modifier = Modifier
                 .weight(1f)
                 .height(70.dp),
             shape = RoundedCornerShape(36.dp),
             colors = ButtonDefaults.buttonColors(
-                containerColor = SwiftBlue,
+                containerColor =
+                    if (canStart && hasDriver) {
+                        SwiftBlue
+                    } else {
+                        SwiftButtonGray
+                    },
                 disabledContainerColor = SwiftButtonGray,
-                contentColor = Color.White,
+                contentColor =
+                    if (canStart && hasDriver) {
+                        Color.White
+                    } else {
+                        Color(0xFFB8B8BE)
+                    },
                 disabledContentColor = Color(0xFFB8B8BE),
             ),
         ) {
@@ -770,11 +1010,13 @@ private fun DashcamBlock(
     recordingSeconds: Int,
     showPreview: Boolean,
     useFrontCamera: Boolean,
+    dashcamController: DashcamRecordingController,
     onToggleRecording: () -> Unit,
     onTogglePreview: () -> Unit,
     onSelectRoadCamera: () -> Unit,
     onSelectDriverCamera: () -> Unit,
 ) {
+    val context = LocalContext.current
 
     Column(
         modifier = Modifier.fillMaxWidth(),
@@ -878,29 +1120,65 @@ private fun DashcamBlock(
                 text = "Дорога",
                 selected = !useFrontCamera,
                 modifier = Modifier.weight(1f),
-                onClick = onSelectRoadCamera,
+                onClick = {
+                    if (!isRecording) {
+                        onSelectRoadCamera()
+                    } else {
+                        android.widget.Toast
+                            .makeText(
+                                context,
+                                "Переключение камер возможно при старте новой записи",
+                                android.widget.Toast.LENGTH_SHORT,
+                            )
+                            .show()
+                    }
+                },
             )
 
             CameraSegmentButton(
                 text = "Водитель",
                 selected = useFrontCamera,
                 modifier = Modifier.weight(1f),
-                onClick = onSelectDriverCamera,
+                onClick = {
+                    if (!isRecording) {
+                        onSelectDriverCamera()
+                    } else {
+                        android.widget.Toast
+                            .makeText(
+                                context,
+                                "Переключение камер возможно при старте новой записи",
+                                android.widget.Toast.LENGTH_SHORT,
+                            )
+                            .show()
+                    }
+                },
             )
         }
 
-        AnimatedVisibility(showPreview) {
 
-            InlineCameraPreview(
-                useFrontCamera = useFrontCamera,
-                isRecording = isRecording,
-                modifier = Modifier
-                    .padding(top = 18.dp)
-                    .fillMaxWidth()
-                    .height(240.dp)
-                    .clip(RoundedCornerShape(28.dp))
-            )
-        }
+
+        InlineCameraPreview(
+            useFrontCamera = useFrontCamera,
+            dashcamController = dashcamController,
+            modifier = Modifier
+                .padding(top = 18.dp)
+                .fillMaxWidth()
+                .height(
+                    if (showPreview) {
+                        240.dp
+                    } else {
+                        1.dp
+                    }
+                )
+                .alpha(
+                    if (showPreview) {
+                        1f
+                    } else {
+                        0f
+                    }
+                )
+                .clip(RoundedCornerShape(28.dp))
+        )
     }
 }
 
@@ -945,7 +1223,7 @@ private fun CameraSegmentButton(
 @Composable
 private fun InlineCameraPreview(
     useFrontCamera: Boolean,
-    isRecording: Boolean,
+    dashcamController: DashcamRecordingController,
     modifier: Modifier = Modifier,
 ) {
     val context = LocalContext.current
@@ -960,14 +1238,6 @@ private fun InlineCameraPreview(
         )
     }
 
-    var videoCapture by remember {
-        mutableStateOf<VideoCapture<Recorder>?>(null)
-    }
-
-    var activeRecording by remember {
-        mutableStateOf<Recording?>(null)
-    }
-
     val permissionLauncher =
         rememberLauncherForActivityResult(
             contract = ActivityResultContracts.RequestPermission(),
@@ -975,73 +1245,17 @@ private fun InlineCameraPreview(
             hasCameraPermission = granted
         }
 
+    LifecycleEventEffect(Lifecycle.Event.ON_RESUME) {
+        hasCameraPermission =
+            ContextCompat.checkSelfPermission(
+                context,
+                Manifest.permission.CAMERA,
+            ) == PackageManager.PERMISSION_GRANTED
+    }
+
     LaunchedEffect(Unit) {
         if (!hasCameraPermission) {
             permissionLauncher.launch(Manifest.permission.CAMERA)
-        }
-    }
-
-    LaunchedEffect(isRecording, videoCapture) {
-        val capture = videoCapture
-
-        if (isRecording && capture != null && activeRecording == null) {
-            val dashcamDir =
-                File(
-                    context.getExternalFilesDir(Environment.DIRECTORY_MOVIES),
-                    "dashcam",
-                ).apply {
-                    mkdirs()
-                }
-
-            val outputFile =
-                File(
-                    dashcamDir,
-                    "dashcam_${System.currentTimeMillis()}.mp4",
-                )
-
-            val outputOptions =
-                FileOutputOptions.Builder(outputFile)
-                    .build()
-
-            activeRecording =
-                capture.output
-                    .prepareRecording(context, outputOptions)
-                    .start(ContextCompat.getMainExecutor(context)) { event ->
-
-                        when (event) {
-                            is VideoRecordEvent.Finalize -> {
-                                activeRecording = null
-
-                                if (!event.hasError()) {
-                                    Toast.makeText(
-                                        context,
-                                        "Видео сохранено в архив",
-                                        Toast.LENGTH_SHORT,
-                                    ).show()
-                                } else {
-                                    outputFile.delete()
-
-                                    Toast.makeText(
-                                        context,
-                                        "Ошибка записи видео",
-                                        Toast.LENGTH_SHORT,
-                                    ).show()
-                                }
-                            }
-                        }
-                    }
-        }
-
-        if (!isRecording && activeRecording != null) {
-            activeRecording?.stop()
-            activeRecording = null
-        }
-    }
-
-    androidx.compose.runtime.DisposableEffect(Unit) {
-        onDispose {
-            activeRecording?.stop()
-            activeRecording = null
         }
     }
 
@@ -1050,79 +1264,93 @@ private fun InlineCameraPreview(
             modifier = modifier.background(Color.Black),
             contentAlignment = Alignment.Center,
         ) {
-            Text(
-                text = "Нужно разрешение камеры",
-                color = Color.White,
-                fontSize = 16.sp,
-            )
+            Column(
+                horizontalAlignment = Alignment.CenterHorizontally,
+                modifier = Modifier.padding(20.dp),
+            ) {
+                Text(
+                    text = "Нужно разрешение камеры",
+                    color = Color.White,
+                    fontSize = 16.sp,
+                    textAlign = TextAlign.Center,
+                )
+
+                Spacer(modifier = Modifier.height(12.dp))
+
+                Button(
+                    onClick = {
+                        val intent =
+                            Intent(
+                                Settings.ACTION_APPLICATION_DETAILS_SETTINGS,
+                                Uri.fromParts(
+                                    "package",
+                                    context.packageName,
+                                    null,
+                                ),
+                            )
+
+                        context.startActivity(intent)
+                    },
+                    shape = RoundedCornerShape(18.dp),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = Color(0xFF0A84FF),
+                        contentColor = Color.White,
+                    ),
+                ) {
+                    Text("Открыть настройки")
+                }
+            }
         }
         return
     }
 
-    androidx.compose.runtime.key(useFrontCamera) {
-        AndroidView(
-            modifier = modifier.background(Color.Black),
-            factory = { viewContext ->
+    AndroidView(
+        modifier = modifier.background(Color.Black),
+        factory = { viewContext ->
+            PreviewView(viewContext).apply {
+                layoutParams = android.view.ViewGroup.LayoutParams(
+                    MATCH_PARENT,
+                    MATCH_PARENT,
+                )
 
-                PreviewView(viewContext).apply {
-                    layoutParams = android.view.ViewGroup.LayoutParams(
-                        MATCH_PARENT,
-                        MATCH_PARENT,
+                implementationMode = PreviewView.ImplementationMode.COMPATIBLE
+                scaleType = PreviewView.ScaleType.FILL_CENTER
+            }
+        },
+        update = { previewView ->
+            val providerFuture =
+                ProcessCameraProvider.getInstance(context)
+
+            providerFuture.addListener(
+                {
+                    val provider =
+                        providerFuture.get()
+
+                    dashcamController.bindPreview(
+                        lifecycleOwner = lifecycleOwner,
+                        provider = provider,
+                        preview = null,
+                        cameraType =
+                            if (useFrontCamera) {
+                                DashcamCameraType.DRIVER
+                            } else {
+                                DashcamCameraType.ROAD
+                            },
                     )
 
-                    implementationMode = PreviewView.ImplementationMode.COMPATIBLE
-                    scaleType = PreviewView.ScaleType.FILL_CENTER
+                    dashcamController.attachPreviewSurface(
+                        previewView.surfaceProvider,
+                    )
+                },
+                ContextCompat.getMainExecutor(context),
+            )
+        },
+    )
 
-                    val previewView = this
-
-                    val cameraProviderFuture =
-                        ProcessCameraProvider.getInstance(viewContext)
-
-                    cameraProviderFuture.addListener({
-
-                        val cameraProvider =
-                            cameraProviderFuture.get()
-
-                        val preview =
-                            androidx.camera.core.Preview.Builder()
-                                .build()
-                                .also { preview ->
-                                    preview.setSurfaceProvider(previewView.surfaceProvider)
-                                }
-
-                        val recorder =
-                            Recorder.Builder()
-                                .setQualitySelector(
-                                    QualitySelector.from(Quality.HD)
-                                )
-                                .build()
-
-                        val capture =
-                            VideoCapture.withOutput(recorder)
-
-                        try {
-                            cameraProvider.unbindAll()
-
-                            cameraProvider.bindToLifecycle(
-                                lifecycleOwner,
-                                if (useFrontCamera) {
-                                    CameraSelector.DEFAULT_FRONT_CAMERA
-                                } else {
-                                    CameraSelector.DEFAULT_BACK_CAMERA
-                                },
-                                preview,
-                                capture,
-                            )
-
-                            videoCapture = capture
-                        } catch (_: Exception) {
-                            videoCapture = null
-                        }
-
-                    }, ContextCompat.getMainExecutor(viewContext))
-                }
-            },
-        )
+    DisposableEffect(Unit) {
+        onDispose {
+            dashcamController.detachPreviewSurface()
+        }
     }
 }
 
