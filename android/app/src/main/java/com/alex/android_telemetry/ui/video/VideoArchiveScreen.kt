@@ -33,6 +33,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -43,6 +44,7 @@ import android.widget.Toast
 import java.io.File
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
+import com.alex.android_telemetry.R
 
 private enum class ArchiveFilter {
     ALL,
@@ -216,7 +218,7 @@ fun VideoArchiveScreen(
                 Toast
                     .makeText(
                         context,
-                        "Сохранено: $exportedCount из $selectedCount",
+                        context.getString(R.string.video_archive_exported_count, exportedCount, selectedCount),
                         Toast.LENGTH_SHORT,
                     )
                     .show()
@@ -261,7 +263,7 @@ fun VideoArchiveScreen(
                 Toast
                     .makeText(
                         context,
-                        "Удалено: $deletedCount из $selectedCount",
+                        context.getString(R.string.video_archive_deleted_count, deletedCount, selectedCount),
                         Toast.LENGTH_SHORT,
                     )
                     .show()
@@ -283,7 +285,7 @@ fun VideoArchiveScreen(
                 if (visibleCrashClips.isNotEmpty()) {
                     item {
                         SectionTitle(
-                            title = "EMERGENCY",
+                            title = stringResource(R.string.video_archive_section_emergency),
                             count = visibleCrashClips.size,
                             color = Color(0xFFFF453A),
                         )
@@ -318,9 +320,9 @@ fun VideoArchiveScreen(
                                     .makeText(
                                         context,
                                         if (exported) {
-                                            "Видео сохранено в галерею"
+                                            context.getString(R.string.video_archive_saved_to_gallery)
                                         } else {
-                                            "Не удалось сохранить видео"
+                                            context.getString(R.string.video_archive_save_failed)
                                         },
                                         Toast.LENGTH_SHORT,
                                     )
@@ -340,9 +342,9 @@ fun VideoArchiveScreen(
                                     .makeText(
                                         context,
                                         if (deleted) {
-                                            "Аварийный клип удалён"
+                                            context.getString(R.string.video_archive_crash_clip_deleted)
                                         } else {
-                                            "Не удалось удалить клип"
+                                            context.getString(R.string.video_archive_delete_clip_failed)
                                         },
                                         Toast.LENGTH_SHORT,
                                     )
@@ -355,7 +357,7 @@ fun VideoArchiveScreen(
                 if (visibleRegularVideos.isNotEmpty()) {
                     item {
                         SectionTitle(
-                            title = "REGULAR",
+                            title = stringResource(R.string.video_archive_section_regular),
                             count = visibleRegularVideos.size,
                             color = Color(0xFF64D2FF),
                         )
@@ -385,9 +387,9 @@ fun VideoArchiveScreen(
                                     .makeText(
                                         context,
                                         if (exported) {
-                                            "Видео сохранено в галерею"
+                                            context.getString(R.string.video_archive_saved_to_gallery)
                                         } else {
-                                            "Не удалось сохранить видео"
+                                            context.getString(R.string.video_archive_save_failed)
                                         },
                                         Toast.LENGTH_SHORT,
                                     )
@@ -405,9 +407,9 @@ fun VideoArchiveScreen(
                                     .makeText(
                                         context,
                                         if (deleted) {
-                                            "Видео удалено"
+                                            context.getString(R.string.video_archive_video_deleted)
                                         } else {
-                                            "Защищённое видео нельзя удалить"
+                                            context.getString(R.string.video_archive_protected_cannot_delete)
                                         },
                                         Toast.LENGTH_SHORT,
                                     )
@@ -433,7 +435,7 @@ fun VideoArchiveScreen(
                         ),
                         shape = RoundedCornerShape(18.dp),
                     ) {
-                        Text("Apply retention cleanup")
+                        Text(stringResource(R.string.video_archive_apply_retention_cleanup))
                     }
                 }
             }
@@ -458,13 +460,13 @@ private fun ArchiveHeader(
             shape = RoundedCornerShape(18.dp),
             elevation = ButtonDefaults.buttonElevation(defaultElevation = 0.dp),
         ) {
-            Text("Назад")
+            Text(stringResource(R.string.video_archive_back))
         }
 
         Spacer(modifier = Modifier.weight(1f))
 
         Text(
-            text = "Dashcam Archive",
+            text = stringResource(R.string.video_archive_title),
             color = Color.White,
             fontSize = 22.sp,
             fontWeight = FontWeight.SemiBold,
@@ -489,7 +491,7 @@ private fun StorageSummaryCard(
             modifier = Modifier.padding(16.dp),
         ) {
             Text(
-                text = "Storage",
+                text = stringResource(R.string.video_archive_storage),
                 color = Color.White,
                 fontSize = 18.sp,
                 fontWeight = FontWeight.SemiBold,
@@ -506,7 +508,11 @@ private fun StorageSummaryCard(
             Spacer(modifier = Modifier.height(6.dp))
 
             Text(
-                text = "Protected: ${formatFileSize(stats.protectedBytes)} • Files: ${stats.filesCount}",
+                text = stringResource(
+                    R.string.video_archive_storage_details,
+                    formatFileSize(stats.protectedBytes),
+                    stats.filesCount,
+                ),
                 color = Color(0xFF8E8E93),
                 fontSize = 14.sp,
             )
@@ -526,7 +532,7 @@ private fun ArchiveFilterRow(
         verticalArrangement = Arrangement.spacedBy(8.dp),
     ) {
         ArchiveFilterButton(
-            text = "All",
+            text = stringResource(R.string.video_archive_filter_all),
             selected = selected == ArchiveFilter.ALL,
             onClick = {
                 onSelect(ArchiveFilter.ALL)
@@ -534,7 +540,7 @@ private fun ArchiveFilterRow(
         )
 
         ArchiveFilterButton(
-            text = "Emergency",
+            text = stringResource(R.string.video_archive_filter_emergency),
             selected = selected == ArchiveFilter.EMERGENCY,
             onClick = {
                 onSelect(ArchiveFilter.EMERGENCY)
@@ -542,7 +548,7 @@ private fun ArchiveFilterRow(
         )
 
         ArchiveFilterButton(
-            text = "Regular",
+            text = stringResource(R.string.video_archive_filter_regular),
             selected = selected == ArchiveFilter.REGULAR,
             onClick = {
                 onSelect(ArchiveFilter.REGULAR)
@@ -550,7 +556,7 @@ private fun ArchiveFilterRow(
         )
 
         ArchiveFilterButton(
-            text = "Failed uploads",
+            text = stringResource(R.string.video_archive_filter_failed_uploads),
             selected = selected == ArchiveFilter.FAILED_UPLOADS,
             onClick = {
                 onSelect(ArchiveFilter.FAILED_UPLOADS)
@@ -605,7 +611,7 @@ private fun SelectionActionBar(
             shape = RoundedCornerShape(18.dp),
             elevation = ButtonDefaults.buttonElevation(defaultElevation = 0.dp),
         ) {
-            Text("Выбрать записи")
+            Text(stringResource(R.string.video_archive_select_records))
         }
 
         return
@@ -616,7 +622,7 @@ private fun SelectionActionBar(
         verticalArrangement = Arrangement.spacedBy(10.dp),
     ) {
         Text(
-            text = "Выбрано: $selectedCount",
+            text = stringResource(R.string.video_archive_selected_count, selectedCount),
             color = Color.White,
             fontSize = 15.sp,
             fontWeight = FontWeight.SemiBold,
@@ -638,7 +644,7 @@ private fun SelectionActionBar(
                 ),
                 shape = RoundedCornerShape(18.dp),
             ) {
-                Text("Сохранить")
+                Text(stringResource(R.string.video_archive_save))
             }
 
             Button(
@@ -653,7 +659,7 @@ private fun SelectionActionBar(
                 ),
                 shape = RoundedCornerShape(18.dp),
             ) {
-                Text("Удалить")
+                Text(stringResource(R.string.video_archive_delete))
             }
 
             Button(
@@ -665,7 +671,7 @@ private fun SelectionActionBar(
                 ),
                 shape = RoundedCornerShape(18.dp),
             ) {
-                Text("Отмена")
+                Text(stringResource(R.string.video_archive_cancel))
             }
         }
     }
@@ -693,7 +699,7 @@ private fun SectionTitle(
         Spacer(modifier = Modifier.size(8.dp))
 
         Text(
-            text = "$title • $count",
+            text = stringResource(R.string.video_archive_section_count, title, count),
             color = Color.White,
             fontSize = 16.sp,
             fontWeight = FontWeight.SemiBold,
@@ -781,7 +787,7 @@ private fun CrashClipCard(
                     Spacer(modifier = Modifier.height(6.dp))
 
                     Text(
-                        text = "Impact • ${formatGForce(item.gForce)}g",
+                        text = stringResource(R.string.video_archive_impact_g, formatGForce(item.gForce)),
                         color = Color(0xFFFF9F0A),
                         fontSize = 14.sp,
                         fontWeight = FontWeight.SemiBold,
@@ -790,7 +796,11 @@ private fun CrashClipCard(
                     Spacer(modifier = Modifier.height(4.dp))
 
                     Text(
-                        text = "${item.segmentPaths.size} segments • ${formatUploadState(item.uploadState)}",
+                        text = stringResource(
+                            R.string.video_archive_segments_upload_state,
+                            item.segmentPaths.size,
+                            formatUploadState(item.uploadState),
+                        ),
                         color = Color(0xFF8E8E93),
                         fontSize = 14.sp,
                     )
@@ -814,39 +824,39 @@ private fun CrashClipCard(
             CrashTimelinePreview(
                 item = item,
 
-            )
+                )
             Spacer(modifier = Modifier.height(12.dp))
 
             if (!selectionMode) {
 
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(10.dp),
-            ) {
-                Button(
-                    onClick = onExport,
-                    modifier = Modifier.weight(1f),
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = Color(0xFF1C1C1E),
-                        contentColor = Color.White,
-                    ),
-                    shape = RoundedCornerShape(18.dp),
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(10.dp),
                 ) {
-                    Text("Export")
-                }
+                    Button(
+                        onClick = onExport,
+                        modifier = Modifier.weight(1f),
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = Color(0xFF1C1C1E),
+                            contentColor = Color.White,
+                        ),
+                        shape = RoundedCornerShape(18.dp),
+                    ) {
+                        Text(stringResource(R.string.video_archive_export))
+                    }
 
-                Button(
-                    onClick = onDelete,
-                    modifier = Modifier.weight(1f),
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = Color(0xFF3A1D1D),
-                        contentColor = Color(0xFFFF453A),
-                    ),
-                    shape = RoundedCornerShape(18.dp),
-                ) {
-                    Text("Delete")
+                    Button(
+                        onClick = onDelete,
+                        modifier = Modifier.weight(1f),
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = Color(0xFF3A1D1D),
+                            contentColor = Color(0xFFFF453A),
+                        ),
+                        shape = RoundedCornerShape(18.dp),
+                    ) {
+                        Text(stringResource(R.string.video_archive_delete))
+                    }
                 }
-            }
             }
         }
     }
@@ -860,23 +870,23 @@ private fun BadgeRow(
         horizontalArrangement = Arrangement.spacedBy(8.dp),
     ) {
         ArchiveBadge(
-            text = "EMERGENCY",
+            text = stringResource(R.string.video_archive_badge_emergency),
             color = Color(0xFFFF453A),
         )
 
         ArchiveBadge(
-            text = "PROTECTED",
+            text = stringResource(R.string.video_archive_badge_protected),
             color = Color(0xFFFF9F0A),
         )
 
         ArchiveBadge(
             text =
                 when (item.uploadState) {
-                    CrashClipUploadState.UPLOADED -> "SYNCED"
-                    CrashClipUploadState.UPLOADING -> "SYNCING"
-                    CrashClipUploadState.QUEUED -> "QUEUED"
-                    CrashClipUploadState.FAILED -> "FAILED"
-                    CrashClipUploadState.LOCAL_ONLY -> "LOCAL"
+                    CrashClipUploadState.UPLOADED -> stringResource(R.string.video_archive_badge_synced)
+                    CrashClipUploadState.UPLOADING -> stringResource(R.string.video_archive_badge_syncing)
+                    CrashClipUploadState.QUEUED -> stringResource(R.string.video_archive_badge_queued)
+                    CrashClipUploadState.FAILED -> stringResource(R.string.video_archive_badge_failed)
+                    CrashClipUploadState.LOCAL_ONLY -> stringResource(R.string.video_archive_badge_local)
                 },
             color =
                 when (item.uploadState) {
@@ -928,7 +938,7 @@ private fun CrashTelemetrySummary(
             modifier = Modifier.padding(12.dp),
         ) {
             Text(
-                text = "Telemetry",
+                text = stringResource(R.string.video_archive_telemetry),
                 color = Color.White,
                 fontSize = 14.sp,
                 fontWeight = FontWeight.SemiBold,
@@ -939,7 +949,7 @@ private fun CrashTelemetrySummary(
             Text(
                 text =
                     if (snapshot == null) {
-                        "No telemetry snapshot"
+                        stringResource(R.string.video_archive_no_telemetry_snapshot)
                     } else {
                         buildString {
                             append(formatGForce(item.gForce))
@@ -949,7 +959,7 @@ private fun CrashTelemetrySummary(
                             append(
                                 snapshot.speedKmh?.let {
                                     "${it.toInt()} km/h"
-                                } ?: "speed n/a"
+                                } ?: stringResource(R.string.video_archive_speed_na)
                             )
 
                             append(" • ")
@@ -957,7 +967,7 @@ private fun CrashTelemetrySummary(
                             append(
                                 snapshot.headingDeg?.let {
                                     "${it.toInt()}°"
-                                } ?: "heading n/a"
+                                } ?: stringResource(R.string.video_archive_heading_na)
                             )
                         }
                     },
@@ -977,7 +987,7 @@ private fun CrashTelemetrySummary(
                             snapshot.lon,
                         )
                     } else {
-                        "GPS n/a"
+                        stringResource(R.string.video_archive_gps_na)
                     },
                 color = Color(0xFF8E8E93),
                 fontSize = 13.sp,
@@ -1030,7 +1040,7 @@ private fun CrashTimelinePreview(
         Spacer(modifier = Modifier.height(6.dp))
 
         Text(
-            text = "${item.telemetryTimeline.size} telemetry samples linked",
+            text = stringResource(R.string.video_archive_telemetry_samples_linked, item.telemetryTimeline.size),
             color = Color(0xFF8E8E93),
             fontSize = 12.sp,
         )
@@ -1074,7 +1084,7 @@ private fun EmptyVideoArchive() {
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
             Text(
-                text = "Видеоархив пуст",
+                text = stringResource(R.string.video_archive_empty_title),
                 color = Color.White,
                 fontSize = 22.sp,
                 fontWeight = FontWeight.SemiBold,
@@ -1083,7 +1093,7 @@ private fun EmptyVideoArchive() {
             Spacer(modifier = Modifier.height(8.dp))
 
             Text(
-                text = "Записи и аварийные клипы появятся здесь",
+                text = stringResource(R.string.video_archive_empty_subtitle),
                 color = Color(0xFF8E8E93),
                 fontSize = 15.sp,
             )
@@ -1103,8 +1113,8 @@ private fun DashcamVideoCard(
 ) {
     val cameraLabel =
         when (item.cameraType) {
-            DashcamCameraType.ROAD -> "Дорога"
-            DashcamCameraType.DRIVER -> "Водитель"
+            DashcamCameraType.ROAD -> stringResource(R.string.video_archive_camera_road)
+            DashcamCameraType.DRIVER -> stringResource(R.string.video_archive_camera_driver)
         }
 
     Card(
@@ -1169,7 +1179,7 @@ private fun DashcamVideoCard(
                 Spacer(modifier = Modifier.height(6.dp))
 
                 Text(
-                    text = "$cameraLabel • clip ${item.segmentIndex}",
+                    text = stringResource(R.string.video_archive_video_clip_title, cameraLabel, item.segmentIndex),
                     color = Color(0xFF8E8E93),
                     fontSize = 14.sp,
                 )
@@ -1177,7 +1187,7 @@ private fun DashcamVideoCard(
                 Spacer(modifier = Modifier.height(4.dp))
 
                 Text(
-                    text = "${formatDuration(item.durationMs)} • ${formatFileSize(item.sizeBytes)}",
+                    text = stringResource(R.string.video_archive_duration_size, formatDuration(item.durationMs), formatFileSize(item.sizeBytes)),
                     color = Color(0xFF8E8E93),
                     fontSize = 14.sp,
                 )
@@ -1199,53 +1209,54 @@ private fun DashcamVideoCard(
 
         if (!selectionMode) {
 
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(
-                    start = 14.dp,
-                    end = 14.dp,
-                    bottom = 14.dp,
-                ),
-            horizontalArrangement = Arrangement.spacedBy(10.dp),
-        ) {
-            Button(
-                onClick = onExport,
-                modifier = Modifier.weight(1f),
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = Color(0xFF1C1C1E),
-                    contentColor = Color.White,
-                ),
-                shape = RoundedCornerShape(18.dp),
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(
+                        start = 14.dp,
+                        end = 14.dp,
+                        bottom = 14.dp,
+                    ),
+                horizontalArrangement = Arrangement.spacedBy(10.dp),
             ) {
-                Text("Export")
-            }
+                Button(
+                    onClick = onExport,
+                    modifier = Modifier.weight(1f),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = Color(0xFF1C1C1E),
+                        contentColor = Color.White,
+                    ),
+                    shape = RoundedCornerShape(18.dp),
+                ) {
+                    Text(stringResource(R.string.video_archive_export))
+                }
 
-            Button(
-                onClick = onDelete,
-                modifier = Modifier.weight(1f),
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = Color(0xFF3A1D1D),
-                    contentColor = Color(0xFFFF453A),
-                ),
-                shape = RoundedCornerShape(18.dp),
-            ) {
-                Text("Delete")
+                Button(
+                    onClick = onDelete,
+                    modifier = Modifier.weight(1f),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = Color(0xFF3A1D1D),
+                        contentColor = Color(0xFFFF453A),
+                    ),
+                    shape = RoundedCornerShape(18.dp),
+                ) {
+                    Text(stringResource(R.string.video_archive_delete))
+                }
             }
-        }
         }
     }
 }
 
+@Composable
 private fun formatUploadState(
     state: CrashClipUploadState,
 ): String {
     return when (state) {
-        CrashClipUploadState.LOCAL_ONLY -> "local"
-        CrashClipUploadState.QUEUED -> "queued"
-        CrashClipUploadState.UPLOADING -> "syncing"
-        CrashClipUploadState.UPLOADED -> "synced"
-        CrashClipUploadState.FAILED -> "failed"
+        CrashClipUploadState.LOCAL_ONLY -> stringResource(R.string.video_archive_upload_local)
+        CrashClipUploadState.QUEUED -> stringResource(R.string.video_archive_upload_queued)
+        CrashClipUploadState.UPLOADING -> stringResource(R.string.video_archive_upload_syncing)
+        CrashClipUploadState.UPLOADED -> stringResource(R.string.video_archive_upload_synced)
+        CrashClipUploadState.FAILED -> stringResource(R.string.video_archive_upload_failed)
     }
 }
 

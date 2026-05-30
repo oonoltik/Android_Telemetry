@@ -105,8 +105,8 @@ class DashcamRecordingService : LifecycleService() {
             CHANNEL_ID,
         )
             .setSmallIcon(R.drawable.ic_launcher_foreground)
-            .setContentTitle("Dashcam recording")
-            .setContentText("Запись видеорегистратора активна")
+            .setContentTitle(getString(R.string.dashcam_recording_notification_title))
+            .setContentText(getString(R.string.dashcam_recording_notification_text))
             .setOngoing(true)
             .setSilent(true)
             .setPriority(NotificationCompat.PRIORITY_LOW)
@@ -121,10 +121,10 @@ class DashcamRecordingService : LifecycleService() {
         val channel =
             NotificationChannel(
                 CHANNEL_ID,
-                "Dashcam recording",
+                getString(R.string.dashcam_recording_channel_name),
                 NotificationManager.IMPORTANCE_LOW,
             ).apply {
-                description = "Foreground service for dashcam recording"
+                description = getString(R.string.dashcam_recording_channel_description)
                 setShowBadge(false)
             }
 

@@ -4,6 +4,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -20,16 +21,21 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import com.alex.android_telemetry.R
+import com.alex.android_telemetry.core.localization.AppLanguage
 import com.alex.android_telemetry.ui.design.TelemetrySpacing
 import com.alex.android_telemetry.ui.design.TelemetrySwiftColors
 import com.alex.android_telemetry.ui.design.TelemetryTypography
-
-import androidx.compose.foundation.layout.ColumnScope
-
-
-
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.foundation.layout.Box
 @Composable
 fun SettingsScreen(
     currentDriverId: String?,
@@ -39,7 +45,10 @@ fun SettingsScreen(
     onOpenDiagnostics: () -> Unit,
     onDeleteLocalData: () -> Unit,
     onDeleteAccount: () -> Unit,
+    currentLanguage: AppLanguage,
+    onLanguageChanged: (AppLanguage) -> Unit,
 ) {
+    var isLanguageMenuExpanded by remember { mutableStateOf(false) }
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -48,33 +57,32 @@ fun SettingsScreen(
             .padding(horizontal = TelemetrySpacing.ScreenHorizontal)
             .padding(top = 10.dp, bottom = 28.dp),
     ) {
-        SettingsNavigationBar(
-            onDone = onDone,
-        )
+        SettingsNavigationBar(onDone = onDone)
 
         Spacer(Modifier.height(12.dp))
 
         Text(
-            text = "Настройки",
+            text = stringResource(R.string.settings_title),
             color = TelemetrySwiftColors.TextPrimary,
             style = TelemetryTypography.LargeTitle,
         )
 
         Spacer(Modifier.height(26.dp))
 
-        SettingsSectionTitle("Профиль")
+        SettingsSectionTitle(stringResource(R.string.settings_profile))
 
         SettingsGroup {
             SettingsRow(
-                title = "Водитель",
-                value = currentDriverId?.takeIf { it.isNotBlank() } ?: "Не выбран",
+                title = stringResource(R.string.settings_driver),
+                value = currentDriverId?.takeIf { it.isNotBlank() }
+                    ?: stringResource(R.string.settings_driver_not_selected),
                 onClick = onOpenDriverAccount,
             )
 
             SettingsDivider()
 
             SettingsRow(
-                title = "Изменить имя",
+                title = stringResource(R.string.settings_change_name),
                 value = null,
                 onClick = onOpenDriverAccount,
             )
@@ -82,58 +90,59 @@ fun SettingsScreen(
 
         Spacer(Modifier.height(24.dp))
 
-        SettingsSectionTitle("Приложение")
+        SettingsSectionTitle(stringResource(R.string.settings_app))
 
         SettingsGroup {
-            SettingsRow(
-                title = "Язык",
-                value = "Русский",
-                onClick = {},
+            SettingsLanguageRow(
+                currentLanguage = currentLanguage,
+                isExpanded = isLanguageMenuExpanded,
+                onExpandedChange = { isLanguageMenuExpanded = it },
+                onLanguageChanged = onLanguageChanged,
             )
 
             SettingsDivider()
 
             SettingsRow(
-                title = "Доступы и фон",
-                value = "Проверить",
+                title = stringResource(R.string.settings_permissions_background),
+                value = stringResource(R.string.settings_check),
                 onClick = onOpenPermissionsBackground,
             )
         }
 
         SettingsFootnote(
-            text = "Разрешения нужны для корректной записи поездок, фонового мониторинга и восстановления состояния после перезапуска устройства.",
+            text = stringResource(R.string.settings_permissions_footnote),
         )
 
         Spacer(Modifier.height(24.dp))
 
-        SettingsSectionTitle("Система")
+        SettingsSectionTitle(stringResource(R.string.settings_system))
 
         SettingsGroup {
             SettingsRow(
-                title = "Диагностика",
-                value = "Для разработчика",
+                title = stringResource(R.string.settings_diagnostics),
+                value = stringResource(R.string.settings_for_developer),
                 onClick = onOpenDiagnostics,
             )
         }
 
         SettingsFootnote(
-            text = "Диагностика скрыта от основного сценария и используется только для проверки telemetry/runtime слоя.",
+            text = stringResource(R.string.settings_diagnostics_footnote),
         )
 
         Spacer(Modifier.height(24.dp))
 
-        SettingsSectionTitle("Данные")
+        SettingsSectionTitle(stringResource(R.string.settings_data))
 
         SettingsGroup {
             SettingsDestructiveRow(
-                title = "Удалить локальные данные",
+                title = stringResource(R.string.settings_delete_local_data),
                 onClick = onDeleteLocalData,
             )
 
             SettingsDivider()
 
             SettingsDestructiveRow(
-                title = "Удалить аккаунт",
+                title = stringResource(R.string.settings_delete_account),
                 onClick = onDeleteAccount,
             )
         }
@@ -151,6 +160,82 @@ fun SettingsScreen(
 }
 
 @Composable
+private fun SettingsLanguageRow(
+    currentLanguage: AppLanguage,
+    isExpanded: Boolean,
+    onExpandedChange: (Boolean) -> Unit,
+    onLanguageChanged: (AppLanguage) -> Unit,
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable {
+                onExpandedChange(true)
+            }
+            .padding(horizontal = 16.dp, vertical = 15.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Text(
+            text = stringResource(R.string.settings_language),
+            modifier = Modifier.weight(1f),
+            color = TelemetrySwiftColors.TextPrimary,
+            style = TelemetryTypography.Body,
+        )
+
+        Box(
+            contentAlignment = Alignment.TopEnd,
+        ) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Text(
+                    text = when (currentLanguage) {
+                        AppLanguage.Russian -> stringResource(R.string.language_russian)
+                        AppLanguage.English -> stringResource(R.string.language_english)
+                    },
+                    color = TelemetrySwiftColors.TextSecondary,
+                    style = TelemetryTypography.Body,
+                    textAlign = TextAlign.End,
+                )
+
+                Text(
+                    text = "  ›",
+                    color = TelemetrySwiftColors.TextSecondary,
+                    style = TelemetryTypography.Body,
+                )
+            }
+
+            DropdownMenu(
+                expanded = isExpanded,
+                onDismissRequest = {
+                    onExpandedChange(false)
+                },
+            ) {
+                AppLanguage.entries.forEach { language ->
+                    DropdownMenuItem(
+                        text = {
+                            Text(
+                                text = when (language) {
+                                    AppLanguage.Russian -> stringResource(R.string.language_russian)
+                                    AppLanguage.English -> stringResource(R.string.language_english)
+                                },
+                            )
+                        },
+                        onClick = {
+                            onExpandedChange(false)
+
+                            if (language != currentLanguage) {
+                                onLanguageChanged(language)
+                            }
+                        },
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
 private fun SettingsNavigationBar(
     onDone: () -> Unit,
 ) {
@@ -163,7 +248,7 @@ private fun SettingsNavigationBar(
     ) {
         TextButton(onClick = onDone) {
             Text(
-                text = "Готово",
+                text = stringResource(R.string.settings_done),
                 color = Color(0xFF0A84FF),
                 style = TelemetryTypography.BodyEmphasis,
             )

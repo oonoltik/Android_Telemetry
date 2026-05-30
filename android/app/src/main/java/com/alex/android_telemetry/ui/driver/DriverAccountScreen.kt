@@ -32,10 +32,14 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import com.alex.android_telemetry.R
+import android.content.Context
 import com.alex.android_telemetry.telemetry.domain.model.TelemetryMode
 import com.alex.android_telemetry.telemetry.domain.model.TripRuntimeState
 import com.alex.android_telemetry.telemetry.driver.AccountDeleteManager
@@ -72,6 +76,7 @@ fun DriverAccountScreen(
     onBack: () -> Unit,
 ) {
     val scope = rememberCoroutineScope()
+    val context = LocalContext.current
 
     var stage by remember { mutableStateOf<DriverSetupStage>(DriverSetupStage.EnterId) }
     var driverId by remember { mutableStateOf(driverRepository.getCurrentDriverId().orEmpty()) }
@@ -119,14 +124,14 @@ fun DriverAccountScreen(
                         }
                         else -> {
                             stage = DriverSetupStage.EnterId
-                            errorText = "Неизвестный ответ сервера: ${result.status}"
+                            errorText = context.getString(R.string.driver_error_unknown_server_response, result.status)
                         }
                     }
                 }
 
                 is DriverPrepareResult.Failed -> {
                     stage = DriverSetupStage.EnterId
-                    errorText = localizedDriverAuthError(result.message)
+                    errorText = localizedDriverAuthError(context, result.message)
                 }
             }
         }
@@ -146,7 +151,7 @@ fun DriverAccountScreen(
                 when (val result = driverRegisterManager.register(deviceId = deviceId, driverId = id, password = pw)) {
                     is DriverRegisterResult.Success -> true
                     is DriverRegisterResult.Failed -> {
-                        errorText = localizedDriverAuthError(result.message)
+                        errorText = localizedDriverAuthError(context, result.message)
                         false
                     }
                 }
@@ -154,7 +159,7 @@ fun DriverAccountScreen(
                 when (val result = driverLoginManager.login(deviceId = deviceId, driverId = id, password = pw)) {
                     is DriverLoginResult.Success -> true
                     is DriverLoginResult.Failed -> {
-                        errorText = localizedDriverAuthError(result.message)
+                        errorText = localizedDriverAuthError(context, result.message)
                         false
                     }
                 }
@@ -171,22 +176,22 @@ fun DriverAccountScreen(
                         "known_device" -> handleKnownDevice(id)
                         "need_password" -> {
                             stage = DriverSetupStage.NeedPassword(isNew = false)
-                            errorText = "Сервер всё ещё требует пароль."
+                            errorText = context.getString(R.string.driver_error_server_still_requires_password)
                         }
                         "new_driver" -> {
                             stage = DriverSetupStage.NeedPassword(isNew = true)
-                            errorText = "Водитель не был создан на сервере."
+                            errorText = context.getString(R.string.driver_error_driver_not_created)
                         }
                         else -> {
                             stage = DriverSetupStage.EnterId
-                            errorText = "Неизвестный ответ сервера: ${check.status}"
+                            errorText = context.getString(R.string.driver_error_unknown_server_response, check.status)
                         }
                     }
                 }
 
                 is DriverPrepareResult.Failed -> {
                     stage = DriverSetupStage.EnterId
-                    errorText = localizedDriverAuthError(check.message)
+                    errorText = localizedDriverAuthError(context, check.message)
                 }
             }
         }
@@ -205,12 +210,12 @@ fun DriverAccountScreen(
                 is AccountDeleteResult.Success -> {
                     driverId = ""
                     password = ""
-                    deleteStatus = "Аккаунт удалён"
+                    deleteStatus = context.getString(R.string.driver_account_deleted)
                     stage = DriverSetupStage.EnterId
                 }
 
                 is AccountDeleteResult.Failed -> {
-                    errorText = localizedDriverAuthError(result.message)
+                    errorText = localizedDriverAuthError(context, result.message)
                     stage = DriverSetupStage.EnterId
                 }
             }
@@ -232,7 +237,7 @@ fun DriverAccountScreen(
         Spacer(Modifier.height(12.dp))
 
         Text(
-            text = "Водитель",
+            text = stringResource(R.string.driver_title),
             color = TelemetrySwiftColors.TextPrimary,
             style = TelemetryTypography.LargeTitle,
         )
@@ -240,17 +245,17 @@ fun DriverAccountScreen(
         Spacer(Modifier.height(24.dp))
 
         DriverHeroCard(
-            driverName = currentDriverId.ifBlank { "Водитель не выбран" },
+            driverName = currentDriverId.ifBlank { stringResource(R.string.driver_not_selected) },
             subtitle = when {
-                isTripActive -> "Во время активной поездки менять водителя не рекомендуется."
-                currentDriverId.isNotBlank() -> "Профиль используется для привязки поездок и расчёта персональной статистики."
-                else -> "Введите driver ID. Если водитель уже существует, потребуется пароль. Если нет — будет создан новый профиль."
+                isTripActive -> stringResource(R.string.driver_hero_trip_active)
+                currentDriverId.isNotBlank() -> stringResource(R.string.driver_hero_existing_profile)
+                else -> stringResource(R.string.driver_hero_enter_id)
             },
         )
 
         Spacer(Modifier.height(24.dp))
 
-        DriverSectionTitle("Driver ID")
+        DriverSectionTitle(stringResource(R.string.driver_id_section))
 
         DriverGroup {
             DriverIdInputRow(
@@ -282,15 +287,15 @@ fun DriverAccountScreen(
 
         DriverFootnote(
             text = when (val currentStage = stage) {
-                DriverSetupStage.EnterId -> "Нажмите «Продолжить», чтобы проверить driver ID на сервере."
+                DriverSetupStage.EnterId -> stringResource(R.string.driver_footnote_enter_id)
                 is DriverSetupStage.NeedPassword -> {
                     if (currentStage.isNew) {
-                        "Такого водителя ещё нет. Введите пароль, чтобы создать профиль."
+                        stringResource(R.string.driver_footnote_new_driver)
                     } else {
-                        "Этот водитель уже существует. Введите пароль, чтобы войти."
+                        stringResource(R.string.driver_footnote_existing_driver)
                     }
                 }
-                DriverSetupStage.Working -> "Проверяем данные…"
+                DriverSetupStage.Working -> stringResource(R.string.driver_checking_data)
             },
         )
 
@@ -317,36 +322,36 @@ fun DriverAccountScreen(
 
         Spacer(Modifier.height(24.dp))
 
-        DriverSectionTitle("Состояние")
+        DriverSectionTitle(stringResource(R.string.driver_section_status))
 
         DriverGroup {
             DriverInfoRow(
-                title = "Активный водитель",
-                value = currentDriverId.ifBlank { "Не выбран" },
+                title = stringResource(R.string.driver_active_driver),
+                value = currentDriverId.ifBlank { stringResource(R.string.driver_not_selected_short) },
             )
 
             DriverDivider()
 
             DriverInfoRow(
-                title = "Устройство",
+                title = stringResource(R.string.driver_device),
                 value = deviceId,
             )
 
             DriverDivider()
 
             DriverInfoRow(
-                title = "Запись поездок",
-                value = if (currentDriverId.isNotBlank()) "Готова" else "Нужен водитель",
+                title = stringResource(R.string.driver_trip_recording),
+                value = if (currentDriverId.isNotBlank()) stringResource(R.string.driver_recording_ready) else stringResource(R.string.driver_recording_needs_driver),
             )
         }
 
         Spacer(Modifier.height(24.dp))
 
-        DriverSectionTitle("Аккаунт")
+        DriverSectionTitle(stringResource(R.string.driver_section_account))
 
         DriverGroup {
             DriverDestructiveRow(
-                title = "Удалить аккаунт",
+                title = stringResource(R.string.driver_delete_account),
                 enabled = currentDriverId.isNotBlank() && stage !is DriverSetupStage.Working,
                 onClick = { deleteAccount() },
             )
@@ -355,7 +360,7 @@ fun DriverAccountScreen(
         Spacer(Modifier.height(18.dp))
 
         Text(
-            text = "Driver setup",
+            text = stringResource(R.string.driver_setup_footer),
             modifier = Modifier.fillMaxWidth(),
             color = TelemetrySwiftColors.TextSecondary,
             style = TelemetryTypography.Caption,
@@ -377,7 +382,7 @@ private fun DriverNavigationBar(
     ) {
         TextButton(onClick = onBack) {
             Text(
-                text = "‹ Назад",
+                text = stringResource(R.string.common_back_chevron),
                 color = Color(0xFF0A84FF),
                 style = TelemetryTypography.BodyEmphasis,
             )
@@ -459,7 +464,7 @@ private fun DriverIdInputRow(
         verticalArrangement = Arrangement.spacedBy(8.dp),
     ) {
         Text(
-            text = "Driver ID",
+            text = stringResource(R.string.driver_id_label),
             color = TelemetrySwiftColors.TextPrimary,
             style = TelemetryTypography.BodyEmphasis,
         )
@@ -472,7 +477,7 @@ private fun DriverIdInputRow(
             singleLine = true,
             placeholder = {
                 Text(
-                    text = "Например: alex",
+                    text = stringResource(R.string.driver_id_placeholder),
                     color = TelemetrySwiftColors.TextSecondary,
                     style = TelemetryTypography.Body,
                 )
@@ -503,7 +508,7 @@ private fun PasswordInputRow(
         verticalArrangement = Arrangement.spacedBy(8.dp),
     ) {
         Text(
-            text = "Пароль",
+            text = stringResource(R.string.driver_password),
             color = TelemetrySwiftColors.TextPrimary,
             style = TelemetryTypography.BodyEmphasis,
         )
@@ -518,7 +523,7 @@ private fun PasswordInputRow(
             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
             placeholder = {
                 Text(
-                    text = "Введите пароль",
+                    text = stringResource(R.string.driver_password_placeholder),
                     color = TelemetrySwiftColors.TextSecondary,
                     style = TelemetryTypography.Body,
                 )
@@ -547,7 +552,7 @@ private fun DriverPrimaryAction(
     when (stage) {
         DriverSetupStage.EnterId -> {
             DriverBlueButton(
-                text = "Продолжить",
+                text = stringResource(R.string.common_continue),
                 enabled = driverId.isNotBlank(),
                 onClick = onContinue,
             )
@@ -558,13 +563,13 @@ private fun DriverPrimaryAction(
                 verticalArrangement = Arrangement.spacedBy(10.dp),
             ) {
                 DriverBlueButton(
-                    text = if (stage.isNew) "Создать" else "Войти",
+                    text = if (stage.isNew) stringResource(R.string.driver_create) else stringResource(R.string.driver_sign_in),
                     enabled = driverId.isNotBlank() && password.isNotBlank(),
                     onClick = { onSubmitPassword(stage.isNew) },
                 )
 
                 DriverSecondaryButton(
-                    text = "Назад",
+                    text = stringResource(R.string.common_back),
                     onClick = onBackToDriverId,
                 )
             }
@@ -587,7 +592,7 @@ private fun DriverPrimaryAction(
                 )
 
                 Text(
-                    text = "Проверяем…",
+                    text = stringResource(R.string.driver_checking),
                     color = TelemetrySwiftColors.TextPrimary,
                     style = TelemetryTypography.Headline,
                 )
@@ -761,39 +766,42 @@ private fun normalizeDriverStatus(status: String): String {
         .lowercase()
 }
 
-private fun localizedDriverAuthError(message: String?): String {
+private fun localizedDriverAuthError(
+    context: Context,
+    message: String?,
+): String {
     val raw = message.orEmpty().lowercase()
 
     return when {
         raw.contains("driver_id not found") || raw.contains("not found") -> {
-            "Driver ID не найден."
+            context.getString(R.string.driver_auth_error_not_found)
         }
 
         raw.contains("invalid password") || raw.contains("wrong password") -> {
-            "Неверный пароль."
+            context.getString(R.string.driver_auth_error_invalid_password)
         }
 
         raw.contains("device confirmation failed") -> {
-            "Не удалось подтвердить устройство."
+            context.getString(R.string.driver_auth_error_device_confirmation_failed)
         }
 
         raw.contains("device is not authorized for this driver_id") -> {
-            "Это устройство не авторизовано для выбранного driver ID."
+            context.getString(R.string.driver_auth_error_device_not_authorized)
         }
 
         raw.contains("temporarily unavailable") ||
                 raw.contains("unreachable") ||
                 raw.contains("timed out") ||
                 raw.contains("timeout") -> {
-            "Сервис авторизации временно недоступен. Попробуйте ещё раз."
+            context.getString(R.string.driver_auth_error_service_unavailable)
         }
 
         raw.isBlank() -> {
-            "Не удалось выполнить вход. Попробуйте ещё раз."
+            context.getString(R.string.driver_auth_error_generic)
         }
 
         else -> {
-            "Не удалось выполнить вход. Попробуйте ещё раз."
+            context.getString(R.string.driver_auth_error_generic)
         }
     }
 }

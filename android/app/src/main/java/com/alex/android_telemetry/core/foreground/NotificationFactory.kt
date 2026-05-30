@@ -3,6 +3,7 @@ package com.alex.android_telemetry.core.foreground
 import android.app.Notification
 import android.content.Context
 import androidx.core.app.NotificationCompat
+import com.alex.android_telemetry.R
 import com.alex.android_telemetry.telemetry.domain.model.TrackingMode
 import com.alex.android_telemetry.telemetry.runtime.TripRuntimeSnapshot
 
@@ -11,25 +12,25 @@ class NotificationFactory(
 ) {
     fun buildIdleNotification(): Notification {
         return baseBuilder()
-            .setContentTitle("Telemetry ready")
-            .setContentText("Background monitoring service is ready")
+            .setContentTitle(context.getString(R.string.notification_telemetry_ready_title))
+            .setContentText(context.getString(R.string.notification_telemetry_ready_text))
             .setOngoing(true)
             .build()
     }
 
     fun buildDayMonitoringNotification(): Notification {
         return baseBuilder()
-            .setContentTitle("Day monitoring active")
-            .setContentText("Waiting for driving activity")
+            .setContentTitle(context.getString(R.string.notification_day_monitoring_title))
+            .setContentText(context.getString(R.string.notification_day_monitoring_text))
             .setOngoing(true)
             .build()
     }
 
     fun buildActiveTripNotification(snapshot: TripRuntimeSnapshot): Notification {
         val modeLabel = when (snapshot.trackingMode) {
-            TrackingMode.DAY_MONITORING -> "Auto trip active"
-            TrackingMode.SINGLE_TRIP -> "Trip active"
-            else -> "Trip active"
+            TrackingMode.DAY_MONITORING -> context.getString(R.string.notification_auto_trip_active_title)
+            TrackingMode.SINGLE_TRIP -> context.getString(R.string.notification_trip_active_title)
+            else -> context.getString(R.string.notification_trip_active_title)
         }
 
         val session = snapshot.sessionId?.takeLast(8).orEmpty()
@@ -37,7 +38,7 @@ class NotificationFactory(
 
         return baseBuilder()
             .setContentTitle(modeLabel)
-            .setContentText("Session $session · delivered batches $delivered")
+            .setContentText(context.getString(R.string.notification_active_trip_text, session, delivered))
             .setOngoing(true)
             .build()
     }
@@ -46,8 +47,8 @@ class NotificationFactory(
         val session = snapshot.sessionId?.takeLast(8).orEmpty()
 
         return baseBuilder()
-            .setContentTitle("Finishing trip")
-            .setContentText("Uploading remaining telemetry · Session $session")
+            .setContentTitle(context.getString(R.string.notification_finishing_trip_title))
+            .setContentText(context.getString(R.string.notification_finishing_trip_text, session))
             .setOngoing(true)
             .build()
     }
@@ -56,8 +57,8 @@ class NotificationFactory(
         val session = snapshot.sessionId?.takeLast(8).orEmpty()
 
         return baseBuilder()
-            .setContentTitle("Telemetry replaying")
-            .setContentText("Restoring pending trip data · Session $session")
+            .setContentTitle(context.getString(R.string.notification_replaying_title))
+            .setContentText(context.getString(R.string.notification_replaying_text, session))
             .setOngoing(true)
             .build()
     }

@@ -1,3 +1,412 @@
 <resources>
-    <string name="app_name">Android_Telemetry</string>
+<string name="app_name">Android Telemetry</string>
+
+<string name="settings_title">Settings</string>
+<string name="settings_done">Done</string>
+
+<string name="settings_profile">Profile</string>
+<string name="settings_driver">Driver</string>
+<string name="settings_driver_not_selected">Not selected</string>
+<string name="settings_change_name">Change name</string>
+
+<string name="settings_app">App</string>
+<string name="settings_language">Language</string>
+<string name="language_russian">Russian</string>
+<string name="language_english">English</string>
+<string name="settings_permissions_background">Permissions &amp; background</string>
+<string name="settings_check">Check</string>
+
+<string name="settings_permissions_footnote">Permissions are required for correct trip recording, background monitoring, and state recovery after device restart.</string>
+
+<string name="settings_system">System</string>
+<string name="settings_diagnostics">Diagnostics</string>
+<string name="settings_for_developer">For developer</string>
+<string name="settings_diagnostics_footnote">Diagnostics are hidden from the main flow and are used only to verify the telemetry/runtime layer.</string>
+
+<string name="settings_data">Data</string>
+<string name="settings_delete_local_data">Delete local data</string>
+<string name="settings_delete_account">Delete account</string>
+
+<string name="home_crash_detected">Crash detected</string>
+<string name="home_rating_load_error">Failed to load rating</string>
+<string name="home_select_driver_first">Select a driver in Settings first</string>
+<string name="home_location_disabled_title">Location is off</string>
+<string name="home_location_disabled_message">Telemetry is running, but trip data may be less accurate.</string>
+<string name="home_camera_permission_title">No camera access</string>
+<string name="home_camera_permission_message">Video recording may be unavailable.</string>
+<string name="home_microphone_permission_title">No microphone access</string>
+<string name="home_microphone_permission_message">Video will be recorded without sound.</string>
+<string name="home_diagnostics">Diagnostics</string>
+<string name="home_open_settings">Open settings</string>
+<string name="home_settings">Settings</string>
+<string name="home_driver_not_selected">Driver not selected</string>
+<string name="home_rating_loading">Loading rating…</string>
+<string name="home_rating_unavailable">Rating temporarily unavailable</string>
+<string name="home_rating_forming">Rating is being formed</string>
+<string name="home_rating_ready">Rating calculated</string>
+<string name="home_rating_after_trips">Rating will appear after trips</string>
+<string name="home_rating_forming_trips_left">Rating is being formed · trips left: %1$d</string>
+<string name="home_driver_score_title">Driving score</string>
+<string name="home_driver_value">Driver: %1$s</string>
+<string name="home_keep_green_streak">Keep the green streak on your next trip</string>
+<string name="home_rating_data_unavailable">Rating data is temporarily unavailable</string>
+<string name="home_trip_recording">Recording</string>
+<string name="home_trip_ready">Ready</string>
+<string name="home_current_speed">Current speed</string>
+<string name="home_trip_time">Trip time</string>
+<string name="home_distance">Distance</string>
+<string name="home_distance_km_value">%1$s km</string>
+<string name="home_start">Start</string>
+<string name="home_stop">Stop</string>
+<string name="home_trips_archive">Trips archive</string>
+<string name="home_video_archive">Video archive</string>
+<string name="home_video_mode">Video mode</string>
+<string name="home_save_fish_game">≋  Save Fish Game</string>
+<string name="home_video_recording">Video recording</string>
+<string name="home_hide_camera">Hide camera</string>
+<string name="home_show_camera">Show camera</string>
+<string name="home_stop_video">Stop video</string>
+<string name="home_start_video">Start video</string>
+<string name="home_road_camera">Road</string>
+<string name="home_driver_camera">Driver</string>
+<string name="home_camera_switch_requires_new_recording">Camera switching is available when starting a new recording</string>
+<string name="home_camera_permission_required">Camera permission required</string>
+<string name="home_score_delta_up">↗ +%1$s over the last 5 trips</string>
+<string name="home_score_delta_down">↘ -%1$s over the last 5 trips</string>
+<string name="home_score_delta_same">→ no change over the last 5 trips</string>
+<string name="home_better_than_drivers">Better than %1$d%% of drivers</string>
+<string name="home_top_drivers">Top %1$d%% of drivers</string>
+<string name="home_driver_rank">Rank %1$d of %2$d</string>
+<string name="home_points_to_next_level">%2$s points to %1$s level</string>
+<string name="home_recent_trips_empty">No recent trips yet</string>
+<string name="home_last_trip_best">Last trip is the best in the streak</string>
+<string name="home_trip_can_improve">There is a trip that can be improved</string>
+<string name="home_driver_level_risky">Risky driver</string>
+<string name="home_driver_level_average">Average driver</string>
+<string name="home_driver_level_calm">Calm driver</string>
+<string name="home_driver_level_safe">Safe driver</string>
+
+<string name="trips_common_refresh">Refresh</string>
+<string name="trips_common_error">Error</string>
+<string name="trips_common_close">Close</string>
+<string name="trips_common_seconds_format">%1$s sec</string>
+<string name="trips_common_hide">Hide</string>
+<string name="trips_common_more_details">More details</string>
+<string name="trips_common_no_data">No data</string>
+<string name="trips_common_km_format">%1$.2f km</string>
+<string name="trips_common_kmh_format">%1$.1f km/h</string>
+
+<string name="trips_archive_loading">Loading archive…</string>
+<string name="trips_archive_unavailable">Archive unavailable</string>
+<string name="trips_archive_empty_title">No trips yet</string>
+<string name="trips_archive_empty_caption">After a trip is completed, it will appear here.</string>
+<string name="trips_archive_empty_report_caption">After a trip is completed and the report is generated, it will appear here.</string>
+<string name="trips_archive_header">Archive of trips longer than 0.3 km.</string>
+<string name="trips_archive_loading_caption">Fetching recent trips.</string>
+<string name="trips_archive_recent_title">Recent trips</string>
+<string name="trips_archive_found_count">Trips found: %1$d</string>
+<string name="trips_archive_date_format">Date: %1$s</string>
+<string name="trips_archive_score_format">Score: %1$s</string>
+
+<string name="trip_report_loading">Loading report…</string>
+<string name="trip_report_unavailable">Report unavailable</string>
+<string name="trip_report_title">Trip report</string>
+<string name="trip_report_preliminary_title">Preliminary report</string>
+<string name="trip_report_batches_processing">Server is still processing batches: %1$d</string>
+<string name="trip_report_readiness_percent">Readiness: %1$d%%</string>
+<string name="trip_report_trip_rating">This trip rating</string>
+<string name="trip_report_trip_duration">Trip duration</string>
+<string name="trip_report_distance">Distance</string>
+<string name="trip_report_avg_speed">Average speed</string>
+<string name="trip_report_driving_mode">Driving mode</string>
+<string name="trip_report_driving_load">Driving intensity</string>
+<string name="trip_report_events_summary">Event summary</string>
+<string name="trip_report_dangerous_maneuvers_short">Dangerous\nmaneuvers</string>
+<string name="trip_report_skid_risk_short">Skid\nrisk</string>
+<string name="trip_report_road_anomalies">Road anomalies</string>
+<string name="trip_report_score_impact">What affected the score</string>
+
+<string name="trip_event_accel_sharp">Sharp accelerations</string>
+<string name="trip_event_accel_emergency">Emergency accelerations</string>
+<string name="trip_event_brake_sharp">Sharp braking</string>
+<string name="trip_event_brake_emergency">Emergency braking</string>
+<string name="trip_event_turn_sharp">Sharp turns</string>
+<string name="trip_event_turn_emergency">Emergency turns</string>
+<string name="trip_event_accel_in_turn">Acceleration in turn</string>
+<string name="trip_event_brake_in_turn">Braking in turn</string>
+<string name="trip_event_road_low">Minor road anomalies</string>
+<string name="trip_event_road_high">Severe road anomalies</string>
+
+<string name="trip_report_your_trip">Your trip</string>
+<string name="trip_report_score">Score</string>
+<string name="trip_report_totals">Totals</string>
+<string name="trip_report_start">Start</string>
+<string name="trip_report_finish">Finish</string>
+<string name="trip_report_dangerous_maneuvers">Dangerous maneuvers</string>
+<string name="trip_report_skid_risk">Skid risk</string>
+<string name="trip_report_stops">Stops</string>
+<string name="trip_report_stops_count">Number of stops</string>
+<string name="trip_report_stops_total_time">Total stopped time</string>
+<string name="trip_report_stop_duration_p95">Stop duration (P95)</string>
+<string name="trip_report_stops_per_km">Stops per km</string>
+<string name="trip_report_comparison">Comparison</string>
+<string name="trip_report_better_than_previous">Better than your previous trips</string>
+<string name="trip_report_better_than_all">Better than all trips by all drivers</string>
+<string name="trip_report_better_than_all_short">Better than trips by all drivers</string>
+<string name="trip_report_previous_driver_trips">Previous trips (this driver)</string>
+<string name="trip_report_total_trips_database">Total trips (database)</string>
+<string name="trip_report_driver_rank">This driver rank</string>
+<string name="trip_report_total_drivers">Total drivers</string>
+<string name="trip_report_driver_avg_score">This driver average score</string>
+<string name="trip_report_driver_trips_total">Driver trips</string>
+<string name="trip_report_details">Details</string>
+<string name="trip_report_batches">Batches</string>
+<string name="trip_report_samples">Samples</string>
+<string name="trip_report_events">Events</string>
+<string name="trip_report_max_speed">Maximum speed</string>
+<string name="trip_report_p95_speed">P95 speed</string>
+<string name="trip_report_driver_rank_format">%1$d of %2$d drivers</string>
+<string name="trip_report_your_avg_rating">Your average rating</string>
+<string name="trip_report_your_counted_trips">Your counted trips</string>
+<string name="trip_report_total_counted_trips">Total counted trips</string>
+
+<string name="trips_score_band_very_careful">Very careful</string>
+<string name="trips_score_band_excellent">Excellent</string>
+<string name="trips_score_band_good">Good</string>
+<string name="trips_score_band_average">Average</string>
+<string name="trips_score_band_risky">Risky</string>
+<string name="trips_score_band_dangerous">Dangerous</string>
+<string name="trips_score_label_good">Good</string>
+<string name="trips_score_label_normal">Normal</string>
+<string name="trips_score_label_bad">Poor</string>
+<string name="trips_score_hint_can_improve">Can improve</string>
+<string name="trips_score_hint_be_more_careful">Drive more carefully</string>
+
+<string name="trips_driving_mode_mixed">Mixed</string>
+<string name="trips_driving_mode_city">City</string>
+<string name="trips_driving_mode_highway">Highway</string>
+
+<string name="trips_month_short_january">Jan</string>
+<string name="trips_month_short_february">Feb</string>
+<string name="trips_month_short_march">Mar</string>
+<string name="trips_month_short_april">Apr</string>
+<string name="trips_month_short_may">May</string>
+<string name="trips_month_short_june">Jun</string>
+<string name="trips_month_short_july">Jul</string>
+<string name="trips_month_short_august">Aug</string>
+<string name="trips_month_short_september">Sep</string>
+<string name="trips_month_short_october">Oct</string>
+<string name="trips_month_short_november">Nov</string>
+<string name="trips_month_short_december">Dec</string>
+
+<string name="trips_error_device_not_authorized_for_driver">Device is not authorized for this driver_id</string>
+<string name="trips_error_session_unauthorized">Session is not authorized. Check driver/account login.</string>
+<string name="trips_error_archive_or_report_not_found">Archive or report has not been found yet</string>
+<string name="trips_error_server_timeout">Server did not respond in time</string>
+<string name="trips_error_loading_format">Loading error: %1$s</string>
+
+<string name="video_archive_back">Back</string>
+<string name="video_archive_title">Dashcam Archive</string>
+<string name="video_archive_storage">Storage</string>
+<string name="video_archive_storage_details">Protected: %1$s • Files: %2$d</string>
+<string name="video_archive_filter_all">All</string>
+<string name="video_archive_filter_emergency">Emergency</string>
+<string name="video_archive_filter_regular">Regular</string>
+<string name="video_archive_filter_failed_uploads">Failed uploads</string>
+<string name="video_archive_select_records">Select records</string>
+<string name="video_archive_selected_count">Selected: %1$d</string>
+<string name="video_archive_save">Save</string>
+<string name="video_archive_delete">Delete</string>
+<string name="video_archive_cancel">Cancel</string>
+<string name="video_archive_export">Export</string>
+<string name="video_archive_apply_retention_cleanup">Apply retention cleanup</string>
+<string name="video_archive_section_emergency">EMERGENCY</string>
+<string name="video_archive_section_regular">REGULAR</string>
+<string name="video_archive_section_count">%1$s • %2$d</string>
+<string name="video_archive_exported_count">Saved: %1$d of %2$d</string>
+<string name="video_archive_deleted_count">Deleted: %1$d of %2$d</string>
+<string name="video_archive_saved_to_gallery">Video saved to gallery</string>
+<string name="video_archive_save_failed">Failed to save video</string>
+<string name="video_archive_crash_clip_deleted">Crash clip deleted</string>
+<string name="video_archive_delete_clip_failed">Failed to delete clip</string>
+<string name="video_archive_video_deleted">Video deleted</string>
+<string name="video_archive_protected_cannot_delete">Protected video cannot be deleted</string>
+<string name="video_archive_impact_g">Impact • %1$sg</string>
+<string name="video_archive_segments_upload_state">%1$d segments • %2$s</string>
+<string name="video_archive_badge_emergency">EMERGENCY</string>
+<string name="video_archive_badge_protected">PROTECTED</string>
+<string name="video_archive_badge_synced">SYNCED</string>
+<string name="video_archive_badge_syncing">SYNCING</string>
+<string name="video_archive_badge_queued">QUEUED</string>
+<string name="video_archive_badge_failed">FAILED</string>
+<string name="video_archive_badge_local">LOCAL</string>
+<string name="video_archive_telemetry">Telemetry</string>
+<string name="video_archive_no_telemetry_snapshot">No telemetry snapshot</string>
+<string name="video_archive_speed_na">speed n/a</string>
+<string name="video_archive_heading_na">heading n/a</string>
+<string name="video_archive_gps_na">GPS n/a</string>
+<string name="video_archive_telemetry_samples_linked">%1$d telemetry samples linked</string>
+<string name="video_archive_empty_title">Video archive is empty</string>
+<string name="video_archive_empty_subtitle">Records and crash clips will appear here</string>
+<string name="video_archive_camera_road">Road</string>
+<string name="video_archive_camera_driver">Driver</string>
+<string name="video_archive_video_clip_title">%1$s • clip %2$d</string>
+<string name="video_archive_duration_size">%1$s • %2$s</string>
+<string name="video_archive_upload_local">local</string>
+<string name="video_archive_upload_queued">queued</string>
+<string name="video_archive_upload_syncing">syncing</string>
+<string name="video_archive_upload_synced">synced</string>
+<string name="video_archive_upload_failed">failed</string>
+
+<string name="fish_game_title">How smoothly do you drive?</string>
+
+<string name="fish_game_description">
+Move the glass carefully — the water reacts to motion and may spill. The fish can die.
+</string>
+
+<string name="fish_game_close">Close</string>
+
+<string name="fish_game_finished">Game Over</string>
+
+<string name="fish_game_bonus">Bonus earned: %1$.1f%%</string>
+<string name="fish_game_spilled_total">Total spilled: %1$.1f%%</string>
+
+<string name="driver_title">Driver</string>
+<string name="driver_not_selected">No driver selected</string>
+<string name="driver_not_selected_short">Not selected</string>
+<string name="driver_hero_trip_active">Changing driver during an active trip is not recommended.</string>
+<string name="driver_hero_existing_profile">This profile is used to link trips and calculate personal statistics.</string>
+<string name="driver_hero_enter_id">Enter a driver ID. If the driver already exists, a password will be required. If not, a new profile will be created.</string>
+
+<string name="driver_id_section">Driver ID</string>
+<string name="driver_id_label">Driver ID</string>
+<string name="driver_id_placeholder">Example: alex</string>
+
+<string name="driver_footnote_enter_id">Tap “Continue” to check the driver ID on the server.</string>
+<string name="driver_footnote_new_driver">This driver does not exist yet. Enter a password to create a profile.</string>
+<string name="driver_footnote_existing_driver">This driver already exists. Enter the password to sign in.</string>
+<string name="driver_checking_data">Checking data…</string>
+
+<string name="driver_section_status">Status</string>
+<string name="driver_active_driver">Active driver</string>
+<string name="driver_device">Device</string>
+<string name="driver_trip_recording">Trip recording</string>
+<string name="driver_recording_ready">Ready</string>
+<string name="driver_recording_needs_driver">Driver required</string>
+
+<string name="driver_section_account">Account</string>
+<string name="driver_delete_account">Delete account</string>
+<string name="driver_setup_footer">Driver setup</string>
+
+<string name="driver_password">Password</string>
+<string name="driver_password_placeholder">Enter password</string>
+<string name="driver_create">Create</string>
+<string name="driver_sign_in">Sign in</string>
+<string name="driver_checking">Checking…</string>
+
+<string name="driver_account_deleted">Account deleted</string>
+<string name="driver_error_unknown_server_response">Unknown server response: %1$s</string>
+<string name="driver_error_server_still_requires_password">The server still requires a password.</string>
+<string name="driver_error_driver_not_created">The driver was not created on the server.</string>
+
+<string name="driver_auth_error_not_found">Driver ID not found.</string>
+<string name="driver_auth_error_invalid_password">Invalid password.</string>
+<string name="driver_auth_error_device_confirmation_failed">Could not confirm the device.</string>
+<string name="driver_auth_error_device_not_authorized">This device is not authorized for the selected driver ID.</string>
+<string name="driver_auth_error_service_unavailable">The authorization service is temporarily unavailable. Try again.</string>
+<string name="driver_auth_error_generic">Could not sign in. Try again.</string>
+
+<string name="common_back">Back</string>
+<string name="common_back_chevron">‹ Back</string>
+<string name="common_continue">Continue</string>
+
+<string name="permissions_back">‹ Back</string>
+<string name="permissions_title">Permissions</string>
+<string name="permissions_description">Configure permissions so trips are recorded reliably even after the screen is locked, the app restarts, or the phone reboots.</string>
+
+<string name="permissions_stable_recording_title">Stable trip recording</string>
+<string name="permissions_hero_description">Android can restrict background processes. These settings help the app behave closer to the Swift build.</string>
+
+<string name="permissions_recommended">Recommended</string>
+<string name="permissions_location_title">Location</string>
+<string name="permissions_location_subtitle">Required to detect trips and routes correctly.</string>
+<string name="permissions_background_title">Background activity</string>
+<string name="permissions_background_subtitle">Helps avoid losing a trip when the screen is off.</string>
+<string name="permissions_app_settings_title">App settings</string>
+<string name="permissions_app_settings_subtitle">Open system settings if recording is unstable.</string>
+<string name="permissions_check">Check</string>
+<string name="permissions_open">Open</string>
+
+<string name="permissions_why_title">Why this matters</string>
+<string name="permissions_replay_safe_subtitle">If the app stops, an unfinished trip can be restored.</string>
+<string name="permissions_offline_safe_subtitle">Data is saved locally and sent later.</string>
+<string name="permissions_reboot_safe_subtitle">After a reboot, the device can continue processing state correctly.</string>
+
+<string name="permissions_done">Done</string>
+
+<string name="common_not_available">n/a</string>
+<string name="video_player_back">Back</string>
+<string name="video_player_emergency_clip">Emergency Clip</string>
+<string name="video_player_dashcam_playback">Dashcam Playback</string>
+<string name="video_player_badge_emergency">EMERGENCY</string>
+<string name="video_player_badge_protected">PROTECTED</string>
+<string name="video_player_upload_synced">SYNCED</string>
+<string name="video_player_upload_syncing">SYNCING</string>
+<string name="video_player_upload_queued">QUEUED</string>
+<string name="video_player_upload_failed">FAILED</string>
+<string name="video_player_upload_local">LOCAL</string>
+<string name="video_player_crash_details">Crash Details</string>
+<string name="video_player_detected">Detected</string>
+<string name="video_player_impact">Impact</string>
+<string name="video_player_window">Window</string>
+<string name="video_player_segments">Segments</string>
+<string name="video_player_speed">Speed</string>
+<string name="video_player_heading">Heading</string>
+<string name="video_player_gps">GPS</string>
+<string name="video_player_trip">Trip</string>
+<string name="video_player_camera_road">Road</string>
+<string name="video_player_camera_driver">Driver</string>
+<string name="video_player_segment_details">Segment Details</string>
+<string name="video_player_started">Started</string>
+<string name="video_player_duration">Duration</string>
+<string name="video_player_size">Size</string>
+<string name="video_player_clip">Clip</string>
+<string name="video_player_session">Session</string>
+<string name="video_player_crash_timeline">Crash Timeline</string>
+<string name="video_player_timeline_impact">impact</string>
+<string name="video_player_telemetry_samples_linked">%1$d telemetry samples linked</string>
+<string name="video_player_video">Video</string>
+<string name="video_player_path">Path</string>
+<string name="dashcam_recording_notification_title">Dashcam recording</string>
+<string name="dashcam_recording_notification_text">Dashcam recording is active</string>
+<string name="dashcam_recording_channel_name">Dashcam recording</string>
+<string name="dashcam_recording_channel_description">Foreground service for dashcam recording</string>
+<string name="notification_telemetry_ready_title">Telemetry ready</string>
+<string name="notification_telemetry_ready_text">Background monitoring service is ready</string>
+<string name="notification_day_monitoring_title">Day monitoring active</string>
+<string name="notification_day_monitoring_text">Waiting for driving activity</string>
+<string name="notification_auto_trip_active_title">Auto trip active</string>
+<string name="notification_trip_active_title">Trip active</string>
+<string name="notification_active_trip_text">Session %1$s · delivered batches %2$d</string>
+<string name="notification_finishing_trip_title">Finishing trip</string>
+<string name="notification_finishing_trip_text">Uploading remaining telemetry · Session %1$s</string>
+<string name="notification_replaying_title">Telemetry replaying</string>
+<string name="notification_replaying_text">Restoring pending trip data · Session %1$s</string>
+<string name="runtime_warnings_title">Runtime warnings</string>
+<string name="runtime_warning_no_driver">No driver logged in</string>
+<string name="runtime_warning_fine_location_missing">Fine location permission missing</string>
+<string name="runtime_warning_background_location_missing">Background location permission missing</string>
+<string name="runtime_warning_notifications_disabled">Notifications permission disabled</string>
+<string name="runtime_warning_location_services_disabled">Location services disabled</string>
+<string name="runtime_warning_battery_optimization_enabled">Battery optimization enabled</string>
+<string name="runtime_warning_telemetry_paused">Telemetry paused</string>
+<string name="runtime_warning_background_restriction_active">System background restriction is active</string>
+<string name="runtime_warning_standby_bucket_restrictive">App standby bucket is restrictive: %1$s</string>
+<string name="runtime_warning_samsung_sleeping_apps">Samsung sleeping apps may stop telemetry in background</string>
+<string name="runtime_warning_miui_autostart">MIUI may block background telemetry unless autostart is allowed</string>
+<string name="runtime_warning_huawei_restriction">Huawei/Honor may aggressively stop background telemetry</string>
+
+
+
+
 </resources>

@@ -59,6 +59,7 @@ import java.util.Date
 import java.util.Locale
 import java.util.TimeZone
 import java.util.UUID
+import androidx.compose.ui.res.stringResource
 
 
 private data class Droplet(
@@ -379,7 +380,7 @@ fun SaveFishGameScreen(
             contentPadding = PaddingValues(horizontal = 12.dp, vertical = 8.dp),
         ) {
             Text(
-                text = "Закрыть",
+                text = stringResource(R.string.fish_game_close),
                 fontSize = 16.sp,
                 fontWeight = FontWeight.SemiBold,
                 color = Color.White,
@@ -406,7 +407,7 @@ fun SaveFishGameScreen(
                 val gameOverVisual = isGameOver || progress01 >= 0.999f
 
                 Text(
-                    text = if (gameOverVisual) "Игра окончена" else "Как плавно вы водите?",
+                    text = if (gameOverVisual) stringResource(R.string.fish_game_finished) else stringResource(R.string.fish_game_title),
                     modifier = Modifier.fillMaxWidth(),
                     fontSize = 24.sp,
                     fontWeight = FontWeight.SemiBold,
@@ -417,14 +418,20 @@ fun SaveFishGameScreen(
                 Spacer(modifier = Modifier.height(8.dp))
 
                 Text(
-                    text = "Всего разлили: ${"%.1f".format(spilledPercent)}%",
+                    text = stringResource(
+                        R.string.fish_game_spilled_total,
+                        spilledPercent,
+                    ),
                     fontSize = 14.sp,
                     fontWeight = FontWeight.SemiBold,
                     color = Color.White.copy(alpha = 0.90f),
                 )
 
                 Text(
-                    text = "Получили бонусом: ${"%.1f".format(refillBonusPercent)}%",
+                    text = stringResource(
+                        R.string.fish_game_bonus,
+                        refillBonusPercent,
+                    ),
                     fontSize = 14.sp,
                     fontWeight = FontWeight.SemiBold,
                     color = Color(0xFF34C759).copy(alpha = 0.90f),
@@ -463,7 +470,7 @@ fun SaveFishGameScreen(
             Spacer(modifier = Modifier.height(18.dp))
 
             Text(
-                text = "Осторожно передвигайте стакан — вода реагирует на движение и разливается! Рыбка может погибнуть.",
+                text = stringResource(R.string.fish_game_description),
 
                 modifier = Modifier
                     .fillMaxWidth()
@@ -523,13 +530,13 @@ private fun WaterGlassCanvas(
             return Path().apply {
                 moveTo(topLeft.x + corner, topLeft.y)
                 lineTo(topRight.x - corner, topRight.y)
-                quadraticBezierTo(topRight.x, topRight.y, topRight.x, topRight.y + corner)
+                quadraticTo(topRight.x, topRight.y, topRight.x, topRight.y + corner)
                 lineTo(bottomRight.x, bottomRight.y - corner)
-                quadraticBezierTo(bottomRight.x, bottomRight.y, bottomRight.x - corner, bottomRight.y)
+                quadraticTo(bottomRight.x, bottomRight.y, bottomRight.x - corner, bottomRight.y)
                 lineTo(bottomLeft.x + corner, bottomLeft.y)
-                quadraticBezierTo(bottomLeft.x, bottomLeft.y, bottomLeft.x, bottomLeft.y - corner)
+                quadraticTo(bottomLeft.x, bottomLeft.y, bottomLeft.x, bottomLeft.y - corner)
                 lineTo(topLeft.x, topLeft.y + corner)
-                quadraticBezierTo(topLeft.x, topLeft.y, topLeft.x + corner, topLeft.y)
+                quadraticTo(topLeft.x, topLeft.y, topLeft.x + corner, topLeft.y)
                 close()
             }
         }

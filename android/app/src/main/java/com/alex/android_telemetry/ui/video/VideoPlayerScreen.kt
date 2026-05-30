@@ -31,6 +31,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -39,6 +40,7 @@ import androidx.media3.common.MediaItem
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.ui.PlayerView
+import com.alex.android_telemetry.R
 import java.io.File
 import java.text.SimpleDateFormat
 import java.util.Date
@@ -182,7 +184,7 @@ private fun PlayerHeader(
             shape = RoundedCornerShape(18.dp),
             elevation = ButtonDefaults.buttonElevation(defaultElevation = 0.dp),
         ) {
-            Text("Назад")
+            Text(stringResource(R.string.video_player_back))
         }
 
         Spacer(modifier = Modifier.weight(1f))
@@ -190,9 +192,9 @@ private fun PlayerHeader(
         Text(
             text =
                 if (isCrashClip) {
-                    "Emergency Clip"
+                    stringResource(R.string.video_player_emergency_clip)
                 } else {
-                    "Dashcam Playback"
+                    stringResource(R.string.video_player_dashcam_playback)
                 },
             color = Color.White,
             fontSize = 21.sp,
@@ -222,14 +224,14 @@ private fun CrashPlayerMetadataCard(
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 ArchiveBadge(
-                    text = "EMERGENCY",
+                    text = stringResource(R.string.video_player_badge_emergency),
                     color = Color(0xFFFF453A),
                 )
 
                 Spacer(modifier = Modifier.width(8.dp))
 
                 ArchiveBadge(
-                    text = "PROTECTED",
+                    text = stringResource(R.string.video_player_badge_protected),
                     color = Color(0xFFFF9F0A),
                 )
 
@@ -238,11 +240,11 @@ private fun CrashPlayerMetadataCard(
                 ArchiveBadge(
                     text =
                         when (item.uploadState) {
-                            CrashClipUploadState.UPLOADED -> "SYNCED"
-                            CrashClipUploadState.UPLOADING -> "SYNCING"
-                            CrashClipUploadState.QUEUED -> "QUEUED"
-                            CrashClipUploadState.FAILED -> "FAILED"
-                            CrashClipUploadState.LOCAL_ONLY -> "LOCAL"
+                            CrashClipUploadState.UPLOADED -> stringResource(R.string.video_player_upload_synced)
+                            CrashClipUploadState.UPLOADING -> stringResource(R.string.video_player_upload_syncing)
+                            CrashClipUploadState.QUEUED -> stringResource(R.string.video_player_upload_queued)
+                            CrashClipUploadState.FAILED -> stringResource(R.string.video_player_upload_failed)
+                            CrashClipUploadState.LOCAL_ONLY -> stringResource(R.string.video_player_upload_local)
                         },
                     color =
                         when (item.uploadState) {
@@ -258,7 +260,7 @@ private fun CrashPlayerMetadataCard(
             Spacer(modifier = Modifier.height(14.dp))
 
             Text(
-                text = "Crash Details",
+                text = stringResource(R.string.video_player_crash_details),
                 color = Color.White,
                 fontSize = 18.sp,
                 fontWeight = FontWeight.SemiBold,
@@ -267,44 +269,44 @@ private fun CrashPlayerMetadataCard(
             Spacer(modifier = Modifier.height(8.dp))
 
             MetadataLine(
-                label = "Detected",
+                label = stringResource(R.string.video_player_detected),
                 value = formatVideoDate(item.detectedAtMs),
             )
 
             MetadataLine(
-                label = "Impact",
+                label = stringResource(R.string.video_player_impact),
                 value = "${formatGForce(item.gForce)}g",
             )
 
             MetadataLine(
-                label = "Window",
+                label = stringResource(R.string.video_player_window),
                 value = "-${item.preCrashMs / 1000}s / +${item.postCrashMs / 1000}s",
             )
 
             MetadataLine(
-                label = "Segments",
+                label = stringResource(R.string.video_player_segments),
                 value = item.segmentPaths.size.toString(),
             )
 
             if (snapshot != null) {
                 MetadataLine(
-                    label = "Speed",
+                    label = stringResource(R.string.video_player_speed),
                     value =
                         snapshot.speedKmh?.let {
                             "${it.toInt()} km/h"
-                        } ?: "n/a",
+                        } ?: stringResource(R.string.common_not_available),
                 )
 
                 MetadataLine(
-                    label = "Heading",
+                    label = stringResource(R.string.video_player_heading),
                     value =
                         snapshot.headingDeg?.let {
                             "${it.toInt()}°"
-                        } ?: "n/a",
+                        } ?: stringResource(R.string.common_not_available),
                 )
 
                 MetadataLine(
-                    label = "GPS",
+                    label = stringResource(R.string.video_player_gps),
                     value =
                         if (snapshot.lat != null && snapshot.lon != null) {
                             String.format(
@@ -314,13 +316,13 @@ private fun CrashPlayerMetadataCard(
                                 snapshot.lon,
                             )
                         } else {
-                            "n/a"
+                            stringResource(R.string.common_not_available)
                         },
                 )
 
                 MetadataLine(
-                    label = "Trip",
-                    value = snapshot.tripSessionId ?: "n/a",
+                    label = stringResource(R.string.video_player_trip),
+                    value = snapshot.tripSessionId ?: stringResource(R.string.common_not_available),
                 )
             }
         }
@@ -333,8 +335,8 @@ private fun SegmentPlayerMetadataCard(
 ) {
     val camera =
         when (item.cameraType) {
-            DashcamCameraType.ROAD -> "Дорога"
-            DashcamCameraType.DRIVER -> "Водитель"
+            DashcamCameraType.ROAD -> stringResource(R.string.video_player_camera_road)
+            DashcamCameraType.DRIVER -> stringResource(R.string.video_player_camera_driver)
         }
 
     Card(
@@ -352,7 +354,7 @@ private fun SegmentPlayerMetadataCard(
             ) {
                 if (item.isEmergency || item.isProtected) {
                     ArchiveBadge(
-                        text = "PROTECTED",
+                        text = stringResource(R.string.video_player_badge_protected),
                         color = Color(0xFFFF9F0A),
                     )
 
@@ -368,7 +370,7 @@ private fun SegmentPlayerMetadataCard(
             Spacer(modifier = Modifier.height(14.dp))
 
             Text(
-                text = "Segment Details",
+                text = stringResource(R.string.video_player_segment_details),
                 color = Color.White,
                 fontSize = 18.sp,
                 fontWeight = FontWeight.SemiBold,
@@ -377,28 +379,28 @@ private fun SegmentPlayerMetadataCard(
             Spacer(modifier = Modifier.height(8.dp))
 
             MetadataLine(
-                label = "Started",
+                label = stringResource(R.string.video_player_started),
                 value = formatVideoDate(item.startedAtMs),
             )
 
             MetadataLine(
-                label = "Duration",
+                label = stringResource(R.string.video_player_duration),
                 value = formatDuration(item.durationMs),
             )
 
             MetadataLine(
-                label = "Size",
+                label = stringResource(R.string.video_player_size),
                 value = formatFileSize(item.sizeBytes),
             )
 
             MetadataLine(
-                label = "Clip",
+                label = stringResource(R.string.video_player_clip),
                 value = item.segmentIndex.toString(),
             )
 
             MetadataLine(
-                label = "Session",
-                value = item.rollingSessionId ?: "n/a",
+                label = stringResource(R.string.video_player_session),
+                value = item.rollingSessionId ?: stringResource(R.string.common_not_available),
             )
         }
     }
@@ -419,7 +421,7 @@ private fun CrashPlayerTimelineCard(
             modifier = Modifier.padding(16.dp),
         ) {
             Text(
-                text = "Crash Timeline",
+                text = stringResource(R.string.video_player_crash_timeline),
                 color = Color.White,
                 fontSize = 18.sp,
                 fontWeight = FontWeight.SemiBold,
@@ -444,7 +446,7 @@ private fun CrashPlayerTimelineCard(
                 )
 
                 TimelineDot(
-                    label = "impact",
+                    label = stringResource(R.string.video_player_timeline_impact),
                     color = Color(0xFFFF453A),
                 )
 
@@ -464,7 +466,7 @@ private fun CrashPlayerTimelineCard(
             Spacer(modifier = Modifier.height(12.dp))
 
             Text(
-                text = "${item.telemetryTimeline.size} telemetry samples linked",
+                text = stringResource(R.string.video_player_telemetry_samples_linked, item.telemetryTimeline.size),
                 color = Color(0xFF8E8E93),
                 fontSize = 13.sp,
             )
@@ -487,7 +489,7 @@ private fun UnknownVideoMetadataCard(
             modifier = Modifier.padding(16.dp),
         ) {
             Text(
-                text = "Video",
+                text = stringResource(R.string.video_player_video),
                 color = Color.White,
                 fontSize = 18.sp,
                 fontWeight = FontWeight.SemiBold,
@@ -496,7 +498,7 @@ private fun UnknownVideoMetadataCard(
             Spacer(modifier = Modifier.height(8.dp))
 
             MetadataLine(
-                label = "Path",
+                label = stringResource(R.string.video_player_path),
                 value = videoPath.substringAfterLast('/'),
             )
         }

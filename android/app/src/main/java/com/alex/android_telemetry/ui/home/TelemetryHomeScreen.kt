@@ -48,6 +48,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -55,6 +56,7 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.compose.LocalLifecycleOwner
+import com.alex.android_telemetry.R
 import com.alex.android_telemetry.telemetry.domain.model.TelemetryMode
 import com.alex.android_telemetry.telemetry.domain.model.TripRuntimeState
 import com.alex.android_telemetry.telemetry.trips.api.DriverHomeResponseDto
@@ -119,6 +121,10 @@ fun TelemetryHomeScreen(
 ) {
     val isTripActive = state.telemetryMode != TelemetryMode.IDLE
     val hasDriver = !currentDriverId.isNullOrBlank()
+
+    val crashDetectedLabel = stringResource(R.string.home_crash_detected)
+    val ratingLoadErrorFallback = stringResource(R.string.home_rating_load_error)
+    val selectDriverFirstMessage = stringResource(R.string.home_select_driver_first)
 
     var homeMetrics by remember { mutableStateOf<DriverHomeResponseDto?>(null) }
     var homeMetricsError by remember { mutableStateOf<String?>(null) }
@@ -324,7 +330,7 @@ fun TelemetryHomeScreen(
             dashcamCrashCoordinator.handleCrashDetected(crashEvent)
 
             crashAlertText =
-                "Авария обнаружена • ${"%.2f".format(crashEvent.gForce)}g"
+                crashDetectedLabel + " • ${"%.2f".format(crashEvent.gForce)}g"
 
             crashAlertVisible = true
 
@@ -379,7 +385,7 @@ fun TelemetryHomeScreen(
             homeMetricsError = null
         }.onFailure { throwable ->
             homeMetrics = null
-            homeMetricsError = throwable.message ?: "Не удалось загрузить рейтинг"
+            homeMetricsError = throwable.message ?: ratingLoadErrorFallback
         }
 
         isLoadingHomeMetrics = false
@@ -398,14 +404,14 @@ fun TelemetryHomeScreen(
                 .padding(top = 18.dp, bottom = 34.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp),
         ) {
-        HomeToolbar(
-            onOpenSettings = onOpenPermissionsBackground,
-        )
+            HomeToolbar(
+                onOpenSettings = onOpenPermissionsBackground,
+            )
 
             if (!hasLocationPermission && !locationWarningDismissed) {
                 PermissionWarningCard(
-                    title = "Геолокация отключена",
-                    message = "Телеметрия работает, но данные поездки могут быть менее точными.",
+                    title = stringResource(R.string.home_location_disabled_title),
+                    message = stringResource(R.string.home_location_disabled_message),
                     onOpenSettings = openAppSettings,
                     onDismiss = {
                         locationWarningDismissed = true
@@ -415,8 +421,8 @@ fun TelemetryHomeScreen(
 
             if (!hasCameraPermission && !cameraWarningDismissed) {
                 PermissionWarningCard(
-                    title = "Нет доступа к камере",
-                    message = "Видеозапись может быть недоступна.",
+                    title = stringResource(R.string.home_camera_permission_title),
+                    message = stringResource(R.string.home_camera_permission_message),
                     onOpenSettings = openAppSettings,
                     onDismiss = {
                         cameraWarningDismissed = true
@@ -426,8 +432,8 @@ fun TelemetryHomeScreen(
 
             if (!hasMicrophonePermission && !microphoneWarningDismissed) {
                 PermissionWarningCard(
-                    title = "Нет доступа к микрофону",
-                    message = "Видео будет записываться без звука.",
+                    title = stringResource(R.string.home_microphone_permission_title),
+                    message = stringResource(R.string.home_microphone_permission_message),
                     onOpenSettings = openAppSettings,
                     onDismiss = {
                         microphoneWarningDismissed = true
@@ -436,17 +442,17 @@ fun TelemetryHomeScreen(
             }
 
 
-        DriverScoreCard(
-            metrics = homeMetrics,
-            isLoading = isLoadingHomeMetrics,
-            errorText = homeMetricsError,
-            currentDriverId = currentDriverId,
-            onTripsTap = onOpenTripsArchive,
-        )
+            DriverScoreCard(
+                metrics = homeMetrics,
+                isLoading = isLoadingHomeMetrics,
+                errorText = homeMetricsError,
+                currentDriverId = currentDriverId,
+                onTripsTap = onOpenTripsArchive,
+            )
 
-        TripStateBadge(
-            isTripActive = isTripActive,
-        )
+            TripStateBadge(
+                isTripActive = isTripActive,
+            )
 
             TripSummaryCard(
                 state = state,
@@ -464,7 +470,7 @@ fun TelemetryHomeScreen(
                         android.widget.Toast
                             .makeText(
                                 context,
-                                "Сначала выбери водителя в настройках",
+                                selectDriverFirstMessage,
                                 android.widget.Toast.LENGTH_SHORT,
                             )
                             .show()
@@ -508,7 +514,7 @@ fun TelemetryHomeScreen(
                             android.widget.Toast
                                 .makeText(
                                     context,
-                                    "Сначала выбери водителя в настройках",
+                                    selectDriverFirstMessage,
                                     android.widget.Toast.LENGTH_SHORT,
                                 )
                                 .show()
@@ -549,48 +555,48 @@ fun TelemetryHomeScreen(
                 onOpenVideoArchive = onOpenVideoArchive,
             )
 
-        TrackingModeSegment()
+            TrackingModeSegment()
 
-        SaveFishButton(
-            onClick = onOpenSaveFishGame,
-        )
-
-        TextButton(
-            onClick = onOpenDiagnostics,
-            modifier = Modifier.fillMaxWidth(),
-        ) {
-            Text(
-                text = "Диагностика",
-                color = SwiftSecondaryText,
-                style = TelemetryTypography.Callout,
+            SaveFishButton(
+                onClick = onOpenSaveFishGame,
             )
+
+            TextButton(
+                onClick = onOpenDiagnostics,
+                modifier = Modifier.fillMaxWidth(),
+            ) {
+                Text(
+                    text = stringResource(R.string.home_diagnostics),
+                    color = SwiftSecondaryText,
+                    style = TelemetryTypography.Callout,
+                )
+            }
         }
-    }
-    AnimatedVisibility(
-        visible = crashAlertVisible,
-        modifier =
-            Modifier
-                .align(Alignment.TopCenter)
-                .padding(top = 18.dp),
-    ) {
-        Box(
+        AnimatedVisibility(
+            visible = crashAlertVisible,
             modifier =
                 Modifier
-                    .clip(RoundedCornerShape(24.dp))
-                    .background(Color(0xFFFF453A))
-                    .padding(
-                        horizontal = 18.dp,
-                        vertical = 14.dp,
-                    ),
+                    .align(Alignment.TopCenter)
+                    .padding(top = 18.dp),
         ) {
-            Text(
-                text = crashAlertText,
-                color = Color.White,
-                fontSize = 15.sp,
-                fontWeight = FontWeight.SemiBold,
-            )
+            Box(
+                modifier =
+                    Modifier
+                        .clip(RoundedCornerShape(24.dp))
+                        .background(Color(0xFFFF453A))
+                        .padding(
+                            horizontal = 18.dp,
+                            vertical = 14.dp,
+                        ),
+            ) {
+                Text(
+                    text = crashAlertText,
+                    color = Color.White,
+                    fontSize = 15.sp,
+                    fontWeight = FontWeight.SemiBold,
+                )
+            }
         }
-    }
     }
 }
 
@@ -640,7 +646,7 @@ private fun PermissionWarningCard(
                 modifier = Modifier.align(Alignment.Start),
             ) {
                 Text(
-                    text = "Открыть настройки",
+                    text = stringResource(R.string.home_open_settings),
                     color = SwiftBlue,
                     fontSize = 14.sp,
                     fontWeight = FontWeight.SemiBold,
@@ -687,7 +693,7 @@ private fun HomeToolbar(
                 .padding(horizontal = 18.dp, vertical = 5.dp),
         ) {
             Text(
-                text = "Настройки",
+                text = stringResource(R.string.home_settings),
                 color = Color.Black,
                 style = TelemetryTypography.Title2,
             )
@@ -711,17 +717,17 @@ private fun DriverScoreCard(
     }
 
     val primarySubtitle = when {
-        currentDriverId.isNullOrBlank() -> "Водитель не выбран"
-        isLoading -> "Загружаем рейтинг…"
-        errorText != null -> "Рейтинг временно недоступен"
+        currentDriverId.isNullOrBlank() -> stringResource(R.string.home_driver_not_selected)
+        isLoading -> stringResource(R.string.home_rating_loading)
+        errorText != null -> stringResource(R.string.home_rating_unavailable)
         metrics?.driverLevel != null -> localizedDriverLevel(metrics.driverLevel)
-        metrics?.ratingStatus == "forming" -> "Рейтинг формируется"
-        metrics != null -> "Рейтинг рассчитан"
-        else -> "Рейтинг появится после поездок"
+        metrics?.ratingStatus == "forming" -> stringResource(R.string.home_rating_forming)
+        metrics != null -> stringResource(R.string.home_rating_ready)
+        else -> stringResource(R.string.home_rating_after_trips)
     }
 
     val ratingFormingText = if (metrics?.ratingStatus == "forming") {
-        "Рейтинг формируется · осталось поездок: ${metrics.tripsToUnlockPercentile}"
+        stringResource(R.string.home_rating_forming_trips_left, metrics.tripsToUnlockPercentile)
     } else {
         null
     }
@@ -740,7 +746,7 @@ private fun DriverScoreCard(
             verticalArrangement = Arrangement.spacedBy(8.dp),
         ) {
             Text(
-                text = "Оценка вождения",
+                text = stringResource(R.string.home_driver_score_title),
                 color = Color.Black,
                 style = TelemetryTypography.Title1,
                 textAlign = TextAlign.Center,
@@ -762,7 +768,7 @@ private fun DriverScoreCard(
 
             if (!currentDriverId.isNullOrBlank()) {
                 Text(
-                    text = "Водитель: $currentDriverId",
+                    text = stringResource(R.string.home_driver_value, currentDriverId),
                     color = SwiftSecondaryText,
                     style = TelemetryTypography.Body,
                     textAlign = TextAlign.Center,
@@ -830,7 +836,7 @@ private fun DriverScoreCard(
                         )
 
                         Text(
-                            text = "Сохраните зелёную серию в следующей поездке",
+                            text = stringResource(R.string.home_keep_green_streak),
                             color = SwiftSecondaryText,
                             style = TelemetryTypography.Body,
                             textAlign = TextAlign.Center,
@@ -841,7 +847,7 @@ private fun DriverScoreCard(
 
             if (errorText != null) {
                 Text(
-                    text = "Данные рейтинга временно недоступны",
+                    text = stringResource(R.string.home_rating_data_unavailable),
                     color = SwiftSecondaryText,
                     style = TelemetryTypography.Caption,
                     textAlign = TextAlign.Center,
@@ -878,7 +884,7 @@ private fun TripStateBadge(
             )
 
             Text(
-                text = if (isTripActive) "Запись" else "Готово",
+                text = if (isTripActive) stringResource(R.string.home_trip_recording) else stringResource(R.string.home_trip_ready),
                 color = Color.Black,
                 style = TelemetryTypography.Title2,
             )
@@ -911,20 +917,20 @@ private fun TripSummaryCard(
         ) {
             TripSummaryRow(
                 icon = "◴",
-                label = "Текущая скорость",
+                label = stringResource(R.string.home_current_speed),
                 value = "${formatOneDecimal((state.currentSpeedMS ?: 0.0) * 3.6)} km/h",
             )
 
             TripSummaryRow(
                 icon = "↻",
-                label = "Время поездки",
+                label = stringResource(R.string.home_trip_time),
                 value = formatElapsed(elapsedSec),
             )
 
             TripSummaryRow(
                 icon = "▤",
-                label = "Дистанция",
-                value = "${formatTwoDecimals(distanceKm)} км",
+                label = stringResource(R.string.home_distance),
+                value = stringResource(R.string.home_distance_km_value, formatTwoDecimals(distanceKm)),
             )
         }
     }
@@ -1000,7 +1006,7 @@ private fun StartStopControls(
             ),
         ) {
             Text(
-                text = "Старт",
+                text = stringResource(R.string.home_start),
                 style = TelemetryTypography.Title2,
             )
         }
@@ -1020,7 +1026,7 @@ private fun StartStopControls(
             ),
         ) {
             Text(
-                text = "Стоп",
+                text = stringResource(R.string.home_stop),
                 style = TelemetryTypography.Title2,
             )
         }
@@ -1038,14 +1044,14 @@ private fun ArchiveActions(
         horizontalArrangement = Arrangement.spacedBy(12.dp),
     ) {
         PillButton(
-            text = "Архив поездок",
+            text = stringResource(R.string.home_trips_archive),
             modifier = Modifier.weight(1f),
             height = 58,
             onClick = onOpenTripsArchive,
         )
 
         PillButton(
-            text = "Архив видео",
+            text = stringResource(R.string.home_video_archive),
             modifier = Modifier.weight(1f),
             height = 58,
             onClick = onOpenVideoArchive,
@@ -1058,7 +1064,7 @@ private fun VideoModeButton(
     onOpenVideoMode: () -> Unit,
 ) {
     PillButton(
-        text = "Видеорежим",
+        text = stringResource(R.string.home_video_mode),
         modifier = Modifier.fillMaxWidth(),
         height = 64,
         onClick = onOpenVideoMode,
@@ -1075,7 +1081,7 @@ private fun SaveFishButton(
     onClick: () -> Unit,
 ) {
     PillButton(
-        text = "≋  Игра Спаси Рыбку",
+        text = stringResource(R.string.home_save_fish_game),
         modifier = Modifier.fillMaxWidth(),
         height = 64,
         onClick = onClick,
@@ -1189,6 +1195,7 @@ private fun DashcamBlock(
     onSelectDriverCamera: () -> Unit,
 ) {
     val context = LocalContext.current
+    val cameraSwitchRequiresNewRecordingMessage = stringResource(R.string.home_camera_switch_requires_new_recording)
 
     var permissionsRefreshKey by remember {
         mutableIntStateOf(0)
@@ -1278,9 +1285,9 @@ private fun DashcamBlock(
                 Text(
                     text =
                         if (isRecording) {
-                            "Идёт видеозапись"
+                            stringResource(R.string.home_video_recording)
                         } else {
-                            "Видеорежим"
+                            stringResource(R.string.home_video_mode)
                         },
                     fontSize = 18.sp,
                     fontWeight = FontWeight.SemiBold,
@@ -1304,9 +1311,9 @@ private fun DashcamBlock(
             PillButton(
                 text =
                     if (showPreview) {
-                        "Скрыть камеру"
+                        stringResource(R.string.home_hide_camera)
                     } else {
-                        "Показать камеру"
+                        stringResource(R.string.home_show_camera)
                     },
                 modifier = Modifier.weight(1f),
                 height = 72,
@@ -1316,9 +1323,9 @@ private fun DashcamBlock(
             PillButton(
                 text =
                     if (isRecording) {
-                        "Стоп видео"
+                        stringResource(R.string.home_stop_video)
                     } else {
-                        "Старт видео"
+                        stringResource(R.string.home_start_video)
                     },
                 modifier = Modifier.weight(1f),
                 height = 72,
@@ -1345,7 +1352,7 @@ private fun DashcamBlock(
             horizontalArrangement = Arrangement.spacedBy(4.dp),
         ) {
             CameraSegmentButton(
-                text = "Дорога",
+                text = stringResource(R.string.home_road_camera),
                 selected = !useFrontCamera,
                 modifier = Modifier.weight(1f),
                 onClick = {
@@ -1355,7 +1362,7 @@ private fun DashcamBlock(
                         android.widget.Toast
                             .makeText(
                                 context,
-                                "Переключение камер возможно при старте новой записи",
+                                cameraSwitchRequiresNewRecordingMessage,
                                 android.widget.Toast.LENGTH_SHORT,
                             )
                             .show()
@@ -1364,7 +1371,7 @@ private fun DashcamBlock(
             )
 
             CameraSegmentButton(
-                text = "Водитель",
+                text = stringResource(R.string.home_driver_camera),
                 selected = useFrontCamera,
                 modifier = Modifier.weight(1f),
                 onClick = {
@@ -1374,7 +1381,7 @@ private fun DashcamBlock(
                         android.widget.Toast
                             .makeText(
                                 context,
-                                "Переключение камер возможно при старте новой записи",
+                                cameraSwitchRequiresNewRecordingMessage,
                                 android.widget.Toast.LENGTH_SHORT,
                             )
                             .show()
@@ -1497,7 +1504,7 @@ private fun InlineCameraPreview(
                 modifier = Modifier.padding(20.dp),
             ) {
                 Text(
-                    text = "Нужно разрешение камеры",
+                    text = stringResource(R.string.home_camera_permission_required),
                     color = Color.White,
                     fontSize = 16.sp,
                     textAlign = TextAlign.Center,
@@ -1525,7 +1532,7 @@ private fun InlineCameraPreview(
                         contentColor = Color.White,
                     ),
                 ) {
-                    Text("Открыть настройки")
+                    Text(stringResource(R.string.home_open_settings))
                 }
             }
         }
@@ -1597,17 +1604,19 @@ private fun formatDashcamTime(seconds: Int): String {
     )
 }
 
+@Composable
 private fun formatScoreDelta(value: Double?): String? {
     if (value == null) return null
 
     val rounded = formatOneDecimal(abs(value))
     return when {
-        value > 0.0 -> "↗ +$rounded за последние 5 поездок"
-        value < 0.0 -> "↘ -$rounded за последние 5 поездок"
-        else -> "→ без изменений за последние 5 поездок"
+        value > 0.0 -> stringResource(R.string.home_score_delta_up, rounded)
+        value < 0.0 -> stringResource(R.string.home_score_delta_down, rounded)
+        else -> stringResource(R.string.home_score_delta_same)
     }
 }
 
+@Composable
 private fun formatPercentile(metrics: DriverHomeResponseDto?): String? {
     if (metrics == null) return null
 
@@ -1616,21 +1625,22 @@ private fun formatPercentile(metrics: DriverHomeResponseDto?): String? {
         val roundedPct = pct.roundToInt()
 
         return if (roundedPct <= 50) {
-            "Лучше $roundedPct% водителей"
+            stringResource(R.string.home_better_than_drivers, roundedPct)
         } else {
-            "Топ ${maxOf(1, 100 - roundedPct)}% водителей"
+            stringResource(R.string.home_top_drivers, maxOf(1, 100 - roundedPct))
         }
     }
 
     val rank = metrics.driverRank
     val total = metrics.totalDrivers
     if (rank != null && total > 0) {
-        return "Место $rank из $total"
+        return stringResource(R.string.home_driver_rank, rank, total)
     }
 
     return null
 }
 
+@Composable
 private fun formatLevelText(metrics: DriverHomeResponseDto?): String? {
     if (metrics == null) return null
 
@@ -1639,7 +1649,11 @@ private fun formatLevelText(metrics: DriverHomeResponseDto?): String? {
 
     return when {
         nextLevel != null && points != null -> {
-            "До уровня ${localizedDriverLevel(nextLevel)} осталось ${formatOneDecimal(points)}"
+            stringResource(
+                R.string.home_points_to_next_level,
+                localizedDriverLevel(nextLevel),
+                formatOneDecimal(points),
+            )
         }
         metrics.driverLevel != null -> {
             localizedDriverLevel(metrics.driverLevel)
@@ -1648,16 +1662,17 @@ private fun formatLevelText(metrics: DriverHomeResponseDto?): String? {
     }
 }
 
+@Composable
 private fun recentTripsSummary(scores: List<Double>): String {
-    if (scores.isEmpty()) return "Недавних поездок пока нет"
+    if (scores.isEmpty()) return stringResource(R.string.home_recent_trips_empty)
 
     val last = scores.last()
     val best = scores.maxOrNull()
 
     return if (best != null && last >= best) {
-        "Последняя поездка — лучшая в серии"
+        stringResource(R.string.home_last_trip_best)
     } else {
-        "Есть поездка, которую можно улучшить"
+        stringResource(R.string.home_trip_can_improve)
     }
 }
 
@@ -1681,12 +1696,13 @@ private fun recentTripColor(
     }
 }
 
+@Composable
 private fun localizedDriverLevel(raw: String): String {
     return when (raw.trim().lowercase()) {
-        "risky_driver", "risky driver", "risky" -> "Рискованный водитель"
-        "average_driver", "average driver", "average" -> "Средний водитель"
-        "calm_driver", "calm driver", "calm" -> "Спокойный водитель"
-        "safe_driver", "safe driver", "safe" -> "Безопасный водитель"
+        "risky_driver", "risky driver", "risky" -> stringResource(R.string.home_driver_level_risky)
+        "average_driver", "average driver", "average" -> stringResource(R.string.home_driver_level_average)
+        "calm_driver", "calm driver", "calm" -> stringResource(R.string.home_driver_level_calm)
+        "safe_driver", "safe driver", "safe" -> stringResource(R.string.home_driver_level_safe)
         else -> raw
     }
 }

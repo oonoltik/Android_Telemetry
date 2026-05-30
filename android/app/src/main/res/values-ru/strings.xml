@@ -1,0 +1,412 @@
+<resources>
+    <string name="app_name">Android Telemetry</string>
+
+    <string name="settings_title">Настройки</string>
+    <string name="settings_done">Готово</string>
+
+    <string name="settings_profile">Профиль</string>
+    <string name="settings_driver">Водитель</string>
+    <string name="settings_driver_not_selected">Не выбран</string>
+    <string name="settings_change_name">Изменить имя</string>
+
+    <string name="settings_app">Приложение</string>
+    <string name="settings_language">Язык</string>
+    <string name="language_russian">Русский</string>
+    <string name="language_english">Английский</string>
+    <string name="settings_permissions_background">Доступы и фон</string>
+    <string name="settings_check">Проверить</string>
+
+    <string name="settings_permissions_footnote">Разрешения нужны для корректной записи поездок, фонового мониторинга и восстановления состояния после перезапуска устройства.</string>
+
+    <string name="settings_system">Система</string>
+    <string name="settings_diagnostics">Диагностика</string>
+    <string name="settings_for_developer">Для разработчика</string>
+    <string name="settings_diagnostics_footnote">Диагностика скрыта от основного сценария и используется только для проверки telemetry/runtime слоя.</string>
+
+    <string name="settings_data">Данные</string>
+    <string name="settings_delete_local_data">Удалить локальные данные</string>
+    <string name="settings_delete_account">Удалить аккаунт</string>
+
+    <string name="home_crash_detected">Авария обнаружена</string>
+    <string name="home_rating_load_error">Не удалось загрузить рейтинг</string>
+    <string name="home_select_driver_first">Сначала выбери водителя в настройках</string>
+    <string name="home_location_disabled_title">Геолокация отключена</string>
+    <string name="home_location_disabled_message">Телеметрия работает, но данные поездки могут быть менее точными.</string>
+    <string name="home_camera_permission_title">Нет доступа к камере</string>
+    <string name="home_camera_permission_message">Видеозапись может быть недоступна.</string>
+    <string name="home_microphone_permission_title">Нет доступа к микрофону</string>
+    <string name="home_microphone_permission_message">Видео будет записываться без звука.</string>
+    <string name="home_diagnostics">Диагностика</string>
+    <string name="home_open_settings">Открыть настройки</string>
+    <string name="home_settings">Настройки</string>
+    <string name="home_driver_not_selected">Водитель не выбран</string>
+    <string name="home_rating_loading">Загружаем рейтинг…</string>
+    <string name="home_rating_unavailable">Рейтинг временно недоступен</string>
+    <string name="home_rating_forming">Рейтинг формируется</string>
+    <string name="home_rating_ready">Рейтинг рассчитан</string>
+    <string name="home_rating_after_trips">Рейтинг появится после поездок</string>
+    <string name="home_rating_forming_trips_left">Рейтинг формируется · осталось поездок: %1$d</string>
+    <string name="home_driver_score_title">Оценка вождения</string>
+    <string name="home_driver_value">Водитель: %1$s</string>
+    <string name="home_keep_green_streak">Сохраните зелёную серию в следующей поездке</string>
+    <string name="home_rating_data_unavailable">Данные рейтинга временно недоступны</string>
+    <string name="home_trip_recording">Запись</string>
+    <string name="home_trip_ready">Готово</string>
+    <string name="home_current_speed">Текущая скорость</string>
+    <string name="home_trip_time">Время поездки</string>
+    <string name="home_distance">Дистанция</string>
+    <string name="home_distance_km_value">%1$s км</string>
+    <string name="home_start">Старт</string>
+    <string name="home_stop">Стоп</string>
+    <string name="home_trips_archive">Архив поездок</string>
+    <string name="home_video_archive">Архив видео</string>
+    <string name="home_video_mode">Видеорежим</string>
+    <string name="home_save_fish_game">≋  Игра Спаси Рыбку</string>
+    <string name="home_video_recording">Идёт видеозапись</string>
+    <string name="home_hide_camera">Скрыть камеру</string>
+    <string name="home_show_camera">Показать камеру</string>
+    <string name="home_stop_video">Стоп видео</string>
+    <string name="home_start_video">Старт видео</string>
+    <string name="home_road_camera">Дорога</string>
+    <string name="home_driver_camera">Водитель</string>
+    <string name="home_camera_switch_requires_new_recording">Переключение камер возможно при старте новой записи</string>
+    <string name="home_camera_permission_required">Нужно разрешение камеры</string>
+    <string name="home_score_delta_up">↗ +%1$s за последние 5 поездок</string>
+    <string name="home_score_delta_down">↘ -%1$s за последние 5 поездок</string>
+    <string name="home_score_delta_same">→ без изменений за последние 5 поездок</string>
+    <string name="home_better_than_drivers">Лучше %1$d%% водителей</string>
+    <string name="home_top_drivers">Топ %1$d%% водителей</string>
+    <string name="home_driver_rank">Место %1$d из %2$d</string>
+    <string name="home_points_to_next_level">До уровня %1$s осталось %2$s</string>
+    <string name="home_recent_trips_empty">Недавних поездок пока нет</string>
+    <string name="home_last_trip_best">Последняя поездка — лучшая в серии</string>
+    <string name="home_trip_can_improve">Есть поездка, которую можно улучшить</string>
+    <string name="home_driver_level_risky">Рискованный водитель</string>
+    <string name="home_driver_level_average">Средний водитель</string>
+    <string name="home_driver_level_calm">Спокойный водитель</string>
+    <string name="home_driver_level_safe">Безопасный водитель</string>
+
+    <string name="trips_common_refresh">Обновить</string>
+    <string name="trips_common_error">Ошибка</string>
+    <string name="trips_common_close">Закрыть</string>
+    <string name="trips_common_seconds_format">%1$s сек</string>
+    <string name="trips_common_hide">Скрыть</string>
+    <string name="trips_common_more_details">Подробнее</string>
+    <string name="trips_common_no_data">Нет данных</string>
+    <string name="trips_common_km_format">%1$.2f км</string>
+    <string name="trips_common_kmh_format">%1$.1f км/ч</string>
+
+    <string name="trips_archive_loading">Загрузка архива…</string>
+    <string name="trips_archive_unavailable">Архив недоступен</string>
+    <string name="trips_archive_empty_title">Поездок пока нет</string>
+    <string name="trips_archive_empty_caption">После завершения поездки она появится здесь.</string>
+    <string name="trips_archive_empty_report_caption">После завершения поездки и построения отчёта она появится здесь.</string>
+    <string name="trips_archive_header">Архив поездок длиной более 0,3 км.</string>
+    <string name="trips_archive_loading_caption">Получаем последние поездки.</string>
+    <string name="trips_archive_recent_title">Последние поездки</string>
+    <string name="trips_archive_found_count">Найдено поездок: %1$d</string>
+    <string name="trips_archive_date_format">Дата: %1$s</string>
+    <string name="trips_archive_score_format">Оценка: %1$s</string>
+
+    <string name="trip_report_loading">Загрузка отчёта…</string>
+    <string name="trip_report_unavailable">Отчёт недоступен</string>
+    <string name="trip_report_title">Отчёт о поездке</string>
+    <string name="trip_report_preliminary_title">Предварительный отчёт</string>
+    <string name="trip_report_batches_processing">Сервер ещё обрабатывает батчи: %1$d</string>
+    <string name="trip_report_readiness_percent">Готовность: %1$d%%</string>
+    <string name="trip_report_trip_rating">Рейтинг этой поездки</string>
+    <string name="trip_report_trip_duration">Длительность поездки</string>
+    <string name="trip_report_distance">Дистанция</string>
+    <string name="trip_report_avg_speed">Средняя скорость</string>
+    <string name="trip_report_driving_mode">Режим поездки</string>
+    <string name="trip_report_driving_load">Интенсивность вождения</string>
+    <string name="trip_report_events_summary">Сводка событий</string>
+    <string name="trip_report_dangerous_maneuvers_short">Опасн.\nманёвры</string>
+    <string name="trip_report_skid_risk_short">Риск\nзаноса</string>
+    <string name="trip_report_road_anomalies">Неровности</string>
+    <string name="trip_report_score_impact">Что повлияло на оценку</string>
+
+    <string name="trip_event_accel_sharp">Ускорения резкие</string>
+    <string name="trip_event_accel_emergency">Ускорения экстренные</string>
+    <string name="trip_event_brake_sharp">Торможения резкие</string>
+    <string name="trip_event_brake_emergency">Торможения экстренные</string>
+    <string name="trip_event_turn_sharp">Повороты резкие</string>
+    <string name="trip_event_turn_emergency">Повороты экстренные</string>
+    <string name="trip_event_accel_in_turn">Ускорение в повороте</string>
+    <string name="trip_event_brake_in_turn">Торможение в повороте</string>
+    <string name="trip_event_road_low">Неровности низкие</string>
+    <string name="trip_event_road_high">Неровности сильные</string>
+
+    <string name="trip_report_your_trip">Ваша поездка</string>
+    <string name="trip_report_score">Оценка</string>
+    <string name="trip_report_totals">Итоги</string>
+    <string name="trip_report_start">Старт</string>
+    <string name="trip_report_finish">Финиш</string>
+    <string name="trip_report_dangerous_maneuvers">Опасные манёвры</string>
+    <string name="trip_report_skid_risk">Риск заноса</string>
+    <string name="trip_report_stops">Остановки</string>
+    <string name="trip_report_stops_count">Количество остановок</string>
+    <string name="trip_report_stops_total_time">Общее время остановок</string>
+    <string name="trip_report_stop_duration_p95">Длительность остановки (P95)</string>
+    <string name="trip_report_stops_per_km">Остановок на км</string>
+    <string name="trip_report_comparison">Сравнение</string>
+    <string name="trip_report_better_than_previous">Лучше ваших предыдущих поездок</string>
+    <string name="trip_report_better_than_all">Лучше всех поездок всех водителей</string>
+    <string name="trip_report_better_than_all_short">Лучше поездок всех водителей</string>
+    <string name="trip_report_previous_driver_trips">Поездок ранее (этот водитель)</string>
+    <string name="trip_report_total_trips_database">Всего поездок (в базе)</string>
+    <string name="trip_report_driver_rank">Рейтинг этого водителя</string>
+    <string name="trip_report_total_drivers">Всего водителей</string>
+    <string name="trip_report_driver_avg_score">Средняя оценка этого водителя</string>
+    <string name="trip_report_driver_trips_total">Поездок у водителя</string>
+    <string name="trip_report_details">Подробности</string>
+    <string name="trip_report_batches">Батчей</string>
+    <string name="trip_report_samples">Сэмплов</string>
+    <string name="trip_report_events">Событий</string>
+    <string name="trip_report_max_speed">Максимальная скорость</string>
+    <string name="trip_report_p95_speed">P95 скорость</string>
+    <string name="trip_report_driver_rank_format">%1$d из %2$d водителей</string>
+    <string name="trip_report_your_avg_rating">Ваш средний рейтинг</string>
+    <string name="trip_report_your_counted_trips">Учитываемых поездок у вас</string>
+    <string name="trip_report_total_counted_trips">Всего учтено поездок</string>
+
+    <string name="trips_score_band_very_careful">Очень аккуратно</string>
+    <string name="trips_score_band_excellent">Отлично</string>
+    <string name="trips_score_band_good">Хорошо</string>
+    <string name="trips_score_band_average">Средне</string>
+    <string name="trips_score_band_risky">Рискованно</string>
+    <string name="trips_score_band_dangerous">Опасно</string>
+    <string name="trips_score_label_good">Хорошо</string>
+    <string name="trips_score_label_normal">Нормально</string>
+    <string name="trips_score_label_bad">Плохо</string>
+    <string name="trips_score_hint_can_improve">Можно лучше</string>
+    <string name="trips_score_hint_be_more_careful">Нужно аккуратнее</string>
+
+    <string name="trips_driving_mode_mixed">Смешанный</string>
+    <string name="trips_driving_mode_city">Город</string>
+    <string name="trips_driving_mode_highway">Трасса</string>
+
+    <string name="trips_month_short_january">янв.</string>
+    <string name="trips_month_short_february">февр.</string>
+    <string name="trips_month_short_march">мар.</string>
+    <string name="trips_month_short_april">апр.</string>
+    <string name="trips_month_short_may">мая</string>
+    <string name="trips_month_short_june">июн.</string>
+    <string name="trips_month_short_july">июл.</string>
+    <string name="trips_month_short_august">авг.</string>
+    <string name="trips_month_short_september">сент.</string>
+    <string name="trips_month_short_october">окт.</string>
+    <string name="trips_month_short_november">нояб.</string>
+    <string name="trips_month_short_december">дек.</string>
+
+    <string name="trips_error_device_not_authorized_for_driver">Устройство не авторизовано для этого driver_id</string>
+    <string name="trips_error_session_unauthorized">Сессия не авторизована. Проверь driver/account login.</string>
+    <string name="trips_error_archive_or_report_not_found">Архив или отчёт пока не найден</string>
+    <string name="trips_error_server_timeout">Сервер не ответил вовремя</string>
+    <string name="trips_error_loading_format">Ошибка загрузки: %1$s</string>
+
+    <string name="video_archive_back">Назад</string>
+    <string name="video_archive_title">Видеоархив</string>
+    <string name="video_archive_storage">Хранилище</string>
+    <string name="video_archive_storage_details">Защищено: %1$s • Файлов: %2$d</string>
+    <string name="video_archive_filter_all">Все</string>
+    <string name="video_archive_filter_emergency">Аварийные</string>
+    <string name="video_archive_filter_regular">Обычные</string>
+    <string name="video_archive_filter_failed_uploads">Ошибки загрузки</string>
+    <string name="video_archive_select_records">Выбрать записи</string>
+    <string name="video_archive_selected_count">Выбрано: %1$d</string>
+    <string name="video_archive_save">Сохранить</string>
+    <string name="video_archive_delete">Удалить</string>
+    <string name="video_archive_cancel">Отмена</string>
+    <string name="video_archive_export">Экспорт</string>
+    <string name="video_archive_apply_retention_cleanup">Применить очистку архива</string>
+    <string name="video_archive_section_emergency">АВАРИЙНЫЕ</string>
+    <string name="video_archive_section_regular">ОБЫЧНЫЕ</string>
+    <string name="video_archive_section_count">%1$s • %2$d</string>
+    <string name="video_archive_exported_count">Сохранено: %1$d из %2$d</string>
+    <string name="video_archive_deleted_count">Удалено: %1$d из %2$d</string>
+    <string name="video_archive_saved_to_gallery">Видео сохранено в галерею</string>
+    <string name="video_archive_save_failed">Не удалось сохранить видео</string>
+    <string name="video_archive_crash_clip_deleted">Аварийный клип удалён</string>
+    <string name="video_archive_delete_clip_failed">Не удалось удалить клип</string>
+    <string name="video_archive_video_deleted">Видео удалено</string>
+    <string name="video_archive_protected_cannot_delete">Защищённое видео нельзя удалить</string>
+    <string name="video_archive_impact_g">Удар • %1$sg</string>
+    <string name="video_archive_segments_upload_state">%1$d сегментов • %2$s</string>
+    <string name="video_archive_badge_emergency">АВАРИЯ</string>
+    <string name="video_archive_badge_protected">ЗАЩИЩЕНО</string>
+    <string name="video_archive_badge_synced">СИНХР.</string>
+    <string name="video_archive_badge_syncing">СИНХР.</string>
+    <string name="video_archive_badge_queued">ОЧЕРЕДЬ</string>
+    <string name="video_archive_badge_failed">ОШИБКА</string>
+    <string name="video_archive_badge_local">ЛОКАЛЬНО</string>
+    <string name="video_archive_telemetry">Телеметрия</string>
+    <string name="video_archive_no_telemetry_snapshot">Нет снимка телеметрии</string>
+    <string name="video_archive_speed_na">скорость н/д</string>
+    <string name="video_archive_heading_na">курс н/д</string>
+    <string name="video_archive_gps_na">GPS н/д</string>
+    <string name="video_archive_telemetry_samples_linked">Связано сэмплов телеметрии: %1$d</string>
+    <string name="video_archive_empty_title">Видеоархив пуст</string>
+    <string name="video_archive_empty_subtitle">Записи и аварийные клипы появятся здесь</string>
+    <string name="video_archive_camera_road">Дорога</string>
+    <string name="video_archive_camera_driver">Водитель</string>
+    <string name="video_archive_video_clip_title">%1$s • клип %2$d</string>
+    <string name="video_archive_duration_size">%1$s • %2$s</string>
+    <string name="video_archive_upload_local">локально</string>
+    <string name="video_archive_upload_queued">в очереди</string>
+    <string name="video_archive_upload_syncing">синхронизация</string>
+    <string name="video_archive_upload_synced">синхронизировано</string>
+    <string name="video_archive_upload_failed">ошибка</string>
+
+    <string name="fish_game_title">Как плавно вы водите?</string>
+
+    <string name="fish_game_description">
+Осторожно передвигайте стакан — вода реагирует на движение и разливается! Рыбка может погибнуть.
+</string>
+
+    <string name="fish_game_close">Закрыть</string>
+
+    <string name="fish_game_finished">Игра окончена</string>
+
+    <string name="fish_game_bonus">Получили бонусом: %1$.1f%%</string>
+    <string name="fish_game_spilled_total">Всего разлили: %1$.1f%%</string>
+
+    <string name="driver_title">Водитель</string>
+    <string name="driver_not_selected">Водитель не выбран</string>
+    <string name="driver_not_selected_short">Не выбран</string>
+    <string name="driver_hero_trip_active">Во время активной поездки менять водителя не рекомендуется.</string>
+    <string name="driver_hero_existing_profile">Профиль используется для привязки поездок и расчёта персональной статистики.</string>
+    <string name="driver_hero_enter_id">Введите driver ID. Если водитель уже существует, потребуется пароль. Если нет — будет создан новый профиль.</string>
+
+    <string name="driver_id_section">Driver ID</string>
+    <string name="driver_id_label">Driver ID</string>
+    <string name="driver_id_placeholder">Например: alex</string>
+
+    <string name="driver_footnote_enter_id">Нажмите «Продолжить», чтобы проверить driver ID на сервере.</string>
+    <string name="driver_footnote_new_driver">Такого водителя ещё нет. Введите пароль, чтобы создать профиль.</string>
+    <string name="driver_footnote_existing_driver">Этот водитель уже существует. Введите пароль, чтобы войти.</string>
+    <string name="driver_checking_data">Проверяем данные…</string>
+
+    <string name="driver_section_status">Состояние</string>
+    <string name="driver_active_driver">Активный водитель</string>
+    <string name="driver_device">Устройство</string>
+    <string name="driver_trip_recording">Запись поездок</string>
+    <string name="driver_recording_ready">Готова</string>
+    <string name="driver_recording_needs_driver">Нужен водитель</string>
+
+    <string name="driver_section_account">Аккаунт</string>
+    <string name="driver_delete_account">Удалить аккаунт</string>
+    <string name="driver_setup_footer">Driver setup</string>
+
+    <string name="driver_password">Пароль</string>
+    <string name="driver_password_placeholder">Введите пароль</string>
+    <string name="driver_create">Создать</string>
+    <string name="driver_sign_in">Войти</string>
+    <string name="driver_checking">Проверяем…</string>
+
+    <string name="driver_account_deleted">Аккаунт удалён</string>
+    <string name="driver_error_unknown_server_response">Неизвестный ответ сервера: %1$s</string>
+    <string name="driver_error_server_still_requires_password">Сервер всё ещё требует пароль.</string>
+    <string name="driver_error_driver_not_created">Водитель не был создан на сервере.</string>
+
+    <string name="driver_auth_error_not_found">Driver ID не найден.</string>
+    <string name="driver_auth_error_invalid_password">Неверный пароль.</string>
+    <string name="driver_auth_error_device_confirmation_failed">Не удалось подтвердить устройство.</string>
+    <string name="driver_auth_error_device_not_authorized">Это устройство не авторизовано для выбранного driver ID.</string>
+    <string name="driver_auth_error_service_unavailable">Сервис авторизации временно недоступен. Попробуйте ещё раз.</string>
+    <string name="driver_auth_error_generic">Не удалось выполнить вход. Попробуйте ещё раз.</string>
+
+    <string name="common_back">Назад</string>
+    <string name="common_back_chevron">‹ Назад</string>
+    <string name="common_continue">Продолжить</string>
+
+    <string name="permissions_back">‹ Назад</string>
+    <string name="permissions_title">Доступы</string>
+    <string name="permissions_description">Настройте разрешения, чтобы поездки записывались стабильно даже после блокировки экрана, перезапуска приложения или перезагрузки телефона.</string>
+
+    <string name="permissions_stable_recording_title">Стабильная запись поездок</string>
+    <string name="permissions_hero_description">Android может ограничивать фоновые процессы. Эти настройки помогают приложению работать ближе к поведению Swift-сборки.</string>
+
+    <string name="permissions_recommended">Рекомендуется</string>
+    <string name="permissions_location_title">Геолокация</string>
+    <string name="permissions_location_subtitle">Нужна для корректного определения поездки и маршрута.</string>
+    <string name="permissions_background_title">Работа в фоне</string>
+    <string name="permissions_background_subtitle">Помогает не терять поездку при выключенном экране.</string>
+    <string name="permissions_app_settings_title">Настройки приложения</string>
+    <string name="permissions_app_settings_subtitle">Откройте системные параметры, если запись работает нестабильно.</string>
+    <string name="permissions_check">Проверить</string>
+    <string name="permissions_open">Открыть</string>
+
+    <string name="permissions_why_title">Почему это важно</string>
+    <string name="permissions_replay_safe_subtitle">Если приложение остановится, незавершённая поездка может быть восстановлена.</string>
+    <string name="permissions_offline_safe_subtitle">Данные сохраняются локально и отправляются позже.</string>
+    <string name="permissions_reboot_safe_subtitle">После перезагрузки устройство может продолжить корректную обработку состояния.</string>
+
+    <string name="permissions_done">Готово</string>
+
+    <string name="common_not_available">н/д</string>
+    <string name="video_player_back">Назад</string>
+    <string name="video_player_emergency_clip">Аварийный клип</string>
+    <string name="video_player_dashcam_playback">Просмотр видео</string>
+    <string name="video_player_badge_emergency">АВАРИЯ</string>
+    <string name="video_player_badge_protected">ЗАЩИЩЕНО</string>
+    <string name="video_player_upload_synced">СИНХР.</string>
+    <string name="video_player_upload_syncing">СИНХР.</string>
+    <string name="video_player_upload_queued">В ОЧЕРЕДИ</string>
+    <string name="video_player_upload_failed">ОШИБКА</string>
+    <string name="video_player_upload_local">ЛОКАЛЬНО</string>
+    <string name="video_player_crash_details">Детали аварии</string>
+    <string name="video_player_detected">Обнаружено</string>
+    <string name="video_player_impact">Удар</string>
+    <string name="video_player_window">Окно</string>
+    <string name="video_player_segments">Сегменты</string>
+    <string name="video_player_speed">Скорость</string>
+    <string name="video_player_heading">Курс</string>
+    <string name="video_player_gps">GPS</string>
+    <string name="video_player_trip">Поездка</string>
+    <string name="video_player_camera_road">Дорога</string>
+    <string name="video_player_camera_driver">Водитель</string>
+    <string name="video_player_segment_details">Детали сегмента</string>
+    <string name="video_player_started">Начало</string>
+    <string name="video_player_duration">Длительность</string>
+    <string name="video_player_size">Размер</string>
+    <string name="video_player_clip">Клип</string>
+    <string name="video_player_session">Сессия</string>
+    <string name="video_player_crash_timeline">Таймлайн аварии</string>
+    <string name="video_player_timeline_impact">удар</string>
+    <string name="video_player_telemetry_samples_linked">Связано сэмплов телеметрии: %1$d</string>
+    <string name="video_player_video">Видео</string>
+    <string name="video_player_path">Файл</string>
+    <string name="dashcam_recording_notification_title">Запись видеорегистратора</string>
+    <string name="dashcam_recording_notification_text">Запись видеорегистратора активна</string>
+    <string name="dashcam_recording_channel_name">Запись видеорегистратора</string>
+    <string name="dashcam_recording_channel_description">Foreground-сервис для записи видеорегистратора</string>
+    <string name="notification_telemetry_ready_title">Телеметрия готова</string>
+    <string name="notification_telemetry_ready_text">Сервис фонового мониторинга готов</string>
+    <string name="notification_day_monitoring_title">Дневной мониторинг активен</string>
+    <string name="notification_day_monitoring_text">Ожидание начала движения</string>
+    <string name="notification_auto_trip_active_title">Автопоездка активна</string>
+    <string name="notification_trip_active_title">Поездка активна</string>
+    <string name="notification_active_trip_text">Сессия %1$s · доставлено батчей %2$d</string>
+    <string name="notification_finishing_trip_title">Завершение поездки</string>
+    <string name="notification_finishing_trip_text">Отправка оставшейся телеметрии · Сессия %1$s</string>
+    <string name="notification_replaying_title">Восстановление телеметрии</string>
+    <string name="notification_replaying_text">Восстановление незавершённых данных · Сессия %1$s</string>
+    <string name="runtime_warnings_title">Предупреждения runtime</string>
+    <string name="runtime_warning_no_driver">Водитель не выбран</string>
+    <string name="runtime_warning_fine_location_missing">Нет разрешения на точную геолокацию</string>
+    <string name="runtime_warning_background_location_missing">Нет разрешения на фоновую геолокацию</string>
+    <string name="runtime_warning_notifications_disabled">Уведомления отключены</string>
+    <string name="runtime_warning_location_services_disabled">Службы геолокации отключены</string>
+    <string name="runtime_warning_battery_optimization_enabled">Включена оптимизация батареи</string>
+    <string name="runtime_warning_telemetry_paused">Телеметрия приостановлена</string>
+    <string name="runtime_warning_background_restriction_active">Активно системное ограничение фоновой работы</string>
+    <string name="runtime_warning_standby_bucket_restrictive">Ограничительный standby bucket приложения: %1$s</string>
+    <string name="runtime_warning_samsung_sleeping_apps">Samsung Sleeping apps может останавливать телеметрию в фоне</string>
+    <string name="runtime_warning_miui_autostart">MIUI может блокировать фоновую телеметрию без разрешённого автозапуска</string>
+    <string name="runtime_warning_huawei_restriction">Huawei/Honor может агрессивно останавливать фоновую телеметрию</string>
+
+
+
+
+</resources>

@@ -1,5 +1,6 @@
 package com.alex.android_telemetry.ui.trips
 
+import android.content.Context
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -31,6 +32,8 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -46,6 +49,7 @@ import com.alex.android_telemetry.ui.design.TelemetryTypography
 import androidx.compose.foundation.clickable
 import kotlin.math.roundToInt
 import androidx.compose.foundation.layout.ColumnScope
+import com.alex.android_telemetry.R
 
 
 
@@ -64,6 +68,7 @@ fun TripsArchiveScreen(
     var error by remember { mutableStateOf<String?>(null) }
 
     val scope = rememberCoroutineScope()
+    val context = LocalContext.current
 
     fun loadArchive() {
         scope.launch {
@@ -79,7 +84,7 @@ fun TripsArchiveScreen(
                 loadedOnce = true
             } catch (t: Throwable) {
                 trips = emptyList()
-                error = localizedArchiveError(t)
+                error = localizedArchiveError(context, t)
                 loadedOnce = true
             } finally {
                 loading = false
@@ -117,23 +122,23 @@ fun TripsArchiveScreen(
             loading && !loadedOnce -> {
                 SwiftArchiveListSheet {
                     CircularProgressIndicator()
-                    SwiftReportCaption("Загрузка архива…")
+                    SwiftReportCaption(stringResource(R.string.trips_archive_loading))
                 }
             }
 
             error != null -> {
                 SwiftArchiveListSheet {
-                    SwiftReportSectionTitle("Архив недоступен")
+                    SwiftReportSectionTitle(stringResource(R.string.trips_archive_unavailable))
                     SwiftReportCaption(error.orEmpty())
-                    SwiftOrangeButton("Обновить", onClick = { loadArchive() })
+                    SwiftOrangeButton(stringResource(R.string.trips_common_refresh), onClick = { loadArchive() })
                 }
             }
 
             loadedOnce && trips.isEmpty() -> {
                 SwiftArchiveListSheet {
-                    SwiftReportSectionTitle("Поездок пока нет")
-                    SwiftReportCaption("После завершения поездки она появится здесь.")
-                    SwiftOrangeButton("Обновить", onClick = { loadArchive() })
+                    SwiftReportSectionTitle(stringResource(R.string.trips_archive_empty_title))
+                    SwiftReportCaption(stringResource(R.string.trips_archive_empty_caption))
+                    SwiftOrangeButton(stringResource(R.string.trips_common_refresh), onClick = { loadArchive() })
                 }
             }
 
@@ -172,7 +177,7 @@ private fun ArchiveHeader(
         Spacer(Modifier.width(18.dp))
 
         Text(
-            text = "Архив поездок длиной более 0,3 км.",
+            text = stringResource(R.string.trips_archive_header),
             color = Color.Black,
             fontSize = 22.sp,
             fontWeight = FontWeight.Bold,
@@ -193,26 +198,26 @@ private fun ArchiveStateSheet(
         when {
             loading && !loadedOnce -> {
                 CircularProgressIndicator()
-                SwiftReportSectionTitle("Загрузка архива…")
-                SwiftReportCaption("Получаем последние поездки.")
+                SwiftReportSectionTitle(stringResource(R.string.trips_archive_loading))
+                SwiftReportCaption(stringResource(R.string.trips_archive_loading_caption))
             }
 
             error != null -> {
-                SwiftReportSectionTitle("Архив недоступен")
+                SwiftReportSectionTitle(stringResource(R.string.trips_archive_unavailable))
                 SwiftReportCaption(error)
-                SwiftOrangeButton("Обновить", onClick = onRefresh)
+                SwiftOrangeButton(stringResource(R.string.trips_common_refresh), onClick = onRefresh)
             }
 
             loadedOnce && count == 0 -> {
-                SwiftReportSectionTitle("Поездок пока нет")
-                SwiftReportCaption("После завершения поездки и построения отчёта она появится здесь.")
-                SwiftOrangeButton("Обновить", onClick = onRefresh)
+                SwiftReportSectionTitle(stringResource(R.string.trips_archive_empty_title))
+                SwiftReportCaption(stringResource(R.string.trips_archive_empty_report_caption))
+                SwiftOrangeButton(stringResource(R.string.trips_common_refresh), onClick = onRefresh)
             }
 
             else -> {
-                SwiftReportSectionTitle("Последние поездки")
-                SwiftReportCaption("Найдено поездок: $count")
-                SwiftOrangeButton("Обновить", onClick = onRefresh)
+                SwiftReportSectionTitle(stringResource(R.string.trips_archive_recent_title))
+                SwiftReportCaption(stringResource(R.string.trips_archive_found_count, count))
+                SwiftOrangeButton(stringResource(R.string.trips_common_refresh), onClick = onRefresh)
             }
         }
     }
@@ -257,7 +262,7 @@ private fun ArchiveTripRow(
                 verticalArrangement = Arrangement.spacedBy(5.dp),
             ) {
                 Text(
-                    text = "Дата: $dateText",
+                    text = stringResource(R.string.trips_archive_date_format, dateText),
                     color = Color(0xFF8E8E93),
                     fontSize = 14.sp,
                     fontWeight = FontWeight.Normal,
@@ -269,7 +274,7 @@ private fun ArchiveTripRow(
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
                     Text(
-                        text = "Оценка: ${formatScoreTwoDecimals(score)}",
+                        text = stringResource(R.string.trips_archive_score_format, formatScoreTwoDecimals(score)),
                         color = Color(0xFF8E8E93),
                         fontSize = 14.sp,
                     )
@@ -350,6 +355,7 @@ private fun TripReportScreen(
     var pollingIteration by remember { mutableIntStateOf(0) }
 
     val scope = rememberCoroutineScope()
+    val context = LocalContext.current
 
     fun loadReport() {
         scope.launch {
@@ -363,7 +369,7 @@ private fun TripReportScreen(
                     driverId = trip.driverId.orEmpty(),
                 )
             } catch (t: Throwable) {
-                error = localizedArchiveError(t)
+                error = localizedArchiveError(context, t)
             } finally {
                 loading = false
             }
@@ -395,16 +401,16 @@ private fun TripReportScreen(
         if (loading && report == null) {
             SwiftReportSheet {
                 CircularProgressIndicator()
-                SwiftReportSectionTitle("Загрузка отчёта…")
+                SwiftReportSectionTitle(stringResource(R.string.trip_report_loading))
             }
             return@Column
         }
 
         if (error != null && report == null) {
             SwiftReportSheet {
-                SwiftReportSectionTitle("Отчёт недоступен")
-                SwiftReportCaption(error ?: "Ошибка")
-                SwiftOrangeButton("Обновить", onClick = { loadReport() })
+                SwiftReportSectionTitle(stringResource(R.string.trip_report_unavailable))
+                SwiftReportCaption(error ?: stringResource(R.string.trips_common_error))
+                SwiftOrangeButton(stringResource(R.string.trips_common_refresh), onClick = { loadReport() })
             }
             return@Column
         }
@@ -435,7 +441,7 @@ private fun SwiftReportHeader(
                 .padding(horizontal = 14.dp, vertical = 6.dp),
         ) {
             Text(
-                text = "Закрыть",
+                text = stringResource(R.string.trips_common_close),
                 color = Color(0xFFF28C28),
                 fontSize = 20.sp,
                 fontWeight = FontWeight.Bold,
@@ -445,7 +451,7 @@ private fun SwiftReportHeader(
         Spacer(Modifier.width(22.dp))
 
         Text(
-            text = "Отчёт о поездке",
+            text = stringResource(R.string.trip_report_title),
             color = Color.Black,
             fontWeight = FontWeight.Bold,
             fontSize = 24.sp,
@@ -487,15 +493,15 @@ private fun SwiftReportMainSheet(
 
     SwiftReportSheet {
         if (missing > 0) {
-            SwiftReportSectionTitle("Предварительный отчёт")
-            SwiftReportCaption("Сервер ещё обрабатывает батчи: $missing")
-            SwiftReportCaption("Готовность: ${(reportCoverage(report) * 100).toInt()}%")
+            SwiftReportSectionTitle(stringResource(R.string.trip_report_preliminary_title))
+            SwiftReportCaption(stringResource(R.string.trip_report_batches_processing, missing))
+            SwiftReportCaption(stringResource(R.string.trip_report_readiness_percent, (reportCoverage(report) * 100).toInt()))
             ProgressBar(reportCoverage(report))
             SwiftDivider()
         }
 
         Text(
-            text = "Рейтинг этой поездки",
+            text = stringResource(R.string.trip_report_trip_rating),
             color = Color(0xFF8A8A8E),
             fontSize = 18.sp,
             modifier = Modifier.fillMaxWidth(),
@@ -552,16 +558,16 @@ private fun SwiftReportMainSheet(
 
         SwiftDivider()
 
-        SwiftReportMetricRow("⏱", "Длительность поездки", formatDuration(report.tripDurationSec))
-        SwiftReportMetricRow("🛣", "Дистанция", formatKmRu(report.distanceKm))
-        SwiftReportMetricRow("◷", "Средняя скорость", formatSpeedRu(report.avgSpeedKmh))
-        SwiftReportMetricRow("🚗", "Режим поездки", localizedDrivingModeRu(report.drivingMode))
+        SwiftReportMetricRow("⏱", stringResource(R.string.trip_report_trip_duration), formatDuration(report.tripDurationSec))
+        SwiftReportMetricRow("🛣", stringResource(R.string.trip_report_distance), formatKmRu(report.distanceKm))
+        SwiftReportMetricRow("◷", stringResource(R.string.trip_report_avg_speed), formatSpeedRu(report.avgSpeedKmh))
+        SwiftReportMetricRow("🚗", stringResource(R.string.trip_report_driving_mode), localizedDrivingModeRu(report.drivingMode))
 
         SwiftDivider()
 
         SwiftReportMetricRow(
             icon = "🧭",
-            label = "Интенсивность вождения",
+            label = stringResource(R.string.trip_report_driving_load),
             value = formatNullableOneDecimal(report.drivingLoad),
         )
 
@@ -573,7 +579,7 @@ private fun SwiftReportMainSheet(
         )
 
         Text(
-            text = "Сводка событий",
+            text = stringResource(R.string.trip_report_events_summary),
             color = Color.Black,
             fontSize = 26.sp,
             fontWeight = FontWeight.Bold,
@@ -585,21 +591,21 @@ private fun SwiftReportMainSheet(
         ) {
             SwiftEventSummaryCard(
                 icon = "⚠",
-                title = "Опасн.\nманёвры",
+                title = stringResource(R.string.trip_report_dangerous_maneuvers_short),
                 value = dangerousManeuvers.toString(),
                 modifier = Modifier.weight(1f),
             )
 
             SwiftEventSummaryCard(
                 icon = "❄",
-                title = "Риск\nзаноса",
+                title = stringResource(R.string.trip_report_skid_risk_short),
                 value = skidRisk.toString(),
                 modifier = Modifier.weight(1f),
             )
 
             SwiftEventSummaryCard(
                 icon = "!",
-                title = "Неровности",
+                title = stringResource(R.string.trip_report_road_anomalies),
                 value = roadAnomalies.toString(),
                 modifier = Modifier.weight(1f),
             )
@@ -615,7 +621,7 @@ private fun SwiftReportMainSheet(
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 Text(
-                    text = "Что повлияло на оценку",
+                    text = stringResource(R.string.trip_report_score_impact),
                     color = Color.Black,
                     fontSize = 24.sp,
                     fontWeight = FontWeight.Bold,
@@ -630,86 +636,86 @@ private fun SwiftReportMainSheet(
         }
 
         if (showImpactDetails) {
-            SwiftImpactRow("⚠", "Ускорения резкие", report.accelSharpTotal)
-            SwiftImpactRow("!", "Ускорения экстренные", report.accelEmergencyTotal)
-            SwiftImpactRow("■", "Торможения резкие", report.brakeSharpTotal)
-            SwiftImpactRow("●", "Торможения экстренные", report.brakeEmergencyTotal)
-            SwiftImpactRow("↪", "Повороты резкие", report.turnSharpTotal)
-            SwiftImpactRow("↩", "Повороты экстренные", report.turnEmergencyTotal)
-            SwiftImpactRow("❄", "Ускорение в повороте", report.accelInTurnTotal)
-            SwiftImpactRow("❄", "Торможение в повороте", report.brakeInTurnTotal)
-            SwiftImpactRow("!", "Неровности низкие", report.roadAnomalyLowTotal)
-            SwiftImpactRow("!", "Неровности сильные", report.roadAnomalyHighTotal)
+            SwiftImpactRow("⚠", stringResource(R.string.trip_event_accel_sharp), report.accelSharpTotal)
+            SwiftImpactRow("!", stringResource(R.string.trip_event_accel_emergency), report.accelEmergencyTotal)
+            SwiftImpactRow("■", stringResource(R.string.trip_event_brake_sharp), report.brakeSharpTotal)
+            SwiftImpactRow("●", stringResource(R.string.trip_event_brake_emergency), report.brakeEmergencyTotal)
+            SwiftImpactRow("↪", stringResource(R.string.trip_event_turn_sharp), report.turnSharpTotal)
+            SwiftImpactRow("↩", stringResource(R.string.trip_event_turn_emergency), report.turnEmergencyTotal)
+            SwiftImpactRow("❄", stringResource(R.string.trip_event_accel_in_turn), report.accelInTurnTotal)
+            SwiftImpactRow("❄", stringResource(R.string.trip_event_brake_in_turn), report.brakeInTurnTotal)
+            SwiftImpactRow("!", stringResource(R.string.trip_event_road_low), report.roadAnomalyLowTotal)
+            SwiftImpactRow("!", stringResource(R.string.trip_event_road_high), report.roadAnomalyHighTotal)
         }
 
         if (showFullDetails) {
             SwiftDivider()
 
-            SwiftGroupedSectionTitle("Ваша поездка")
+            SwiftGroupedSectionTitle(stringResource(R.string.trip_report_your_trip))
             SwiftGroupedSheet {
-                SwiftGroupedRow("Оценка", formatNullableOneDecimal(score))
-                SwiftGroupedRow("Интенсивность вождения", formatNullableTwoDecimals(report.drivingLoad))
-                SwiftGroupedRow("Режим поездки", localizedDrivingModeRu(report.drivingMode))
+                SwiftGroupedRow(stringResource(R.string.trip_report_score), formatNullableOneDecimal(score))
+                SwiftGroupedRow(stringResource(R.string.trip_report_driving_load), formatNullableTwoDecimals(report.drivingLoad))
+                SwiftGroupedRow(stringResource(R.string.trip_report_driving_mode), localizedDrivingModeRu(report.drivingMode))
             }
 
-            SwiftGroupedSectionTitle("Итоги")
+            SwiftGroupedSectionTitle(stringResource(R.string.trip_report_totals))
             SwiftGroupedSheet {
-                SwiftGroupedRow("Дистанция", formatKmRu(report.distanceKm))
-                SwiftGroupedRow("Длительность поездки", formatDuration(report.tripDurationSec))
-                SwiftGroupedRow("Средняя скорость", formatSpeedRu(report.avgSpeedKmh))
-                SwiftGroupedRow("Режим поездки", localizedDrivingModeRu(report.drivingMode))
-                SwiftGroupedRow("Старт", formatReportDateTime(report.clientStartedAt ?: report.receivedStartedAt))
-                SwiftGroupedRow("Финиш", formatReportDateTime(report.clientEndedAt ?: report.receivedEndedAt))
+                SwiftGroupedRow(stringResource(R.string.trip_report_distance), formatKmRu(report.distanceKm))
+                SwiftGroupedRow(stringResource(R.string.trip_report_trip_duration), formatDuration(report.tripDurationSec))
+                SwiftGroupedRow(stringResource(R.string.trip_report_avg_speed), formatSpeedRu(report.avgSpeedKmh))
+                SwiftGroupedRow(stringResource(R.string.trip_report_driving_mode), localizedDrivingModeRu(report.drivingMode))
+                SwiftGroupedRow(stringResource(R.string.trip_report_start), formatReportDateTime(report.clientStartedAt ?: report.receivedStartedAt))
+                SwiftGroupedRow(stringResource(R.string.trip_report_finish), formatReportDateTime(report.clientEndedAt ?: report.receivedEndedAt))
             }
 
-            SwiftGroupedSectionTitle("Сводка событий")
+            SwiftGroupedSectionTitle(stringResource(R.string.trip_report_events_summary))
             SwiftGroupedSheet {
-                SwiftGroupedRow("Опасные манёвры", dangerousManeuvers.toString())
-                SwiftGroupedRow("Риск заноса", skidRisk.toString())
-                SwiftGroupedRow("Неровности", roadAnomalies.toString())
+                SwiftGroupedRow(stringResource(R.string.trip_report_dangerous_maneuvers), dangerousManeuvers.toString())
+                SwiftGroupedRow(stringResource(R.string.trip_report_skid_risk), skidRisk.toString())
+                SwiftGroupedRow(stringResource(R.string.trip_report_road_anomalies), roadAnomalies.toString())
             }
 
-            SwiftGroupedSectionTitle("Остановки")
+            SwiftGroupedSectionTitle(stringResource(R.string.trip_report_stops))
             SwiftGroupedSheet {
-                SwiftGroupedSectionTitle("Остановки")
+                SwiftGroupedSectionTitle(stringResource(R.string.trip_report_stops))
                 SwiftGroupedSheet {
-                    SwiftGroupedRow("Количество остановок", (report.stopsCount ?: 0).toString())
-                    SwiftGroupedRow("Общее время остановок", "${formatNullableOneDecimal(report.stopsTotalSec)} сек")
+                    SwiftGroupedRow(stringResource(R.string.trip_report_stops_count), (report.stopsCount ?: 0).toString())
+                    SwiftGroupedRow(stringResource(R.string.trip_report_stops_total_time), stringResource(R.string.trips_common_seconds_format, formatNullableOneDecimal(report.stopsTotalSec)))
                     SwiftGroupedRow(
-                        "Длительность остановки (P95)",
-                        "${formatNullableOneDecimal(report.stopsP95Sec)} сек"
+                        stringResource(R.string.trip_report_stop_duration_p95),
+                        stringResource(R.string.trips_common_seconds_format, formatNullableOneDecimal(report.stopsP95Sec))
                     )
-                    SwiftGroupedRow("Остановок на км", formatNullableThreeDecimals(report.stopsPerKm))
+                    SwiftGroupedRow(stringResource(R.string.trip_report_stops_per_km), formatNullableThreeDecimals(report.stopsPerKm))
                 }
             }
 
-            SwiftGroupedSectionTitle("Сравнение")
+            SwiftGroupedSectionTitle(stringResource(R.string.trip_report_comparison))
             SwiftGroupedSheet {
-                SwiftGroupedRow("Лучше ваших предыдущих поездок", comparison.betterThanPreviousDriverTrips)
-                SwiftGroupedRow("Лучше всех поездок всех водителей", comparison.betterThanAllLoadedTrips)
-                SwiftGroupedRow("Поездок ранее (этот водитель)", comparison.previousDriverTripsCount.toString())
-                SwiftGroupedRow("Всего поездок (в базе)", comparison.totalComparableTripsCount.toString())
-                SwiftGroupedRow("Рейтинг этого водителя", (report.driverRank ?: 0).toString())
-                SwiftGroupedRow("Всего водителей", (report.totalDrivers ?: 0).toString())
-                SwiftGroupedRow("Средний оценка этого водителя", formatNullableOneDecimal(report.driverAvgScore))
-                SwiftGroupedRow("Поездок у водителя", (report.driverTripsTotal ?: report.prevTripsCount ?: 0).toString())
+                SwiftGroupedRow(stringResource(R.string.trip_report_better_than_previous), comparison.betterThanPreviousDriverTrips)
+                SwiftGroupedRow(stringResource(R.string.trip_report_better_than_all), comparison.betterThanAllLoadedTrips)
+                SwiftGroupedRow(stringResource(R.string.trip_report_previous_driver_trips), comparison.previousDriverTripsCount.toString())
+                SwiftGroupedRow(stringResource(R.string.trip_report_total_trips_database), comparison.totalComparableTripsCount.toString())
+                SwiftGroupedRow(stringResource(R.string.trip_report_driver_rank), (report.driverRank ?: 0).toString())
+                SwiftGroupedRow(stringResource(R.string.trip_report_total_drivers), (report.totalDrivers ?: 0).toString())
+                SwiftGroupedRow(stringResource(R.string.trip_report_driver_avg_score), formatNullableOneDecimal(report.driverAvgScore))
+                SwiftGroupedRow(stringResource(R.string.trip_report_driver_trips_total), (report.driverTripsTotal ?: report.prevTripsCount ?: 0).toString())
             }
 
-            SwiftGroupedSectionTitle("Подробности")
+            SwiftGroupedSectionTitle(stringResource(R.string.trip_report_details))
             SwiftGroupedSheet {
-                SwiftGroupedRow("Батчей", report.batchesCount.toString())
-                SwiftGroupedRow("Сэмплов", report.samplesCount.toString())
-                SwiftGroupedRow("Событий", report.eventsCount.toString())
-                SwiftGroupedRow("Остановок", (report.stopsCount ?: 0).toString())
-                SwiftGroupedRow("Максимальная скорость", formatSpeedRu(report.speedMaxKmh))
-                SwiftGroupedRow("P95 скорость", formatSpeedRu(report.speedP95Kmh))
+                SwiftGroupedRow(stringResource(R.string.trip_report_batches), report.batchesCount.toString())
+                SwiftGroupedRow(stringResource(R.string.trip_report_samples), report.samplesCount.toString())
+                SwiftGroupedRow(stringResource(R.string.trip_report_events), report.eventsCount.toString())
+                SwiftGroupedRow(stringResource(R.string.trip_report_stops), (report.stopsCount ?: 0).toString())
+                SwiftGroupedRow(stringResource(R.string.trip_report_max_speed), formatSpeedRu(report.speedMaxKmh))
+                SwiftGroupedRow(stringResource(R.string.trip_report_p95_speed), formatSpeedRu(report.speedP95Kmh))
             }
         }
 
         SwiftDivider()
 
         SwiftOrangeButton(
-            text = if (showFullDetails) "Скрыть" else "Подробнее",
+            text = if (showFullDetails) stringResource(R.string.trips_common_hide) else stringResource(R.string.trips_common_more_details),
             onClick = { showFullDetails = !showFullDetails },
         )
     }
@@ -997,7 +1003,7 @@ private fun DriverComparisonBlock(
 
     if (rank != null && totalDrivers != null && totalDrivers > 0) {
         Text(
-            text = "$rank из $totalDrivers водителей",
+            text = stringResource(R.string.trip_report_driver_rank_format, rank, totalDrivers),
             color = Color.Black,
             fontSize = 26.sp,
             fontWeight = FontWeight.Bold,
@@ -1008,13 +1014,13 @@ private fun DriverComparisonBlock(
 
     SwiftReportMetricRow(
         icon = "🚗",
-        label = "Ваш средний рейтинг",
+        label = stringResource(R.string.trip_report_your_avg_rating),
         value = formatNullableOneDecimal(report.driverAvgScore),
     )
 
     SwiftReportMetricRow(
         icon = "🔑",
-        label = "Учитываемых поездок у вас",
+        label = stringResource(R.string.trip_report_your_counted_trips),
         value = (report.driverTripsTotal ?: report.prevTripsCount ?: comparison.previousDriverTripsCount).toString(),
     )
 
@@ -1022,21 +1028,21 @@ private fun DriverComparisonBlock(
 
     SwiftReportMetricRow(
         icon = "🏁",
-        label = "Лучше ваших предыдущих поездок",
+        label = stringResource(R.string.trip_report_better_than_previous),
         value = report.betterThanPrevPct?.let { formatPercentNoDecimal(it) }
             ?: comparison.betterThanPreviousDriverTrips,
     )
 
     SwiftReportMetricRow(
         icon = "🌍",
-        label = "Лучше поездок всех водителей",
+        label = stringResource(R.string.trip_report_better_than_all_short),
         value = report.betterThanAllPct?.let { formatPercentNoDecimal(it) }
             ?: comparison.betterThanAllLoadedTrips,
     )
 
     SwiftReportMetricRow(
         icon = "▥",
-        label = "Всего учтено поездок",
+        label = stringResource(R.string.trip_report_total_counted_trips),
         value = (report.allTripsCount ?: comparison.totalComparableTripsCount).toString(),
     )
 
@@ -1079,15 +1085,16 @@ private fun formatPercentNoDecimal(value: Double): String {
     return "${value.roundToInt()}%"
 }
 
+@Composable
 private fun scoreBandCurrentRu(score: Double?): String {
     val value = score ?: return "—"
 
     return when {
-        value >= 90.0 -> "Отлично"
-        value >= 75.0 -> "Хорошо"
-        value >= 60.0 -> "Средне"
-        value >= 40.0 -> "Рискованно"
-        else -> "Опасно"
+        value >= 90.0 -> stringResource(R.string.trips_score_band_excellent)
+        value >= 75.0 -> stringResource(R.string.trips_score_band_good)
+        value >= 60.0 -> stringResource(R.string.trips_score_band_average)
+        value >= 40.0 -> stringResource(R.string.trips_score_band_risky)
+        else -> stringResource(R.string.trips_score_band_dangerous)
     }
 }
 
@@ -1116,15 +1123,16 @@ private fun formatReportDateTime(raw: String?): String {
     return "${date[2]}.${date[1]}.${date[0]} ${time[0]}:${time[1]}:${time.getOrNull(2) ?: "00"}"
 }
 
+@Composable
 private fun scoreBandNextRu(score: Double?): String {
     val value = score ?: return ""
 
     return when {
-        value >= 90.0 -> "Очень аккуратно"
-        value >= 75.0 -> "Отлично"
-        value >= 60.0 -> "Хорошо"
-        value >= 40.0 -> "Средне"
-        else -> "Рискованно"
+        value >= 90.0 -> stringResource(R.string.trips_score_band_very_careful)
+        value >= 75.0 -> stringResource(R.string.trips_score_band_excellent)
+        value >= 60.0 -> stringResource(R.string.trips_score_band_good)
+        value >= 40.0 -> stringResource(R.string.trips_score_band_average)
+        else -> stringResource(R.string.trips_score_band_risky)
     }
 }
 
@@ -1139,12 +1147,13 @@ private fun reportCoverage(report: TripReportDto?): Float {
     return ((total - missing).toFloat() / total.toFloat()).coerceIn(0f, 1f)
 }
 
+@Composable
 private fun localizedDrivingModeRu(raw: String?): String {
     return when (raw?.trim()?.lowercase()) {
-        "mixed" -> "Смешанный"
-        "city" -> "Город"
-        "highway" -> "Трасса"
-        else -> "Город"
+        "mixed" -> stringResource(R.string.trips_driving_mode_mixed)
+        "city" -> stringResource(R.string.trips_driving_mode_city)
+        "highway" -> stringResource(R.string.trips_driving_mode_highway)
+        else -> stringResource(R.string.trips_driving_mode_city)
     }
 }
 
@@ -1152,12 +1161,14 @@ private fun formatScore(score: Double?): String {
     return score?.let { "%.0f".format(it) } ?: "—"
 }
 
+@Composable
 private fun formatKmRu(value: Double?): String {
-    return value?.let { "%.2f км".format(it) } ?: "—"
+    return value?.let { stringResource(R.string.trips_common_km_format, it) } ?: "—"
 }
 
+@Composable
 private fun formatSpeedRu(value: Double?): String {
-    return value?.let { "%.1f км/ч".format(it) } ?: "—"
+    return value?.let { stringResource(R.string.trips_common_kmh_format, it) } ?: "—"
 }
 
 private fun formatDuration(seconds: Double?): String {
@@ -1173,23 +1184,25 @@ private fun formatDuration(seconds: Double?): String {
     }
 }
 
+@Composable
 private fun scoreLabelRu(score: Double?): String {
     if (score == null) return "—"
 
     return when {
-        score >= 80.0 -> "Хорошо"
-        score >= 60.0 -> "Нормально"
-        else -> "Плохо"
+        score >= 80.0 -> stringResource(R.string.trips_score_label_good)
+        score >= 60.0 -> stringResource(R.string.trips_score_label_normal)
+        else -> stringResource(R.string.trips_score_label_bad)
     }
 }
 
+@Composable
 private fun scoreHintRu(score: Double?): String {
-    if (score == null) return "Нет данных"
+    if (score == null) return stringResource(R.string.trips_common_no_data)
 
     return when {
-        score >= 80.0 -> "Отлично"
-        score >= 60.0 -> "Можно лучше"
-        else -> "Нужно аккуратнее"
+        score >= 80.0 -> stringResource(R.string.trips_score_band_excellent)
+        score >= 60.0 -> stringResource(R.string.trips_score_hint_can_improve)
+        else -> stringResource(R.string.trips_score_hint_be_more_careful)
     }
 }
 
@@ -1273,6 +1286,7 @@ private fun archiveScoreColor(score: Double?): Color {
     }
 }
 
+@Composable
 private fun formatArchiveDate(raw: String?): String {
     if (raw.isNullOrBlank()) return "—"
 
@@ -1296,43 +1310,47 @@ private fun formatArchiveDate(raw: String?): String {
     val hour = timeParts[0].toIntOrNull() ?: 0
     val minute = timeParts[1].toIntOrNull() ?: 0
 
-    return "$day ${russianMonthShort(month)} $year, ${"%02d:%02d".format(hour, minute)}"
+    return "$day ${localizedMonthShort(month)} $year, ${"%02d:%02d".format(hour, minute)}"
 }
 
-private fun russianMonthShort(month: Int): String {
+@Composable
+private fun localizedMonthShort(month: Int): String {
     return when (month) {
-        1 -> "янв."
-        2 -> "февр."
-        3 -> "мар."
-        4 -> "апр."
-        5 -> "мая"
-        6 -> "июн."
-        7 -> "июл."
-        8 -> "авг."
-        9 -> "сент."
-        10 -> "окт."
-        11 -> "нояб."
-        12 -> "дек."
+        1 -> stringResource(R.string.trips_month_short_january)
+        2 -> stringResource(R.string.trips_month_short_february)
+        3 -> stringResource(R.string.trips_month_short_march)
+        4 -> stringResource(R.string.trips_month_short_april)
+        5 -> stringResource(R.string.trips_month_short_may)
+        6 -> stringResource(R.string.trips_month_short_june)
+        7 -> stringResource(R.string.trips_month_short_july)
+        8 -> stringResource(R.string.trips_month_short_august)
+        9 -> stringResource(R.string.trips_month_short_september)
+        10 -> stringResource(R.string.trips_month_short_october)
+        11 -> stringResource(R.string.trips_month_short_november)
+        12 -> stringResource(R.string.trips_month_short_december)
         else -> ""
     }
 }
-private fun localizedArchiveError(error: Throwable): String {
+private fun localizedArchiveError(
+    context: Context,
+    error: Throwable,
+): String {
     val raw = error.message.orEmpty().lowercase()
 
     return when {
         raw.contains("device is not authorized for this driver_id") ->
-            "Устройство не авторизовано для этого driver_id"
+            context.getString(R.string.trips_error_device_not_authorized_for_driver)
 
         raw.contains("unauthorized") || raw.contains("401") ->
-            "Сессия не авторизована. Проверь driver/account login."
+            context.getString(R.string.trips_error_session_unauthorized)
 
         raw.contains("not found") || raw.contains("404") ->
-            "Архив или отчёт пока не найден"
+            context.getString(R.string.trips_error_archive_or_report_not_found)
 
         raw.contains("timeout") ->
-            "Сервер не ответил вовремя"
+            context.getString(R.string.trips_error_server_timeout)
 
         else ->
-            "Ошибка загрузки: ${error.message ?: "unknown"}"
+            context.getString(R.string.trips_error_loading_format, error.message ?: "unknown")
     }
 }

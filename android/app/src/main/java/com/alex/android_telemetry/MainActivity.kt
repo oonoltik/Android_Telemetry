@@ -62,6 +62,9 @@ import android.net.Uri
 import android.provider.Settings
 import androidx.core.content.ContextCompat
 
+import android.content.Context
+import com.alex.android_telemetry.core.localization.AppLanguageStore
+
 
 
 
@@ -75,6 +78,10 @@ class MainActivity : ComponentActivity() {
         ) { result ->
             Log.d("UI", "essential permissions result=$result")
         }
+
+    override fun attachBaseContext(newBase: Context) {
+        super.attachBaseContext(AppLanguageStore.wrap(newBase))
+    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -189,6 +196,11 @@ class MainActivity : ComponentActivity() {
                 if (showSettingsScreen) {
                     SettingsScreen(
                         currentDriverId = graph.driverRepository.getCurrentDriverId(),
+                        currentLanguage = AppLanguageStore.get(this@MainActivity),
+                        onLanguageChanged = { language ->
+                            AppLanguageStore.set(this@MainActivity, language)
+                            recreate()
+                        },
                         onDone = {
                             showSettingsScreen = false
                         },

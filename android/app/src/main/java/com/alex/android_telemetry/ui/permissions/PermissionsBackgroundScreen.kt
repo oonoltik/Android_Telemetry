@@ -23,8 +23,10 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import com.alex.android_telemetry.R
 import com.alex.android_telemetry.ui.design.TelemetrySpacing
 import com.alex.android_telemetry.ui.design.TelemetrySwiftColors
 import com.alex.android_telemetry.ui.design.TelemetryTypography
@@ -53,7 +55,7 @@ fun PermissionsBackgroundScreen(
         ) {
             TextButton(onClick = onBack) {
                 Text(
-                    text = "‹ Назад",
+                    text = stringResource(R.string.permissions_back),
                     color = Color(0xFF0A84FF),
                     style = TelemetryTypography.BodyEmphasis,
                 )
@@ -63,7 +65,7 @@ fun PermissionsBackgroundScreen(
         Spacer(Modifier.height(12.dp))
 
         Text(
-            text = "Доступы",
+            text = stringResource(R.string.permissions_title),
             color = TelemetrySwiftColors.TextPrimary,
             style = TelemetryTypography.LargeTitle,
         )
@@ -71,7 +73,7 @@ fun PermissionsBackgroundScreen(
         Spacer(Modifier.height(8.dp))
 
         Text(
-            text = "Настройте разрешения, чтобы поездки записывались стабильно даже после блокировки экрана, перезапуска приложения или перезагрузки телефона.",
+            text = stringResource(R.string.permissions_description),
             color = TelemetrySwiftColors.TextSecondary,
             style = TelemetryTypography.Body,
         )
@@ -82,14 +84,14 @@ fun PermissionsBackgroundScreen(
 
         Spacer(Modifier.height(24.dp))
 
-        PermissionsSectionTitle("Рекомендуется")
+        PermissionsSectionTitle(stringResource(R.string.permissions_recommended))
 
         PermissionsGroup {
             PermissionRow(
                 icon = "📍",
-                title = "Геолокация",
-                subtitle = "Нужна для корректного определения поездки и маршрута.",
-                status = "Проверить",
+                title = stringResource(R.string.permissions_location_title),
+                subtitle = stringResource(R.string.permissions_location_subtitle),
+                status = stringResource(R.string.permissions_check),
                 onClick = onOpenLocationSettings,
             )
 
@@ -97,9 +99,9 @@ fun PermissionsBackgroundScreen(
 
             PermissionRow(
                 icon = "🔋",
-                title = "Работа в фоне",
-                subtitle = "Помогает не терять поездку при выключенном экране.",
-                status = "Проверить",
+                title = stringResource(R.string.permissions_background_title),
+                subtitle = stringResource(R.string.permissions_background_subtitle),
+                status = stringResource(R.string.permissions_check),
                 onClick = onOpenBatterySettings,
             )
 
@@ -107,35 +109,35 @@ fun PermissionsBackgroundScreen(
 
             PermissionRow(
                 icon = "⚙",
-                title = "Настройки приложения",
-                subtitle = "Откройте системные параметры, если запись работает нестабильно.",
-                status = "Открыть",
+                title = stringResource(R.string.permissions_app_settings_title),
+                subtitle = stringResource(R.string.permissions_app_settings_subtitle),
+                status = stringResource(R.string.permissions_open),
                 onClick = onOpenAppSettings,
             )
         }
 
         Spacer(Modifier.height(24.dp))
 
-        PermissionsSectionTitle("Почему это важно")
+        PermissionsSectionTitle(stringResource(R.string.permissions_why_title))
 
         PermissionsGroup {
             ExplanationRow(
                 title = "Replay-safe",
-                subtitle = "Если приложение остановится, незавершённая поездка может быть восстановлена.",
+                subtitle = stringResource(R.string.permissions_replay_safe_subtitle),
             )
 
             PermissionsDivider()
 
             ExplanationRow(
                 title = "Offline-safe",
-                subtitle = "Данные сохраняются локально и отправляются позже.",
+                subtitle = stringResource(R.string.permissions_offline_safe_subtitle),
             )
 
             PermissionsDivider()
 
             ExplanationRow(
                 title = "Reboot-safe",
-                subtitle = "После перезагрузки устройство может продолжить корректную обработку состояния.",
+                subtitle = stringResource(R.string.permissions_reboot_safe_subtitle),
             )
         }
 
@@ -153,7 +155,7 @@ fun PermissionsBackgroundScreen(
             ),
         ) {
             Text(
-                text = "Готово",
+                text = stringResource(R.string.permissions_done),
                 style = TelemetryTypography.Headline,
             )
         }
@@ -178,14 +180,14 @@ private fun PermissionsHeroCard() {
         )
 
         Text(
-            text = "Стабильная запись поездок",
+            text = stringResource(R.string.permissions_stable_recording_title),
             color = TelemetrySwiftColors.TextPrimary,
             style = TelemetryTypography.Title1,
             textAlign = TextAlign.Center,
         )
 
         Text(
-            text = "Android может ограничивать фоновые процессы. Эти настройки помогают приложению работать ближе к поведению Swift-сборки.",
+            text = stringResource(R.string.permissions_hero_description),
             color = TelemetrySwiftColors.TextSecondary,
             style = TelemetryTypography.Body,
             textAlign = TextAlign.Center,

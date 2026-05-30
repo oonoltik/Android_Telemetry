@@ -19,8 +19,10 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
+import com.alex.android_telemetry.R
 import com.alex.android_telemetry.telemetry.domain.model.TelemetryMode
 import com.alex.android_telemetry.telemetry.domain.model.TripRuntimeState
 import com.alex.android_telemetry.core.recovery.BackgroundRestrictionDetector
@@ -55,7 +57,7 @@ fun RuntimeWarningBanner(
             verticalArrangement = Arrangement.spacedBy(6.dp),
         ) {
             Text(
-                text = "Runtime warnings",
+                text = stringResource(R.string.runtime_warnings_title),
                 style = MaterialTheme.typography.titleMedium,
             )
 
@@ -76,61 +78,62 @@ private object RuntimeWarnings {
         val result = mutableListOf<String>()
 
         if (currentDriverId.isNullOrBlank()) {
-            result += "No driver logged in"
+            result += context.getString(R.string.runtime_warning_no_driver)
         }
 
         if (!context.hasPermission(Manifest.permission.ACCESS_FINE_LOCATION)) {
-            result += "Fine location permission missing"
+            result += context.getString(R.string.runtime_warning_fine_location_missing)
         }
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q &&
             !context.hasPermission(Manifest.permission.ACCESS_BACKGROUND_LOCATION)
         ) {
-            result += "Background location permission missing"
+            result += context.getString(R.string.runtime_warning_background_location_missing)
         }
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
             !context.hasPermission(Manifest.permission.POST_NOTIFICATIONS)
         ) {
-            result += "Notifications permission disabled"
+            result += context.getString(R.string.runtime_warning_notifications_disabled)
         }
 
         if (!context.isLocationServicesEnabled()) {
-            result += "Location services disabled"
+            result += context.getString(R.string.runtime_warning_location_services_disabled)
         }
 
         if (!context.isIgnoringBatteryOptimizations()) {
-            result += "Battery optimization enabled"
+            result += context.getString(R.string.runtime_warning_battery_optimization_enabled)
         }
 
         if (state.telemetryMode == TelemetryMode.IDLE) {
-            result += "Telemetry paused"
+            result += context.getString(R.string.runtime_warning_telemetry_paused)
         }
 
         val backgroundRestriction = BackgroundRestrictionDetector.detect(context)
 
         if (backgroundRestriction.isBackgroundRestricted) {
-            result += "System background restriction is active"
+            result += context.getString(R.string.runtime_warning_background_restriction_active)
         }
 
         if (backgroundRestriction.standbyBucket != null &&
             backgroundRestriction.standbyBucket >= android.app.usage.UsageStatsManager.STANDBY_BUCKET_RARE
         ) {
-            result += "App standby bucket is restrictive: ${
-                BackgroundRestrictionDetector.standbyBucketLabel(backgroundRestriction.standbyBucket)
-            }"
+            result += context.getString(
+                R.string.runtime_warning_standby_bucket_restrictive,
+                BackgroundRestrictionDetector.standbyBucketLabel(backgroundRestriction.standbyBucket),
+            )
         }
 
         if (backgroundRestriction.isSamsung) {
-            result += "Samsung sleeping apps may stop telemetry in background"
+            result += context.getString(R.string.runtime_warning_samsung_sleeping_apps)
         }
 
         if (backgroundRestriction.isXiaomi) {
-            result += "MIUI may block background telemetry unless autostart is allowed"
+            result += context.getString(R.string.runtime_warning_miui_autostart)
         }
 
         if (backgroundRestriction.isHuawei) {
-            result += "Huawei/Honor may aggressively stop background telemetry"
+            result += context.getString(R.string.runtime_warning_huawei_restriction)
         }
 
         return result
