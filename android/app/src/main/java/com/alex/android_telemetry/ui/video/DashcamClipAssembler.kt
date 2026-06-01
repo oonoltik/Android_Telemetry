@@ -55,6 +55,13 @@ class DashcamClipAssembler {
                     MediaMuxer.OutputFormat.MUXER_OUTPUT_MPEG_4,
                 )
 
+            val rotationDegrees =
+                readRotationDegrees(sources.first())
+
+            if (rotationDegrees != 0) {
+                muxer.setOrientationHint(rotationDegrees)
+            }
+
             val outputTrackMap =
                 trackMappings.associate { mapping ->
                     mapping.mime to muxer.addTrack(mapping.format)
@@ -100,7 +107,7 @@ class DashcamClipAssembler {
                             0,
                             sampleSize,
                             offsetUs + extractor.sampleTime.coerceAtLeast(0L),
-                            extractor.sampleFlags,
+                            normalizeSampleFlags(extractor.sampleFlags),
                         )
 
                         muxer.writeSampleData(
@@ -154,6 +161,45 @@ class DashcamClipAssembler {
         } catch (_: Exception) {
             0L
         }
+    }
+
+    private fun readRotationDegrees(
+        file: File,
+    ): Int {
+        return try {
+            val retriever = MediaMetadataRetriever()
+            retriever.setDataSource(file.absolutePath)
+
+            val rotation =
+                retriever.extractMetadata(
+                    MediaMetadataRetriever.METADATA_KEY_VIDEO_ROTATION,
+                )?.toIntOrNull() ?: 0
+
+            retriever.release()
+
+            when (rotation) {
+                0, 90, 180, 270 -> rotation
+                else -> 0
+            }
+        } catch (_: Exception) {
+            0
+        }
+    }
+
+    private fun normalizeSampleFlags(
+        flags: Int,
+    ): Int {
+        var normalizedFlags = 0
+
+        if ((flags and MediaExtractor.SAMPLE_FLAG_SYNC) != 0) {
+            normalizedFlags = normalizedFlags or android.media.MediaCodec.BUFFER_FLAG_SYNC_FRAME
+        }
+
+        if ((flags and MediaExtractor.SAMPLE_FLAG_PARTIAL_FRAME) != 0) {
+            normalizedFlags = normalizedFlags or android.media.MediaCodec.BUFFER_FLAG_PARTIAL_FRAME
+        }
+
+        return normalizedFlags
     }
 
     private data class TrackMapping(

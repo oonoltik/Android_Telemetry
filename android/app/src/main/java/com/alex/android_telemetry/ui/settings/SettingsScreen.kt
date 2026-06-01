@@ -115,21 +115,21 @@ fun SettingsScreen(
 
         Spacer(Modifier.height(24.dp))
 
-        SettingsSectionTitle(stringResource(R.string.settings_system))
-
-        SettingsGroup {
-            SettingsRow(
-                title = stringResource(R.string.settings_diagnostics),
-                value = stringResource(R.string.settings_for_developer),
-                onClick = onOpenDiagnostics,
-            )
-        }
-
-        SettingsFootnote(
-            text = stringResource(R.string.settings_diagnostics_footnote),
-        )
-
-        Spacer(Modifier.height(24.dp))
+//        SettingsSectionTitle(stringResource(R.string.settings_system))
+//
+//        SettingsGroup {
+//            SettingsRow(
+//                title = stringResource(R.string.settings_diagnostics),
+//                value = stringResource(R.string.settings_for_developer),
+//                onClick = onOpenDiagnostics,
+//            )
+//        }
+//
+//        SettingsFootnote(
+//            text = stringResource(R.string.settings_diagnostics_footnote),
+//        )
+//
+//        Spacer(Modifier.height(24.dp))
 
         SettingsSectionTitle(stringResource(R.string.settings_data))
 

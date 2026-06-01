@@ -30,6 +30,8 @@ data class DashcamRecordingState(
     val rollingSessionId: String? = null,
     val segmentIndex: Int = 0,
     val isEmergency: Boolean = false,
+    val isSaving: Boolean = false,
+    val savingProgressPercent: Int = 0,
     val errorMessage: String? = null,
 )
 

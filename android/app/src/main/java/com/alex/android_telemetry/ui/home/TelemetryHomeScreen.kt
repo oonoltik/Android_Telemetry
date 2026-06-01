@@ -91,6 +91,8 @@ import com.alex.android_telemetry.ui.video.DashcamRecordingStateStore
 import com.alex.android_telemetry.ui.video.DashcamTripCoordinatorHolder
 import com.alex.android_telemetry.ui.video.DashcamTripOwnership
 import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.material3.LinearProgressIndicator
+import androidx.compose.ui.text.style.TextOverflow
 
 
 private val HomeScreenBackground = Color.White
@@ -228,6 +230,9 @@ fun TelemetryHomeScreen(
 
     val dashcamRecordingState by
     DashcamRecordingStateStore.state.collectAsState()
+
+    val isVideoSaving = dashcamRecordingState.isSaving
+    val videoSavingProgressPercent = dashcamRecordingState.savingProgressPercent
 
     LaunchedEffect(dashcamRecordingState.isRecording) {
         isVideoRecording = dashcamRecordingState.isRecording
@@ -400,9 +405,9 @@ fun TelemetryHomeScreen(
             modifier = Modifier
                 .fillMaxSize()
                 .verticalScroll(rememberScrollState())
-                .padding(horizontal = 16.dp)
-                .padding(top = 18.dp, bottom = 34.dp),
-            verticalArrangement = Arrangement.spacedBy(16.dp),
+                .padding(horizontal = 10.dp)
+                .padding(top = 2.dp, bottom = 2.dp),
+            verticalArrangement = Arrangement.spacedBy(2.dp),
         ) {
             HomeToolbar(
                 onOpenSettings = onOpenPermissionsBackground,
@@ -454,10 +459,12 @@ fun TelemetryHomeScreen(
                 isTripActive = isTripActive,
             )
 
-            TripSummaryCard(
-                state = state,
-                nowEpochMs = nowEpochMs,
-            )
+            if (isTripActive) {
+                TripSummaryCard(
+                    state = state,
+                    nowEpochMs = nowEpochMs,
+                )
+            }
 
             StartStopControls(
                 canStart =
@@ -493,8 +500,15 @@ fun TelemetryHomeScreen(
                 },
             )
 
+            ArchiveActions(
+                onOpenTripsArchive = onOpenTripsArchive,
+                onOpenVideoArchive = onOpenVideoArchive,
+            )
+
             DashcamBlock(
                 isRecording = isVideoRecording,
+                isSaving = isVideoSaving,
+                savingProgressPercent = videoSavingProgressPercent,
                 recordingSeconds = videoRecordingSeconds,
                 showPreview = showCameraPreview,
                 useFrontCamera = useFrontCamera,
@@ -550,34 +564,33 @@ fun TelemetryHomeScreen(
                 },
             )
 
-            ArchiveActions(
-                onOpenTripsArchive = onOpenTripsArchive,
-                onOpenVideoArchive = onOpenVideoArchive,
-            )
-
             TrackingModeSegment()
+
+
 
             SaveFishButton(
                 onClick = onOpenSaveFishGame,
             )
 
-            TextButton(
-                onClick = onOpenDiagnostics,
-                modifier = Modifier.fillMaxWidth(),
-            ) {
-                Text(
-                    text = stringResource(R.string.home_diagnostics),
-                    color = SwiftSecondaryText,
-                    style = TelemetryTypography.Callout,
-                )
-            }
+            Spacer(Modifier.height(24.dp))
+
+//            TextButton(
+//                onClick = onOpenDiagnostics,
+//                modifier = Modifier.fillMaxWidth(),
+//            ) {
+//                Text(
+//                    text = stringResource(R.string.home_diagnostics),
+//                    color = SwiftSecondaryText,
+//                    style = TelemetryTypography.Callout,
+//                )
+//            }
         }
         AnimatedVisibility(
             visible = crashAlertVisible,
             modifier =
                 Modifier
                     .align(Alignment.TopCenter)
-                    .padding(top = 18.dp),
+                    .padding(top = 8.dp),
         ) {
             Box(
                 modifier =
@@ -585,8 +598,8 @@ fun TelemetryHomeScreen(
                         .clip(RoundedCornerShape(24.dp))
                         .background(Color(0xFFFF453A))
                         .padding(
-                            horizontal = 18.dp,
-                            vertical = 14.dp,
+                            horizontal = 10.dp,
+                            vertical = 8.dp,
                         ),
             ) {
                 Text(
@@ -683,19 +696,21 @@ private fun HomeToolbar(
         TextButton(
             onClick = onOpenSettings,
             modifier = Modifier
-                .clip(RoundedCornerShape(28.dp))
+                .clip(RoundedCornerShape(20.dp))
                 .background(Color.White)
                 .border(
                     width = 1.dp,
                     color = Color(0x11000000),
-                    shape = RoundedCornerShape(28.dp),
+                    shape = RoundedCornerShape(20.dp),
                 )
-                .padding(horizontal = 18.dp, vertical = 5.dp),
+                .padding(horizontal = 10.dp, vertical = 2.dp),
         ) {
             Text(
                 text = stringResource(R.string.home_settings),
                 color = Color.Black,
-                style = TelemetryTypography.Title2,
+                fontSize = 14.sp,
+                fontWeight = FontWeight.SemiBold,
+                lineHeight = 16.sp,
             )
         }
     }
@@ -737,8 +752,8 @@ private fun DriverScoreCard(
     val nextLevelText = formatLevelText(metrics)
 
     SwiftCard(
-        cornerRadius = 18,
-        padding = 24,
+        cornerRadius = 22,
+        padding = 6,
     ) {
         Column(
             modifier = Modifier.fillMaxWidth(),
@@ -748,14 +763,18 @@ private fun DriverScoreCard(
             Text(
                 text = stringResource(R.string.home_driver_score_title),
                 color = Color.Black,
-                style = TelemetryTypography.Title1,
+                fontSize = 22.sp,
+                fontWeight = FontWeight.Bold,
+                lineHeight = 27.sp,
                 textAlign = TextAlign.Center,
             )
 
             Text(
                 text = scoreText,
                 color = SwiftBlue,
-                style = TelemetryTypography.ScoreHero,
+                fontSize = 50.sp,
+                fontWeight = FontWeight.Bold,
+                lineHeight = 54.sp,
                 textAlign = TextAlign.Center,
             )
 
@@ -779,8 +798,11 @@ private fun DriverScoreCard(
                 Text(
                     text = deltaText,
                     color = if ((metrics?.scoreDeltaRecent ?: 0.0) >= 0.0) SwiftGreen else SwiftOrange,
-                    style = TelemetryTypography.Title2,
+                    fontSize = 16.sp,
+                    fontWeight = FontWeight.Bold,
+                    lineHeight = 27.sp,
                     textAlign = TextAlign.Center,
+
                 )
 
                 SwiftDivider()
@@ -797,7 +819,9 @@ private fun DriverScoreCard(
                 Text(
                     text = percentileText,
                     color = Color.Black,
-                    style = TelemetryTypography.Title2,
+                    fontSize = 20.sp,
+                    fontWeight = FontWeight.Bold,
+                    lineHeight = 24.sp,
                     textAlign = TextAlign.Center,
                 )
             }
@@ -806,8 +830,11 @@ private fun DriverScoreCard(
                 Text(
                     text = nextLevelText,
                     color = SwiftSecondaryText,
-                    style = TelemetryTypography.Body,
+                    fontSize = 12.sp,
+                    fontWeight = FontWeight.Medium,
+                    lineHeight = 16.sp,
                     textAlign = TextAlign.Center,
+                    maxLines = 1,
                 )
             }
 
@@ -821,7 +848,7 @@ private fun DriverScoreCard(
                     Column(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalAlignment = Alignment.CenterHorizontally,
-                        verticalArrangement = Arrangement.spacedBy(8.dp),
+                        verticalArrangement = Arrangement.spacedBy(3.dp),
                     ) {
                         RecentTripDots(
                             scores = metrics.recentTripScores,
@@ -831,15 +858,20 @@ private fun DriverScoreCard(
                         Text(
                             text = recentTripsSummary(metrics.recentTripScores),
                             color = Color.Black,
-                            style = TelemetryTypography.Title2,
+                            fontSize = 14.sp,
+                            fontWeight = FontWeight.Bold,
+                            lineHeight = 18.sp,
                             textAlign = TextAlign.Center,
+
                         )
 
                         Text(
                             text = stringResource(R.string.home_keep_green_streak),
                             color = SwiftSecondaryText,
+                            fontSize = 12.sp,
                             style = TelemetryTypography.Body,
                             textAlign = TextAlign.Center,
+
                         )
                     }
                 }
@@ -868,12 +900,12 @@ private fun TripStateBadge(
 
     SwiftCard(
         cornerRadius = 18,
-        padding = 18,
+        padding = 2,
     ) {
         Row(
             modifier = Modifier.fillMaxWidth(),
             verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(14.dp),
+            horizontalArrangement = Arrangement.spacedBy(6.dp),
         ) {
             Box(
                 modifier = Modifier
@@ -906,14 +938,13 @@ private fun TripSummaryCard(
 
     val distanceKm = state.distanceM / 1000.0
 
-
     SwiftCard(
         cornerRadius = 16,
-        padding = 18,
+        padding = 2,
     ) {
         Column(
             modifier = Modifier.fillMaxWidth(),
-            verticalArrangement = Arrangement.spacedBy(9.dp),
+            verticalArrangement = Arrangement.spacedBy(7.dp),
         ) {
             TripSummaryRow(
                 icon = "◴",
@@ -948,27 +979,34 @@ private fun TripSummaryRow(
     ) {
         Text(
             text = icon,
-            modifier = Modifier.width(34.dp),
+            modifier = Modifier.width(28.dp),
             color = SwiftSecondaryText,
-            style = TelemetryTypography.Title2,
+            fontSize = 20.sp,
+            fontWeight = FontWeight.SemiBold,
+            lineHeight = 24.sp,
         )
 
         Text(
             text = label,
             modifier = Modifier.weight(1f),
             color = SwiftSecondaryText,
-            style = TelemetryTypography.Title2,
+            fontSize = 18.sp,
+            fontWeight = FontWeight.SemiBold,
+            lineHeight = 23.sp,
+            maxLines = 1,
         )
 
         Text(
             text = value,
             color = Color.Black,
-            style = TelemetryTypography.Title2,
+            fontSize = 20.sp,
+            fontWeight = FontWeight.Bold,
+            lineHeight = 24.sp,
             textAlign = TextAlign.End,
+            maxLines = 1,
         )
     }
 }
-
 @Composable
 private fun StartStopControls(
     canStart: Boolean,
@@ -979,7 +1017,7 @@ private fun StartStopControls(
 ) {
     Row(
         modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.spacedBy(16.dp),
+        horizontalArrangement = Arrangement.spacedBy(10.dp),
     ) {
         Button(
             onClick = onStartTrip,
@@ -987,7 +1025,7 @@ private fun StartStopControls(
             modifier = Modifier
                 .weight(1f)
                 .height(70.dp),
-            shape = RoundedCornerShape(36.dp),
+            shape = RoundedCornerShape(32.dp),
             colors = ButtonDefaults.buttonColors(
                 containerColor =
                     if (canStart && hasDriver) {
@@ -1041,19 +1079,19 @@ private fun ArchiveActions(
 ) {
     Row(
         modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.spacedBy(12.dp),
+        horizontalArrangement = Arrangement.spacedBy(26.dp),
     ) {
         PillButton(
             text = stringResource(R.string.home_trips_archive),
             modifier = Modifier.weight(1f),
-            height = 58,
+            height = 50,
             onClick = onOpenTripsArchive,
         )
 
         PillButton(
             text = stringResource(R.string.home_video_archive),
             modifier = Modifier.weight(1f),
-            height = 58,
+            height = 50,
             onClick = onOpenVideoArchive,
         )
     }
@@ -1185,6 +1223,8 @@ private fun RecentTripDot(
 @Composable
 private fun DashcamBlock(
     isRecording: Boolean,
+    isSaving: Boolean,
+    savingProgressPercent: Int,
     recordingSeconds: Int,
     showPreview: Boolean,
     useFrontCamera: Boolean,
@@ -1195,7 +1235,8 @@ private fun DashcamBlock(
     onSelectDriverCamera: () -> Unit,
 ) {
     val context = LocalContext.current
-    val cameraSwitchRequiresNewRecordingMessage = stringResource(R.string.home_camera_switch_requires_new_recording)
+    val cameraSwitchRequiresNewRecordingMessage =
+        stringResource(R.string.home_camera_switch_requires_new_recording)
 
     var permissionsRefreshKey by remember {
         mutableIntStateOf(0)
@@ -1256,96 +1297,131 @@ private fun DashcamBlock(
     Column(
         modifier = Modifier.fillMaxWidth(),
     ) {
-
-        Row(
+        PillButton(
+            text = stringResource(R.string.home_video_mode),
             modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
+            height = 50,
+            backgroundColor =
+                if (isSaving) {
+                    Color(0xFFE5E5EA)
+                } else {
+                    SwiftButtonGray
+                },
+            contentColor =
+                if (isSaving) {
+                    Color(0xFFB8B8BE)
+                } else {
+                    SwiftBlue
+                },
+            onClick = {
+                if (!isRecording && !isSaving) {
+                    onToggleRecording()
+                }
+            },
+        )
 
+        if (isRecording) {
             Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 2.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically,
             ) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .size(14.dp)
+                            .clip(CircleShape)
+                            .background(Color(0xFFFF4D4F))
+                    )
 
-                Box(
-                    modifier = Modifier
-                        .size(14.dp)
-                        .clip(CircleShape)
-                        .background(
-                            if (isRecording) {
-                                Color(0xFFFF4D4F)
-                            } else {
-                                Color.LightGray
-                            }
-                        )
-                )
+                    Spacer(modifier = Modifier.width(12.dp))
 
-                Spacer(modifier = Modifier.width(12.dp))
+                    Text(
+                        text = stringResource(R.string.home_video_recording),
+                        color = Color.Black,
+                        fontSize = 22.sp,
+                        fontWeight = FontWeight.Bold,
+                        lineHeight = 27.sp,
+                    )
+                }
 
                 Text(
-                    text =
-                        if (isRecording) {
-                            stringResource(R.string.home_video_recording)
-                        } else {
-                            stringResource(R.string.home_video_mode)
-                        },
-                    fontSize = 18.sp,
-                    fontWeight = FontWeight.SemiBold,
+                    text = formatDashcamTime(recordingSeconds),
+                    color = Color.Black,
+                    fontSize = 22.sp,
+                    fontWeight = FontWeight.Bold,
+                    lineHeight = 27.sp,
                 )
             }
 
-            Text(
-                text = formatDashcamTime(recordingSeconds),
-                fontSize = 18.sp,
-                fontWeight = FontWeight.Medium,
+            Spacer(modifier = Modifier.height(12.dp))
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(14.dp),
+            ) {
+                PillButton(
+                    text =
+                        if (showPreview) {
+                            stringResource(R.string.home_hide_camera)
+                        } else {
+                            stringResource(R.string.home_show_camera)
+                        },
+                    modifier = Modifier.weight(1f),
+                    height = 56,
+                    onClick = onTogglePreview,
+                )
+
+                PillButton(
+                    text = stringResource(R.string.home_stop_video),
+                    modifier = Modifier.weight(1f),
+                    height = 56,
+                    backgroundColor = Color(0xFFFF4D4F),
+                    contentColor = Color.White,
+                    onClick = onToggleRecording,
+                )
+            }
+
+            InlineCameraPreview(
+                useFrontCamera = useFrontCamera,
+                dashcamController = dashcamController,
+                modifier = Modifier
+                    .padding(top = 8.dp)
+                    .fillMaxWidth()
+                    .height(
+                        if (showPreview) {
+                            240.dp
+                        } else {
+                            1.dp
+                        }
+                    )
+                    .alpha(
+                        if (showPreview) {
+                            1f
+                        } else {
+                            0f
+                        }
+                    )
+                    .clip(RoundedCornerShape(28.dp))
             )
         }
 
-        Spacer(modifier = Modifier.height(18.dp))
-
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(14.dp),
-        ) {
-
-            PillButton(
-                text =
-                    if (showPreview) {
-                        stringResource(R.string.home_hide_camera)
-                    } else {
-                        stringResource(R.string.home_show_camera)
-                    },
-                modifier = Modifier.weight(1f),
-                height = 72,
-                onClick = onTogglePreview,
-            )
-
-            PillButton(
-                text =
-                    if (isRecording) {
-                        stringResource(R.string.home_stop_video)
-                    } else {
-                        stringResource(R.string.home_start_video)
-                    },
-                modifier = Modifier.weight(1f),
-                height = 72,
-                backgroundColor =
-                    if (isRecording) {
-                        Color(0xFFFF4D4F)
-                    } else {
-                        Color(0xFF3B82F6)
-                    },
-                contentColor = Color.White,
-                onClick = onToggleRecording,
+        if (isSaving) {
+            SavingVideoProgressBlock(
+                progressPercent = savingProgressPercent,
             )
         }
 
-        Spacer(modifier = Modifier.height(18.dp))
+        Spacer(modifier = Modifier.height(10.dp))
 
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .height(48.dp)
+                .height(42.dp)
                 .clip(RoundedCornerShape(24.dp))
                 .background(Color(0xFFF1F1F3))
                 .padding(3.dp),
@@ -1390,33 +1466,116 @@ private fun DashcamBlock(
             )
         }
 
+        if (!hasLocationPermission && !locationWarningDismissed) {
+            PermissionWarningCard(
+                title = stringResource(R.string.home_location_disabled_title),
+                message = stringResource(R.string.home_location_disabled_message),
+                onOpenSettings = openAppSettings,
+                onDismiss = {
+                    locationWarningDismissed = true
+                },
+            )
+        }
 
+        if (!hasCameraPermission && !cameraWarningDismissed) {
+            PermissionWarningCard(
+                title = stringResource(R.string.home_camera_permission_title),
+                message = stringResource(R.string.home_camera_permission_message),
+                onOpenSettings = openAppSettings,
+                onDismiss = {
+                    cameraWarningDismissed = true
+                },
+            )
+        }
 
-        InlineCameraPreview(
-            useFrontCamera = useFrontCamera,
-            dashcamController = dashcamController,
-            modifier = Modifier
-                .padding(top = 18.dp)
-                .fillMaxWidth()
-                .height(
-                    if (showPreview) {
-                        240.dp
-                    } else {
-                        1.dp
-                    }
-                )
-                .alpha(
-                    if (showPreview) {
-                        1f
-                    } else {
-                        0f
-                    }
-                )
-                .clip(RoundedCornerShape(28.dp))
-        )
+        if (!hasMicrophonePermission && !microphoneWarningDismissed) {
+            PermissionWarningCard(
+                title = stringResource(R.string.home_microphone_permission_title),
+                message = stringResource(R.string.home_microphone_permission_message),
+                onOpenSettings = openAppSettings,
+                onDismiss = {
+                    microphoneWarningDismissed = true
+                },
+            )
+        }
     }
 }
 
+@Composable
+private fun SavingVideoProgressBlock(
+    progressPercent: Int,
+) {
+    val safeProgress =
+        progressPercent.coerceIn(0, 100)
+
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(top = 8.dp),
+        verticalArrangement = Arrangement.spacedBy(2.dp),
+    ) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(18.dp)
+                    .clip(CircleShape)
+                    .background(Color(0xFFFF9500)),
+            ) {
+                Box(
+                    modifier = Modifier
+                        .align(Alignment.Center)
+                        .size(7.dp)
+                        .clip(CircleShape)
+                        .background(Color.White),
+                )
+            }
+
+            Spacer(modifier = Modifier.width(12.dp))
+
+            Text(
+                text = stringResource(R.string.home_video_saving_title),
+                modifier = Modifier.weight(1f),
+                color = Color.Black,
+                fontSize = 21.sp,
+                fontWeight = FontWeight.Bold,
+                lineHeight = 25.sp,
+            )
+
+            Text(
+                text = stringResource(
+                    R.string.home_video_saving_percent,
+                    safeProgress,
+                ),
+                color = Color.Black,
+                fontSize = 22.sp,
+                fontWeight = FontWeight.Medium,
+                lineHeight = 26.sp,
+            )
+        }
+
+        LinearProgressIndicator(
+            progress = safeProgress / 100f,
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(5.dp)
+                .clip(RoundedCornerShape(3.dp)),
+            color = SwiftBlue,
+            trackColor = Color(0xFFE5E5EA),
+        )
+
+        Text(
+            text = stringResource(R.string.home_video_saving_subtitle),
+            modifier = Modifier.fillMaxWidth(),
+            color = SwiftSecondaryText,
+            fontSize = 16.sp,
+            fontWeight = FontWeight.Medium,
+            textAlign = TextAlign.Center,
+        )
+    }
+}
 @Composable
 private fun CameraSegmentButton(
     text: String,

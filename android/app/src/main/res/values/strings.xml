@@ -406,6 +406,10 @@ Move the glass carefully — the water reacts to motion and may spill. The fish 
 <string name="runtime_warning_miui_autostart">MIUI may block background telemetry unless autostart is allowed</string>
 <string name="runtime_warning_huawei_restriction">Huawei/Honor may aggressively stop background telemetry</string>
 
+<string name="home_video_saving_title">Saving recording</string>
+<string name="home_video_saving_subtitle">Saving recording</string>
+<string name="home_video_saving_percent">%1$d%%</string>
+
 
 
 

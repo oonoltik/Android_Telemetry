@@ -406,6 +406,10 @@
     <string name="runtime_warning_miui_autostart">MIUI может блокировать фоновую телеметрию без разрешённого автозапуска</string>
     <string name="runtime_warning_huawei_restriction">Huawei/Honor может агрессивно останавливать фоновую телеметрию</string>
 
+    <string name="home_video_saving_title">Идёт сохранение записи</string>
+    <string name="home_video_saving_subtitle">Идет сохранение записи</string>
+    <string name="home_video_saving_percent">%1$d%%</string>
+
 
 
 

@@ -11,6 +11,9 @@ import androidx.core.app.NotificationCompat
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.LifecycleService
 import com.alex.android_telemetry.R
+import androidx.lifecycle.lifecycleScope
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 
 class DashcamRecordingService : LifecycleService() {
     private lateinit var controller: DashcamRecordingController
@@ -54,10 +57,37 @@ class DashcamRecordingService : LifecycleService() {
             }
 
             ACTION_STOP -> {
-                controller.stopRecording()
-                DashcamRecordingStateStore.reset()
-                stopForeground(STOP_FOREGROUND_REMOVE)
-                stopSelf()
+                lifecycleScope.launch {
+                    DashcamRecordingStateStore.update(
+                        DashcamRecordingState(
+                            isRecording = false,
+                            activeCamera = controller.currentCameraType(),
+                            isSaving = true,
+                            savingProgressPercent = 0,
+                        )
+                    )
+
+                    controller.stopRecording()
+
+                    listOf(15, 35, 55, 75, 90, 100).forEach { progress ->
+                        delay(250)
+
+                        DashcamRecordingStateStore.update(
+                            DashcamRecordingState(
+                                isRecording = false,
+                                activeCamera = controller.currentCameraType(),
+                                isSaving = true,
+                                savingProgressPercent = progress,
+                            )
+                        )
+                    }
+
+                    delay(350)
+
+                    DashcamRecordingStateStore.reset()
+                    stopForeground(STOP_FOREGROUND_REMOVE)
+                    stopSelf()
+                }
             }
         }
 
@@ -104,7 +134,7 @@ class DashcamRecordingService : LifecycleService() {
             this,
             CHANNEL_ID,
         )
-            .setSmallIcon(R.drawable.ic_launcher_foreground)
+            .setSmallIcon(R.mipmap.ic_launcher)
             .setContentTitle(getString(R.string.dashcam_recording_notification_title))
             .setContentText(getString(R.string.dashcam_recording_notification_text))
             .setOngoing(true)
