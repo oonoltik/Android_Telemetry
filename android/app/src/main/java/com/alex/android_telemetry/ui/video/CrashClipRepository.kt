@@ -54,6 +54,33 @@ class CrashClipRepository(
     }
 
     @Synchronized
+    fun hasCompletedPostCrashSegment(
+        event: CrashEvent,
+        rollingSessionId: String?,
+        postCrashMs: Long,
+    ): Boolean {
+        val windowEndMs =
+            event.detectedAtMs + postCrashMs
+
+        return videoRepository
+            .loadVideos()
+            .any { segment ->
+                val file =
+                    File(segment.absolutePath)
+
+                val sameSession =
+                    rollingSessionId == null ||
+                            segment.rollingSessionId == rollingSessionId
+
+                sameSession &&
+                        file.exists() &&
+                        file.length() > 0L &&
+                        segment.startedAtMs <= windowEndMs &&
+                        segment.endedAtMs >= windowEndMs
+            }
+    }
+
+    @Synchronized
     fun createCrashPackage(
         event: CrashEvent,
         rollingSessionId: String?,
@@ -70,6 +97,13 @@ class CrashClipRepository(
 
         val windowEndMs =
             event.detectedAtMs + postCrashMs
+
+        videoRepository.protectCrashWindow(
+            crashAtMs = event.detectedAtMs,
+            preCrashMs = preCrashMs,
+            postCrashMs = postCrashMs,
+            rollingSessionId = rollingSessionId,
+        )
 
         val segments =
             videoRepository

@@ -212,8 +212,8 @@ class DashcamVideoRepository(
 
                 if (shouldProtect) {
                     item.copy(
-                        isEmergency = false,
-                        isProtected = false,
+                        isEmergency = true,
+                        isProtected = true,
                     )
                 } else {
                     item
@@ -327,7 +327,7 @@ class DashcamVideoRepository(
     ): Boolean {
         val file = File(entity.absolutePath)
 
-        if (entity.isEmergency) {
+        if (entity.isEmergency || entity.isProtected) {
             return false
         }
 

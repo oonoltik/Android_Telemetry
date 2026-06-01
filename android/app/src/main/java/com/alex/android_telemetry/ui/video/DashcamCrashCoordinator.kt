@@ -4,6 +4,7 @@ import android.os.Handler
 import android.os.Looper
 import com.alex.android_telemetry.telemetry.crash.CrashEvent
 import com.alex.android_telemetry.telemetry.crash.CrashTelemetryBuffer
+import com.alex.android_telemetry.telemetry.crash.CrashTelemetrySnapshot
 
 class DashcamCrashCoordinator(
     private val recordingController: DashcamRecordingController,
@@ -18,13 +19,16 @@ class DashcamCrashCoordinator(
     private val coordinatorCooldownMs: Long = 20_000L
     private val preCrashMs: Long = 10_000L
     private val postCrashMs: Long = 10_000L
+    private val postSegmentWaitStepMs: Long = 2_000L
+    private val maxPostSegmentWaitAttempts: Int = 15
 
     private var lastHandledCrashAtMs: Long = 0L
 
     fun handleCrashDetected(
         event: CrashEvent,
     ) {
-        val now = System.currentTimeMillis()
+        val now =
+            System.currentTimeMillis()
 
         if (now - lastHandledCrashAtMs < coordinatorCooldownMs) {
             return
@@ -65,49 +69,105 @@ class DashcamCrashCoordinator(
 
         handler.postDelayed(
             {
-                val crashPackage =
-                    crashClipRepository.createCrashPackage(
-                        event = event,
-                        rollingSessionId = rollingSessionId,
-                        preCrashMs = preCrashMs,
-                        postCrashMs = postCrashMs + 2_000L,
-                        telemetrySnapshot = telemetrySnapshot,
-                        telemetryTimeline = telemetryTimeline,
-                    )
-
-                crashClipRepository.markQueued(
-                    crashPackage.crashId,
-                )
-
-                val driverId =
-                    driverIdProvider()?.trim().orEmpty()
-
-                if (driverId.isBlank()) {
-                    crashClipRepository.updateUploadState(
-                        crashId = crashPackage.crashId,
-                        state = CrashClipUploadState.FAILED,
-                    )
-
-                    android.util.Log.e(
-                        "CrashClipUpload",
-                        "upload skipped: empty driverId crashId=${crashPackage.crashId}"
-                    )
-                    return@postDelayed
-                }
-
-                android.util.Log.d(
-                    "CrashClipUpload",
-                    "enqueue upload crashId=${crashPackage.crashId} driverId=$driverId deviceId=$deviceId cameraType=$cameraType"
-                )
-
-                uploadScheduler.enqueueUpload(
-                    crashId = crashPackage.crashId,
-                    driverId = driverId,
-                    deviceId = deviceId,
+                createCrashPackageWhenPostSegmentReady(
+                    event = event,
+                    rollingSessionId = rollingSessionId,
                     cameraType = cameraType,
+                    telemetrySnapshot = telemetrySnapshot,
+                    telemetryTimeline = telemetryTimeline,
+                    attempt = 1,
                 )
             },
-            postCrashMs,
+            postCrashMs + 5_000L,
+        )
+    }
+
+    private fun createCrashPackageWhenPostSegmentReady(
+        event: CrashEvent,
+        rollingSessionId: String?,
+        cameraType: DashcamCameraType,
+        telemetrySnapshot: CrashTelemetrySnapshot?,
+        telemetryTimeline: List<CrashTelemetrySnapshot>,
+        attempt: Int,
+    ) {
+        val postSegmentReady =
+            crashClipRepository.hasCompletedPostCrashSegment(
+                event = event,
+                rollingSessionId = rollingSessionId,
+                postCrashMs = postCrashMs,
+            )
+
+        if (!postSegmentReady && attempt < maxPostSegmentWaitAttempts) {
+            android.util.Log.d(
+                "CrashClipPackage",
+                "post segment not ready attempt=$attempt rollingSessionId=$rollingSessionId crashAt=${event.detectedAtMs}"
+            )
+
+            handler.postDelayed(
+                {
+                    createCrashPackageWhenPostSegmentReady(
+                        event = event,
+                        rollingSessionId = rollingSessionId,
+                        cameraType = cameraType,
+                        telemetrySnapshot = telemetrySnapshot,
+                        telemetryTimeline = telemetryTimeline,
+                        attempt = attempt + 1,
+                    )
+                },
+                postSegmentWaitStepMs,
+            )
+
+            return
+        }
+
+        if (!postSegmentReady) {
+            android.util.Log.e(
+                "CrashClipPackage",
+                "post segment still not ready, fallback package creation rollingSessionId=$rollingSessionId crashAt=${event.detectedAtMs}"
+            )
+        }
+
+        val crashPackage =
+            crashClipRepository.createCrashPackage(
+                event = event,
+                rollingSessionId = rollingSessionId,
+                preCrashMs = preCrashMs,
+                postCrashMs = postCrashMs,
+                telemetrySnapshot = telemetrySnapshot,
+                telemetryTimeline = telemetryTimeline,
+            )
+
+        crashClipRepository.markQueued(
+            crashPackage.crashId,
+        )
+
+        val driverId =
+            driverIdProvider()?.trim().orEmpty()
+
+        if (driverId.isBlank()) {
+            crashClipRepository.updateUploadState(
+                crashId = crashPackage.crashId,
+                state = CrashClipUploadState.FAILED,
+            )
+
+            android.util.Log.e(
+                "CrashClipUpload",
+                "upload skipped: empty driverId crashId=${crashPackage.crashId}"
+            )
+
+            return
+        }
+
+        android.util.Log.d(
+            "CrashClipUpload",
+            "enqueue upload crashId=${crashPackage.crashId} driverId=$driverId deviceId=$deviceId cameraType=$cameraType"
+        )
+
+        uploadScheduler.enqueueUpload(
+            crashId = crashPackage.crashId,
+            driverId = driverId,
+            deviceId = deviceId,
+            cameraType = cameraType,
         )
     }
 }
