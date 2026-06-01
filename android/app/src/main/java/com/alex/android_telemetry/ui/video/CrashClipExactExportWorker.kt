@@ -1,6 +1,7 @@
 package com.alex.android_telemetry.ui.video
 
 import android.content.Context
+import android.os.Environment
 import androidx.media3.common.util.UnstableApi
 import androidx.work.CoroutineWorker
 import androidx.work.WorkerParameters
@@ -61,12 +62,6 @@ class CrashClipExactExportWorker(
             state = CrashClipExactExportState.EXPORTING,
         )
 
-        val windowStartMs =
-            crashClip.detectedAtMs - crashClip.preCrashMs
-
-        val windowEndMs =
-            crashClip.detectedAtMs + crashClip.postCrashMs
-
         val allVideos =
             videoRepository.loadVideos()
 
@@ -91,9 +86,59 @@ class CrashClipExactExportWorker(
             return Result.success()
         }
 
+        val availableStartMs =
+            sourceSegments
+                .minOfOrNull { it.startedAtMs }
+                ?: (crashClip.detectedAtMs - crashClip.preCrashMs)
+
+        val availableEndMs =
+            sourceSegments
+                .maxOfOrNull { it.endedAtMs }
+                ?: (crashClip.detectedAtMs + crashClip.postCrashMs)
+
+        val requestedWindowStartMs =
+            crashClip.detectedAtMs - crashClip.preCrashMs
+
+        val requestedWindowEndMs =
+            crashClip.detectedAtMs + crashClip.postCrashMs
+
+        val windowStartMs =
+            maxOf(
+                availableStartMs,
+                requestedWindowStartMs,
+            )
+
+        val windowEndMs =
+            minOf(
+                availableEndMs,
+                requestedWindowEndMs,
+            )
+
+        android.util.Log.d(
+            "CrashClipExactExport",
+            "window crashId=$crashId detected=${crashClip.detectedAtMs} availableStart=$availableStartMs availableEnd=$availableEndMs requestedStart=$requestedWindowStartMs requestedEnd=$requestedWindowEndMs windowStart=$windowStartMs windowEnd=$windowEndMs pre=${crashClip.preCrashMs} post=${crashClip.postCrashMs}"
+        )
+
+        if (windowEndMs <= windowStartMs) {
+            crashClipRepository.markExactExportFailed(
+                crashId = crashId,
+                error = "Invalid exact export window",
+            )
+
+            android.util.Log.e(
+                "CrashClipExactExport",
+                "invalid window crashId=$crashId windowStart=$windowStartMs windowEnd=$windowEndMs"
+            )
+
+            return Result.success()
+        }
+
         val outputFile =
             File(
-                File(applicationContext.getExternalFilesDir(android.os.Environment.DIRECTORY_MOVIES), "dashcam/exact_crash_packages"),
+                File(
+                    applicationContext.getExternalFilesDir(Environment.DIRECTORY_MOVIES),
+                    "dashcam/exact_crash_packages",
+                ),
                 "$crashId.mp4",
             )
 
