@@ -116,13 +116,6 @@ class CrashClipRepository(
         val windowEndMs =
             event.detectedAtMs + postCrashMs
 
-        videoRepository.protectCrashWindow(
-            crashAtMs = event.detectedAtMs,
-            preCrashMs = preCrashMs,
-            postCrashMs = postCrashMs,
-            rollingSessionId = rollingSessionId,
-        )
-
         val segments =
             videoRepository
                 .loadVideos()
@@ -222,6 +215,11 @@ class CrashClipRepository(
                 .sortedByDescending { it.detectedAtMs }
 
         saveCrashClips(updated)
+
+        android.util.Log.d(
+            "CrashClipSaved",
+            "saved crashId=${entity.crashId} clips=${updated.size}"
+        )
 
         return entity
     }

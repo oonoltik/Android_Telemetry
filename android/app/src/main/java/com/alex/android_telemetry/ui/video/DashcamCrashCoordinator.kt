@@ -5,6 +5,7 @@ import android.os.Looper
 import com.alex.android_telemetry.telemetry.crash.CrashEvent
 import com.alex.android_telemetry.telemetry.crash.CrashTelemetryBuffer
 import com.alex.android_telemetry.telemetry.crash.CrashTelemetrySnapshot
+import com.alex.android_telemetry.ui.video.DashcamArchiveRefreshBus
 
 class DashcamCrashCoordinator(
     private val recordingController: DashcamRecordingController,
@@ -137,6 +138,11 @@ class DashcamCrashCoordinator(
                 telemetryTimeline = telemetryTimeline,
             )
 
+        android.util.Log.d(
+            "CrashClipSaved",
+            "package created crashId=${crashPackage.crashId} assemblyState=${crashPackage.assemblyState} mergedClipPath=${crashPackage.mergedClipPath}"
+        )
+
         if (crashPackage.assemblyState != CrashClipAssemblyState.COMPLETED ||
             crashPackage.mergedClipPath == null
         ) {
@@ -150,6 +156,8 @@ class DashcamCrashCoordinator(
         crashClipRepository.markQueued(
             crashPackage.crashId,
         )
+
+        DashcamArchiveRefreshBus.notifyChanged()
 
         val driverId =
             driverIdProvider()?.trim().orEmpty()
