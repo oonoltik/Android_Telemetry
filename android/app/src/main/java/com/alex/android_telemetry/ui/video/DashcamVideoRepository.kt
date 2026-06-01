@@ -169,8 +169,8 @@ class DashcamVideoRepository(
             loadIndex().map { item ->
                 if (item.rollingSessionId == rollingSessionId) {
                     item.copy(
-                        isEmergency = true,
-                        isProtected = true,
+                        isEmergency = false,
+                        isProtected = false,
                     )
                 } else {
                     item
@@ -254,7 +254,7 @@ class DashcamVideoRepository(
                 durationMs = durationMs,
                 sizeBytes = file.length(),
                 isEmergency = isEmergency,
-                isProtected = isEmergency,
+                isProtected = isProtected,
                 tripId = tripId,
                 sessionId = sessionId,
                 rollingSessionId = rollingSessionId,
@@ -322,12 +322,25 @@ class DashcamVideoRepository(
     }
 
     @Synchronized
+    fun clearRollingProtectionFlags() {
+        val updated =
+            loadIndex().map { item ->
+                item.copy(
+                    isEmergency = false,
+                    isProtected = false,
+                )
+            }
+
+        saveIndex(updated)
+    }
+
+    @Synchronized
     fun deleteVideo(
         entity: DashcamVideoEntity,
     ): Boolean {
         val file = File(entity.absolutePath)
 
-        if (entity.isEmergency || entity.isProtected) {
+        if (entity.isEmergency) {
             return false
         }
 
@@ -352,8 +365,8 @@ class DashcamVideoRepository(
             loadIndex().map { item ->
                 if (item.absolutePath == absolutePath) {
                     item.copy(
-                        isEmergency = true,
-                        isProtected = true,
+                        isEmergency = false,
+                        isProtected = false,
                     )
                 } else {
                     item

@@ -17,6 +17,10 @@ data class CrashClipEntity(
     val telemetrySnapshot: CrashTelemetrySnapshot? = null,
     val telemetryTimeline: List<CrashTelemetrySnapshot> = emptyList(),
     val uploadState: CrashClipUploadState = CrashClipUploadState.LOCAL_ONLY,
+    val assemblyState: CrashClipAssemblyState = CrashClipAssemblyState.COMPLETED,
+    val assemblyAttempts: Int = 0,
+    val lastAssemblyAttemptAtMs: Long? = null,
+    val lastAssemblyError: String? = null,
 )
 
 @Serializable
@@ -25,5 +29,13 @@ enum class CrashClipUploadState {
     QUEUED,
     UPLOADING,
     UPLOADED,
+    FAILED,
+}
+
+@Serializable
+enum class CrashClipAssemblyState {
+    WAITING_SEGMENTS,
+    ASSEMBLING,
+    COMPLETED,
     FAILED,
 }

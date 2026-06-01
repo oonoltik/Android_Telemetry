@@ -38,8 +38,12 @@ class CrashClipRepository(
     @Synchronized
     fun pendingUploads(): List<CrashClipEntity> {
         return loadCrashClips().filter {
-            it.uploadState == CrashClipUploadState.QUEUED ||
-                    it.uploadState == CrashClipUploadState.FAILED
+            it.assemblyState == CrashClipAssemblyState.COMPLETED &&
+                    it.mergedClipPath != null &&
+                    (
+                            it.uploadState == CrashClipUploadState.QUEUED ||
+                                    it.uploadState == CrashClipUploadState.FAILED
+                            )
         }
     }
 
@@ -77,6 +81,20 @@ class CrashClipRepository(
                         file.length() > 0L &&
                         segment.startedAtMs <= windowEndMs &&
                         segment.endedAtMs >= windowEndMs
+            }
+    }
+
+    @Synchronized
+    fun pendingAssemblyRetries(
+        maxAttempts: Int = 5,
+    ): List<CrashClipEntity> {
+        return loadCrashClips()
+            .filter { item ->
+                item.assemblyState == CrashClipAssemblyState.FAILED &&
+                        item.assemblyAttempts < maxAttempts
+            }
+            .sortedBy { item ->
+                item.lastAssemblyAttemptAtMs ?: item.createdAtMs
             }
     }
 
@@ -134,14 +152,39 @@ class CrashClipRepository(
                     .sortedBy { it.startedAtMs }
             }
 
+        android.util.Log.d(
+            "CrashClipPackage",
+            "create crashId=$crashId windowStart=$windowStartMs windowEnd=$windowEndMs rollingSessionId=$rollingSessionId segments=${safeSegments.size}"
+        )
+
+        safeSegments.forEach { segment ->
+            android.util.Log.d(
+                "CrashClipPackage",
+                "segment file=${segment.fileName} start=${segment.startedAtMs} end=${segment.endedAtMs} duration=${segment.durationMs} emergency=${segment.isEmergency} protected=${segment.isProtected} exists=${File(segment.absolutePath).exists()} size=${File(segment.absolutePath).length()}"
+            )
+        }
+
         val outputFile =
             File(crashDir, "$crashId.mp4")
 
         val merged =
-            assembler.mergeMp4Segments(
-                inputFiles = safeSegments.map { File(it.absolutePath) },
-                outputFile = outputFile,
-            )
+            safeSegments.isNotEmpty() &&
+                    assembler.mergeMp4Segments(
+                        inputFiles = safeSegments.map { File(it.absolutePath) },
+                        outputFile = outputFile,
+                    )
+
+        val assemblyError =
+            when {
+                safeSegments.isEmpty() ->
+                    "No segments found for crash window"
+
+                !merged ->
+                    "MP4 merge failed"
+
+                else ->
+                    null
+            }
 
         val entity =
             CrashClipEntity(
@@ -161,6 +204,15 @@ class CrashClipRepository(
                 createdAtMs = System.currentTimeMillis(),
                 telemetrySnapshot = telemetrySnapshot,
                 telemetryTimeline = telemetryTimeline,
+                assemblyState =
+                    if (merged) {
+                        CrashClipAssemblyState.COMPLETED
+                    } else {
+                        CrashClipAssemblyState.FAILED
+                    },
+                assemblyAttempts = 1,
+                lastAssemblyAttemptAtMs = System.currentTimeMillis(),
+                lastAssemblyError = assemblyError,
             )
 
         val updated =
@@ -172,6 +224,131 @@ class CrashClipRepository(
         saveCrashClips(updated)
 
         return entity
+    }
+
+    @Synchronized
+    fun retryAssembly(
+        crashId: String,
+    ): CrashClipEntity? {
+        val current =
+            loadCrashClips()
+
+        val existing =
+            current.firstOrNull { item ->
+                item.crashId == crashId
+            } ?: return null
+
+        val windowStartMs =
+            existing.detectedAtMs - existing.preCrashMs
+
+        val windowEndMs =
+            existing.detectedAtMs + existing.postCrashMs
+
+        val segments =
+            videoRepository
+                .loadVideos()
+                .filter { segment ->
+                    val overlaps =
+                        segment.startedAtMs <= windowEndMs &&
+                                segment.endedAtMs >= windowStartMs
+
+                    val sameSession =
+                        existing.rollingSessionId == null ||
+                                segment.rollingSessionId == existing.rollingSessionId
+
+                    val file =
+                        File(segment.absolutePath)
+
+                    overlaps &&
+                            sameSession &&
+                            file.exists() &&
+                            file.length() > 0L
+                }
+                .sortedBy { it.startedAtMs }
+
+        val safeSegments =
+            if (segments.isNotEmpty()) {
+                segments
+            } else {
+                videoRepository
+                    .loadVideos()
+                    .filter { segment ->
+                        val file =
+                            File(segment.absolutePath)
+
+                        segment.startedAtMs <= windowEndMs &&
+                                segment.endedAtMs >= windowStartMs &&
+                                file.exists() &&
+                                file.length() > 0L
+                    }
+                    .sortedBy { it.startedAtMs }
+            }
+
+        val outputFile =
+            File(crashDir, "${existing.crashId}.mp4")
+
+        if (outputFile.exists()) {
+            outputFile.delete()
+        }
+
+        val merged =
+            safeSegments.isNotEmpty() &&
+                    assembler.mergeMp4Segments(
+                        inputFiles = safeSegments.map { File(it.absolutePath) },
+                        outputFile = outputFile,
+                    )
+
+        val assemblyError =
+            when {
+                safeSegments.isEmpty() ->
+                    "No segments found for crash window"
+
+                !merged ->
+                    "MP4 merge failed"
+
+                else ->
+                    null
+            }
+
+        val updatedEntity =
+            existing.copy(
+                segmentPaths = safeSegments.map { it.absolutePath },
+                mergedClipPath =
+                    if (merged) {
+                        outputFile.absolutePath
+                    } else {
+                        null
+                    },
+                assemblyState =
+                    if (merged) {
+                        CrashClipAssemblyState.COMPLETED
+                    } else {
+                        CrashClipAssemblyState.FAILED
+                    },
+                assemblyAttempts = existing.assemblyAttempts + 1,
+                lastAssemblyAttemptAtMs = System.currentTimeMillis(),
+                lastAssemblyError = assemblyError,
+                uploadState =
+                    if (merged && existing.uploadState == CrashClipUploadState.FAILED) {
+                        CrashClipUploadState.LOCAL_ONLY
+                    } else {
+                        existing.uploadState
+                    },
+            )
+
+        saveCrashClips(
+            current
+                .filterNot { item -> item.crashId == crashId }
+                .plus(updatedEntity)
+                .sortedByDescending { item -> item.detectedAtMs }
+        )
+
+        android.util.Log.d(
+            "CrashClipPackage",
+            "retry assembly crashId=$crashId merged=$merged attempts=${updatedEntity.assemblyAttempts} error=$assemblyError"
+        )
+
+        return updatedEntity
     }
 
     @Synchronized

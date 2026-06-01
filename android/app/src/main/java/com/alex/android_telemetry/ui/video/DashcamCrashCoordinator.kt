@@ -137,6 +137,16 @@ class DashcamCrashCoordinator(
                 telemetryTimeline = telemetryTimeline,
             )
 
+        if (crashPackage.assemblyState != CrashClipAssemblyState.COMPLETED ||
+            crashPackage.mergedClipPath == null
+        ) {
+            android.util.Log.e(
+                "CrashClipPackage",
+                "assembly failed crashId=${crashPackage.crashId} attempts=${crashPackage.assemblyAttempts} error=${crashPackage.lastAssemblyError}"
+            )
+            return
+        }
+
         crashClipRepository.markQueued(
             crashPackage.crashId,
         )

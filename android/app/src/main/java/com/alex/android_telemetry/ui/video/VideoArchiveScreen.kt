@@ -104,19 +104,17 @@ fun VideoArchiveScreen(
     DashcamArchiveRefreshBus.version.collectAsState()
 
     LaunchedEffect(archiveVersion) {
+        videoRepository.clearRollingProtectionFlags()
+
         videos = videoRepository.loadVideos()
         crashClips = crashClipRepository.loadCrashClips()
-
-
     }
 
     val stats =
         videoRepository.storageStats()
 
     val regularVideos =
-        videos.filterNot {
-            it.isEmergency
-        }
+        videos
 
     val visibleCrashClips =
         when (filter) {
@@ -275,6 +273,12 @@ fun VideoArchiveScreen(
                         video?.let {
                             videoRepository.deleteVideo(it)
                         } ?: false
+
+                    android.util.Log.d(
+                        "VideoArchiveDelete",
+                        "delete selected path=$path found=${video != null} deleted=$deleted emergency=${video?.isEmergency} protected=${video?.isProtected}"
+                    )
+
 
                     if (deleted) {
                         deletedCount += 1
