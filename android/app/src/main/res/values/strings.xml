@@ -409,6 +409,7 @@ Move the glass carefully — the water reacts to motion and may spill. The fish 
 <string name="home_video_saving_title">Saving recording</string>
 <string name="home_video_saving_subtitle">Saving recording</string>
 <string name="home_video_saving_percent">%1$d%%</string>
+<string name="video_archive_select_all">Select all</string>
 
 
 

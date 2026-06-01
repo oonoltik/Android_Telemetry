@@ -172,6 +172,32 @@ fun VideoArchiveScreen(
         SelectionActionBar(
             selectionMode = selectionMode,
             selectedCount = selectedCount,
+            onSelectAll = {
+                val allCrashIds =
+                    visibleCrashClips
+                        .map { it.crashId }
+                        .toSet()
+
+                val allVideoPaths =
+                    visibleRegularVideos
+                        .map { it.absolutePath }
+                        .toSet()
+
+                val allSelected =
+                    selectedCrashIds == allCrashIds &&
+                            selectedVideoPaths == allVideoPaths &&
+                            allCrashIds.isNotEmpty().or(allVideoPaths.isNotEmpty())
+
+                if (allSelected) {
+                    selectedCrashIds = emptySet()
+                    selectedVideoPaths = emptySet()
+                    selectionMode = false
+                } else {
+                    selectedCrashIds = allCrashIds
+                    selectedVideoPaths = allVideoPaths
+                    selectionMode = true
+                }
+            },
             onToggleSelectionMode = {
                 selectionMode = !selectionMode
                 selectedCrashIds = emptySet()
@@ -596,6 +622,7 @@ private fun ArchiveFilterButton(
 private fun SelectionActionBar(
     selectionMode: Boolean,
     selectedCount: Int,
+    onSelectAll: () -> Unit,
     onToggleSelectionMode: () -> Unit,
     onExportSelected: () -> Unit,
     onDeleteSelected: () -> Unit,
@@ -627,6 +654,18 @@ private fun SelectionActionBar(
             fontSize = 15.sp,
             fontWeight = FontWeight.SemiBold,
         )
+
+        Button(
+            onClick = onSelectAll,
+            modifier = Modifier.fillMaxWidth(),
+            colors = ButtonDefaults.buttonColors(
+                containerColor = Color(0xFF1C1C1E),
+                contentColor = Color.White,
+            ),
+            shape = RoundedCornerShape(18.dp),
+        ) {
+            Text(stringResource(R.string.video_archive_select_all))
+        }
 
         Row(
             modifier = Modifier.fillMaxWidth(),

@@ -410,6 +410,8 @@
     <string name="home_video_saving_subtitle">Идет сохранение записи</string>
     <string name="home_video_saving_percent">%1$d%%</string>
 
+    <string name="video_archive_select_all">Выделить все</string>
+
 
 
 
