@@ -93,6 +93,7 @@ import com.alex.android_telemetry.ui.video.DashcamTripOwnership
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.ui.text.style.TextOverflow
+import com.alex.android_telemetry.ui.video.CrashClipExactExportScheduler
 
 
 private val HomeScreenBackground = Color.White
@@ -317,6 +318,8 @@ fun TelemetryHomeScreen(
                 driverIdProvider = {
                     currentDriverId
                 },
+                exactExportScheduler =
+                    CrashClipExactExportScheduler(context),
             )
         }
 

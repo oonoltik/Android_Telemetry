@@ -21,6 +21,11 @@ data class CrashClipEntity(
     val assemblyAttempts: Int = 0,
     val lastAssemblyAttemptAtMs: Long? = null,
     val lastAssemblyError: String? = null,
+    val exactExportState: CrashClipExactExportState = CrashClipExactExportState.NOT_STARTED,
+    val exactClipPath: String? = null,
+    val exactExportAttempts: Int = 0,
+    val lastExactExportAttemptAtMs: Long? = null,
+    val lastExactExportError: String? = null,
 )
 
 @Serializable
@@ -36,6 +41,15 @@ enum class CrashClipUploadState {
 enum class CrashClipAssemblyState {
     WAITING_SEGMENTS,
     ASSEMBLING,
+    COMPLETED,
+    FAILED,
+}
+
+@Serializable
+enum class CrashClipExactExportState {
+    NOT_STARTED,
+    QUEUED,
+    EXPORTING,
     COMPLETED,
     FAILED,
 }

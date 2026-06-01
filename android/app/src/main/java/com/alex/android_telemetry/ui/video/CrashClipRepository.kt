@@ -419,4 +419,108 @@ class CrashClipRepository(
 
         DashcamArchiveRefreshBus.notifyChanged()
     }
+
+    @Synchronized
+    fun findCrashClip(
+        crashId: String,
+    ): CrashClipEntity? {
+        return loadCrashClips()
+            .firstOrNull { item ->
+                item.crashId == crashId
+            }
+    }
+
+    @Synchronized
+    fun markExactExportQueuedOrRunning(
+        crashId: String,
+        state: CrashClipExactExportState,
+    ) {
+        val current =
+            loadCrashClips()
+
+        val updated =
+            current.map { item ->
+                if (item.crashId == crashId) {
+                    item.copy(
+                        exactExportState = state,
+                        exactExportAttempts = item.exactExportAttempts + 1,
+                        lastExactExportAttemptAtMs = System.currentTimeMillis(),
+                        lastExactExportError = null,
+                    )
+                } else {
+                    item
+                }
+            }
+
+        saveCrashClips(updated)
+
+        android.util.Log.d(
+            "CrashClipExactExport",
+            "state crashId=$crashId state=$state"
+        )
+    }
+
+    @Synchronized
+    fun markExactExportCompleted(
+        crashId: String,
+        exactClipPath: String,
+    ) {
+        val current =
+            loadCrashClips()
+
+        val updated =
+            current.map { item ->
+                if (item.crashId == crashId) {
+                    item.copy(
+                        exactExportState = CrashClipExactExportState.COMPLETED,
+                        exactClipPath = exactClipPath,
+                        mergedClipPath = exactClipPath,
+                        lastExactExportAttemptAtMs = System.currentTimeMillis(),
+                        lastExactExportError = null,
+                    )
+                } else {
+                    item
+                }
+            }
+
+        saveCrashClips(updated)
+
+        DashcamArchiveRefreshBus.notifyChanged()
+
+        android.util.Log.d(
+            "CrashClipExactExport",
+            "completed crashId=$crashId exactClipPath=$exactClipPath"
+        )
+    }
+
+    @Synchronized
+    fun markExactExportFailed(
+        crashId: String,
+        error: String,
+    ) {
+        val current =
+            loadCrashClips()
+
+        val updated =
+            current.map { item ->
+                if (item.crashId == crashId) {
+                    item.copy(
+                        exactExportState = CrashClipExactExportState.FAILED,
+                        lastExactExportAttemptAtMs = System.currentTimeMillis(),
+                        lastExactExportError = error,
+                    )
+                } else {
+                    item
+                }
+            }
+
+        saveCrashClips(updated)
+
+        DashcamArchiveRefreshBus.notifyChanged()
+
+        android.util.Log.e(
+            "CrashClipExactExport",
+            "failed crashId=$crashId error=$error"
+        )
+    }
 }

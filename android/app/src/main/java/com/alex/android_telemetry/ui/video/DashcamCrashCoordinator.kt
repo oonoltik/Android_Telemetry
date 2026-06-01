@@ -11,6 +11,7 @@ class DashcamCrashCoordinator(
     private val recordingController: DashcamRecordingController,
     private val crashClipRepository: CrashClipRepository,
     private val uploadScheduler: CrashClipUploadScheduler,
+    private val exactExportScheduler: CrashClipExactExportScheduler,
     private val deviceId: String,
     private val driverIdProvider: () -> String?,
 ) {
@@ -158,6 +159,10 @@ class DashcamCrashCoordinator(
         )
 
         DashcamArchiveRefreshBus.notifyChanged()
+
+        exactExportScheduler.enqueueExactExport(
+            crashPackage.crashId,
+        )
 
         val driverId =
             driverIdProvider()?.trim().orEmpty()
