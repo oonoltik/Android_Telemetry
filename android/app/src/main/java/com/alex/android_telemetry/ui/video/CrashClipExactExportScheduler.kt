@@ -10,12 +10,27 @@ class CrashClipExactExportScheduler(
 ) {
     fun enqueueExactExport(
         crashId: String,
+        driverId: String,
+        deviceId: String,
+        cameraType: DashcamCameraType,
     ) {
         val data =
             Data.Builder()
                 .putString(
                     CrashClipExactExportWorker.KEY_CRASH_ID,
                     crashId,
+                )
+                .putString(
+                    CrashClipExactExportWorker.KEY_DRIVER_ID,
+                    driverId,
+                )
+                .putString(
+                    CrashClipExactExportWorker.KEY_DEVICE_ID,
+                    deviceId,
+                )
+                .putString(
+                    CrashClipExactExportWorker.KEY_CAMERA_TYPE,
+                    cameraType.name,
                 )
                 .build()
 
@@ -37,6 +52,7 @@ class CrashClipExactExportScheduler(
     }
 
     companion object {
-        private const val TAG = "crash_clip_exact_export"
+        private const val TAG =
+            "crash_clip_exact_export"
     }
 }

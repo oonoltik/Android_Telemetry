@@ -410,6 +410,31 @@ Move the glass carefully — the water reacts to motion and may spill. The fish 
 <string name="home_video_saving_subtitle">Saving recording</string>
 <string name="home_video_saving_percent">%1$d%%</string>
 <string name="video_archive_select_all">Select all</string>
+<string name="video_archive_regular_segment_title">Recording #%1$d — Fragment %2$d</string>
+<string name="home_dms_title">Driver fatigue</string>
+<string name="home_dms_status_off">Monitoring is off</string>
+<string name="home_dms_status_safe">Safe mode: recording works, analysis is limited</string>
+<string name="home_dms_status_full">Full mode: face analysis is active</string>
+<string name="home_dms_fatigue_normal">Status normal</string>
+<string name="home_dms_fatigue_warning">Warning: fatigue signs detected</string>
+<string name="home_dms_fatigue_critical">Danger: driver is falling asleep</string>
+<string name="home_dms_fatigue_distracted">Warning: driver is distracted</string>
+<string name="home_dms_fatigue_drowsy">Warning: head is down</string>
+<string name="home_dms_eye_score">Eye openness: %1$d%%</string>
+<string name="home_dms_perclos">PERCLOS: %1$d%%</string>
+<string name="home_dms_microsleep">Microsleep detected</string>
+<string name="home_dms_face_not_detected">Face not detected</string>
+
+<string name="dms_tts_microsleep">Microsleep detected. Pull over.</string>
+<string name="dms_tts_perclos_critical">Danger. The driver is falling asleep.</string>
+<string name="dms_tts_perclos_warning">Warning. Eyes are often closed.</string>
+<string name="dms_tts_head_down">Head is down. Look at the road.</string>
+<string name="dms_tts_looking_left">Head turned left. Look at the road.</string>
+<string name="dms_tts_looking_right">Head turned right. Look at the road.</string>
+<string name="dms_tts_face_missing">Face is not visible. Look at the road.</string>
+<string name="dms_tts_yawning">Driver is yawning. Take a break.</string>
+<string name="dashcam_crash_saving">Crash video is being saved...</string>
+
 
 
 

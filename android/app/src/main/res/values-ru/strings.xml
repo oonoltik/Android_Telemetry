@@ -411,7 +411,30 @@
     <string name="home_video_saving_percent">%1$d%%</string>
 
     <string name="video_archive_select_all">Выделить все</string>
+    <string name="video_archive_regular_segment_title">Запись №%1$d — Фрагмент %2$d</string>а55
 
+    <string name="home_dms_title">Усталость водителя</string>
+    <string name="home_dms_status_off">Мониторинг выключен</string>
+    <string name="home_dms_status_safe">Безопасный режим: запись работает, анализ ограничен</string>
+    <string name="home_dms_status_full">Полный режим: анализ лица активен</string>
+    <string name="home_dms_fatigue_normal">Состояние нормальное</string>
+    <string name="home_dms_fatigue_warning">Внимание: признаки усталости</string>
+    <string name="home_dms_fatigue_critical">Опасность: водитель засыпает</string>
+    <string name="home_dms_fatigue_distracted">Внимание: водитель отвлёкся</string>
+    <string name="home_dms_fatigue_drowsy">Внимание: голова опущена</string>
+    <string name="home_dms_eye_score">Открытость глаз: %1$d%%</string>
+    <string name="home_dms_perclos">PERCLOS: %1$d%%</string>
+    <string name="home_dms_microsleep">Микросон обнаружен</string>
+    <string name="home_dms_face_not_detected">Лицо не обнаружено</string>
+    <string name="dms_tts_microsleep">Микросон. Остановитесь.</string>
+    <string name="dms_tts_perclos_critical">Опасность. Водитель засыпает.</string>
+    <string name="dms_tts_perclos_warning">Внимание. Глаза часто закрыты.</string>
+    <string name="dms_tts_head_down">Голова опущена. Смотрите на дорогу.</string>
+    <string name="dms_tts_looking_left">Голова повернута влево. Смотрите на дорогу.</string>
+    <string name="dms_tts_looking_right">Голова повернута вправо. Смотрите на дорогу.</string>
+    <string name="dms_tts_face_missing">Лицо не видно. Смотрите на дорогу.</string>
+    <string name="dms_tts_yawning">Водитель зевает. Сделайте паузу.</string>
+    <string name="dashcam_crash_saving">Аварийная запись сохраняется...</string>
 
 
 

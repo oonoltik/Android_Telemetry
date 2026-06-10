@@ -138,6 +138,21 @@ fun VideoArchiveScreen(
             ArchiveFilter.FAILED_UPLOADS -> emptyList()
         }
 
+    val regularSessionNumbers =
+        remember(regularVideos) {
+            regularVideos
+                .filterNot { it.isEmergency || it.isProtected }
+                .groupBy { it.rollingSessionId ?: it.sessionId ?: it.id }
+                .toList()
+                .sortedBy { (_, items) ->
+                    items.minOfOrNull { it.startedAtMs } ?: Long.MAX_VALUE
+                }
+                .mapIndexed { index, entry ->
+                    entry.first to index + 1
+                }
+                .toMap()
+        }
+
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -396,6 +411,7 @@ fun VideoArchiveScreen(
                     items(visibleRegularVideos) { item ->
                         DashcamVideoCard(
                             item = item,
+                            sessionNumber = regularSessionNumbers[item.rollingSessionId ?: item.sessionId ?: item.id] ?: 1,
                             selectionMode = selectionMode,
                             isSelected = selectedVideoPaths.contains(item.absolutePath),
                             onSelectionToggle = {
@@ -1147,6 +1163,7 @@ private fun EmptyVideoArchive() {
 @Composable
 private fun DashcamVideoCard(
     item: DashcamVideoEntity,
+    sessionNumber: Int,
     selectionMode: Boolean,
     isSelected: Boolean,
     onSelectionToggle: () -> Unit,
@@ -1213,7 +1230,11 @@ private fun DashcamVideoCard(
                 modifier = Modifier.weight(1f),
             ) {
                 Text(
-                    text = formatVideoDate(item.startedAtMs),
+                    text = stringResource(
+                        R.string.video_archive_regular_segment_title,
+                        sessionNumber,
+                        item.segmentIndex.coerceAtLeast(1),
+                    ),
                     color = Color.White,
                     fontSize = 17.sp,
                     fontWeight = FontWeight.SemiBold,
@@ -1222,7 +1243,7 @@ private fun DashcamVideoCard(
                 Spacer(modifier = Modifier.height(6.dp))
 
                 Text(
-                    text = stringResource(R.string.video_archive_video_clip_title, cameraLabel, item.segmentIndex),
+                    text = formatVideoTimeRange(item.startedAtMs, item.endedAtMs),
                     color = Color(0xFF8E8E93),
                     fontSize = 14.sp,
                 )
@@ -1310,6 +1331,19 @@ private fun formatVideoDate(
         "dd.MM.yyyy HH:mm",
         Locale.getDefault(),
     ).format(Date(timestamp))
+}
+
+private fun formatVideoTimeRange(
+    startedAtMs: Long,
+    endedAtMs: Long,
+): String {
+    val formatter =
+        SimpleDateFormat(
+            "HH:mm:ss",
+            Locale.getDefault(),
+        )
+
+    return "${formatter.format(Date(startedAtMs))}–${formatter.format(Date(endedAtMs))}"
 }
 
 private fun formatDuration(

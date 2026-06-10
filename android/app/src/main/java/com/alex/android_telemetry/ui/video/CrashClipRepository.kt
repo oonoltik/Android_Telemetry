@@ -100,15 +100,15 @@ class CrashClipRepository(
 
     @Synchronized
     fun createCrashPackage(
+        crashId: String,
         event: CrashEvent,
         rollingSessionId: String?,
         preCrashMs: Long,
         postCrashMs: Long,
-        telemetrySnapshot: CrashTelemetrySnapshot? = null,
-        telemetryTimeline: List<CrashTelemetrySnapshot> = emptyList(),
+        telemetrySnapshot: CrashTelemetrySnapshot?,
+        telemetryTimeline: List<CrashTelemetrySnapshot>,
     ): CrashClipEntity {
-        val crashId =
-            "crash_${event.detectedAtMs}_${UUID.randomUUID().toString().take(8)}"
+
 
         val windowStartMs =
             event.detectedAtMs - preCrashMs

@@ -16,6 +16,8 @@ import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.MultipartBody
 import okhttp3.OkHttpClient
 import okhttp3.Request
+
+import okhttp3.HttpUrl.Companion.toHttpUrl
 import okhttp3.RequestBody.Companion.asRequestBody
 import okhttp3.RequestBody.Companion.toRequestBody
 import java.io.File
@@ -255,12 +257,24 @@ class CrashClipUploadApi(
 
             Log.d("CrashClipUpload", "step upload/chunks crashId=${entity.crashId} chunks=${init.total_chunks} chunkSize=${init.chunk_size}")
 
+            val status =
+                getUploadStatus(
+                    token = token,
+                    crashClipId = entity.crashId,
+                )
+
+            if (status.status == "uploaded") {
+                Log.d("CrashClipUpload", "upload/status already uploaded crashId=${entity.crashId}")
+                return@withContext true
+            }
+
             uploadChunks(
                 token = token,
-                uploadSessionId = init.session_id,
+                uploadSessionId = status.upload_session_id ?: init.session_id,
                 file = file,
-                chunkSize = init.chunk_size,
-                totalChunks = init.total_chunks,
+                chunkSize = status.chunk_size.takeIf { it > 0 } ?: init.chunk_size,
+                totalChunks = status.total_chunks.takeIf { it > 0 } ?: init.total_chunks,
+                uploadedChunks = status.uploaded_chunks.toSet(),
             )
 
             Log.d("CrashClipUpload", "step done crashId=${entity.crashId}")
@@ -364,8 +378,8 @@ class CrashClipUploadApi(
         file: File,
         chunkSize: Int,
         totalChunks: Int,
+        uploadedChunks: Set<Int> = emptySet(),
     ) {
-
         file.inputStream().use { input ->
             val buffer =
                 ByteArray(chunkSize)
@@ -378,6 +392,16 @@ class CrashClipUploadApi(
 
                 if (read <= 0) {
                     break
+                }
+
+                if (uploadedChunks.contains(chunkIndex)) {
+                    Log.d(
+                        "CrashClipUpload",
+                        "upload/chunk skipped already uploaded session=$uploadSessionId index=$chunkIndex"
+                    )
+
+                    chunkIndex += 1
+                    continue
                 }
 
                 val chunkFile =
@@ -456,6 +480,47 @@ class CrashClipUploadApi(
                     "upload/chunk $chunkIndex failed: HTTP ${response.code}: $responseBody"
                 )
             }
+        }
+    }
+
+    private fun getUploadStatus(
+        token: String,
+        crashClipId: String,
+    ): UploadStatusResponse {
+        Log.d("CrashClipUpload", "upload/status started crashClipId=$crashClipId")
+
+        val url =
+            "${activeBaseUrl.trimEnd('/')}/crash-clips/upload/status"
+                .toHttpUrl()
+                .newBuilder()
+                .addQueryParameter("crash_clip_id", crashClipId)
+                .build()
+
+        val request =
+            Request.Builder()
+                .url(url)
+                .get()
+                .header("Authorization", "Bearer $token")
+                .header("Accept", "application/json")
+                .header("Connection", "close")
+                .build()
+
+        client.newCall(request).execute().use { response ->
+            val responseBody =
+                response.body?.string().orEmpty()
+
+            Log.d(
+                "CrashClipUpload",
+                "upload/status response=${response.code} body=$responseBody"
+            )
+
+            if (!response.isSuccessful) {
+                throw IllegalStateException(
+                    "upload/status failed: HTTP ${response.code}: $responseBody"
+                )
+            }
+
+            return json.decodeFromString(responseBody)
         }
     }
 

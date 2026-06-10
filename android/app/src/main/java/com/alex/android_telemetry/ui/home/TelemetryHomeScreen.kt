@@ -94,6 +94,11 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.ui.text.style.TextOverflow
 import com.alex.android_telemetry.ui.video.CrashClipExactExportScheduler
+import com.alex.android_telemetry.ui.video.DriverMonitoringState
+import com.alex.android_telemetry.ui.video.DriverMonitoringStateStore
+import com.alex.android_telemetry.ui.video.DriverFatigueState
+import com.alex.android_telemetry.ui.video.DriverMonitoringMode
+import com.alex.android_telemetry.telemetry.crash.CrashTelemetryEventDispatcher
 
 
 private val HomeScreenBackground = Color.White
@@ -138,6 +143,7 @@ fun TelemetryHomeScreen(
     var isVideoRecording by rememberSaveable {
         mutableStateOf(false)
     }
+
 
     var showCameraPreview by rememberSaveable {
         mutableStateOf(false)
@@ -232,11 +238,40 @@ fun TelemetryHomeScreen(
     val dashcamRecordingState by
     DashcamRecordingStateStore.state.collectAsState()
 
+    val driverMonitoringState by
+    DriverMonitoringStateStore.state.collectAsState()
+
+    val homeScrollState =
+        rememberScrollState()
+
+
     val isVideoSaving = dashcamRecordingState.isSaving
     val videoSavingProgressPercent = dashcamRecordingState.savingProgressPercent
 
     LaunchedEffect(dashcamRecordingState.isRecording) {
-        isVideoRecording = dashcamRecordingState.isRecording
+        val wasRecording =
+            isVideoRecording
+
+        isVideoRecording =
+            dashcamRecordingState.isRecording
+
+        if (!wasRecording && dashcamRecordingState.isRecording) {
+            delay(300)
+
+            homeScrollState.animateScrollTo(
+                homeScrollState.maxValue,
+            )
+        }
+    }
+
+    LaunchedEffect(showCameraPreview) {
+        if (showCameraPreview) {
+            delay(300)
+
+            homeScrollState.animateScrollTo(
+                homeScrollState.maxValue,
+            )
+        }
     }
     LaunchedEffect(
         isTripActive,
@@ -309,20 +344,23 @@ fun TelemetryHomeScreen(
         remember(
             deviceId,
             currentDriverId,
+            state.sessionId,
         ) {
             DashcamCrashCoordinator(
                 recordingController = dashcamController,
                 crashClipRepository = crashClipRepository,
-                uploadScheduler = crashUploadScheduler,
+                exactExportScheduler = CrashClipExactExportScheduler(context),
+                crashTelemetryEventDispatcher = CrashTelemetryEventDispatcher(context),
+                scope = scope,
                 deviceId = deviceId,
                 driverIdProvider = {
                     currentDriverId
                 },
-                exactExportScheduler =
-                    CrashClipExactExportScheduler(context),
+                tripSessionIdProvider = {
+                    state.sessionId
+                },
             )
         }
-
     var crashAlertVisible by remember {
         mutableStateOf(false)
     }
@@ -332,19 +370,24 @@ fun TelemetryHomeScreen(
     }
 
 
-    DisposableEffect(Unit) {
-        crashDetectionManager.start { crashEvent ->
+    DisposableEffect(
+        isTripActive,
+        isVideoRecording,
+    ) {
+        if (isTripActive || isVideoRecording) {
+            crashDetectionManager.start { crashEvent ->
 
-            dashcamCrashCoordinator.handleCrashDetected(crashEvent)
+                dashcamCrashCoordinator.handleCrashDetected(crashEvent)
 
-            crashAlertText =
-                crashDetectedLabel + " • ${"%.2f".format(crashEvent.gForce)}g"
+                crashAlertText =
+                    crashDetectedLabel + " • ${"%.2f".format(crashEvent.gForce)}g"
 
-            crashAlertVisible = true
+                crashAlertVisible = true
 
-            scope.launch {
-                kotlinx.coroutines.delay(20_000L)
-                crashAlertVisible = false
+                scope.launch {
+                    kotlinx.coroutines.delay(20_000L)
+                    crashAlertVisible = false
+                }
             }
         }
 
@@ -407,7 +450,7 @@ fun TelemetryHomeScreen(
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .verticalScroll(rememberScrollState())
+                .verticalScroll(homeScrollState)
                 .padding(horizontal = 10.dp)
                 .padding(top = 2.dp, bottom = 2.dp),
             verticalArrangement = Arrangement.spacedBy(2.dp),
@@ -515,6 +558,9 @@ fun TelemetryHomeScreen(
                 recordingSeconds = videoRecordingSeconds,
                 showPreview = showCameraPreview,
                 useFrontCamera = useFrontCamera,
+                driverMonitoringState = driverMonitoringState,
+                isEmergency = dashcamRecordingState.isEmergency,
+
                 dashcamController = dashcamController,
                 onToggleRecording = {
                     if (isVideoRecording) {
@@ -537,6 +583,8 @@ fun TelemetryHomeScreen(
                                 .show()
                             return@DashcamBlock
                         }
+
+
 
                         dashcamTripCoordinator.handleVideoStart(
                             isTripActive = isTripActive,
@@ -565,6 +613,7 @@ fun TelemetryHomeScreen(
                 onSelectDriverCamera = {
                     useFrontCamera = true
                 },
+
             )
 
             TrackingModeSegment()
@@ -1227,15 +1276,19 @@ private fun RecentTripDot(
 private fun DashcamBlock(
     isRecording: Boolean,
     isSaving: Boolean,
+    isEmergency: Boolean,
     savingProgressPercent: Int,
     recordingSeconds: Int,
     showPreview: Boolean,
     useFrontCamera: Boolean,
+    driverMonitoringState: DriverMonitoringState,
+
     dashcamController: DashcamRecordingController,
     onToggleRecording: () -> Unit,
     onTogglePreview: () -> Unit,
     onSelectRoadCamera: () -> Unit,
     onSelectDriverCamera: () -> Unit,
+
 ) {
     val context = LocalContext.current
     val cameraSwitchRequiresNewRecordingMessage =
@@ -1323,6 +1376,16 @@ private fun DashcamBlock(
             },
         )
 
+//        if (isEmergency) {
+//            Text(
+//                text = stringResource(R.string.dashcam_crash_saving),
+//                color = Color(0xFFFF4D4F),
+//                fontSize = 16.sp,
+//                fontWeight = FontWeight.Bold,
+//                modifier = Modifier.padding(bottom = 8.dp),
+//            )
+//        }
+
         if (isRecording) {
             Row(
                 modifier = Modifier
@@ -1362,6 +1425,7 @@ private fun DashcamBlock(
             }
 
             Spacer(modifier = Modifier.height(12.dp))
+
 
             Row(
                 modifier = Modifier.fillMaxWidth(),
@@ -1411,6 +1475,12 @@ private fun DashcamBlock(
                     )
                     .clip(RoundedCornerShape(28.dp))
             )
+
+            if (useFrontCamera) {
+                DriverFatigueCard(
+                    state = driverMonitoringState,
+                )
+            }
         }
 
         if (isSaving) {
@@ -1468,6 +1538,8 @@ private fun DashcamBlock(
                 },
             )
         }
+
+
 
         if (!hasLocationPermission && !locationWarningDismissed) {
             PermissionWarningCard(
@@ -1866,6 +1938,122 @@ private fun localizedDriverLevel(raw: String): String {
         "calm_driver", "calm driver", "calm" -> stringResource(R.string.home_driver_level_calm)
         "safe_driver", "safe driver", "safe" -> stringResource(R.string.home_driver_level_safe)
         else -> raw
+    }
+}
+
+@Composable
+private fun DriverFatigueCard(
+    state: DriverMonitoringState,
+) {
+    val statusText =
+        when (state.monitoringMode) {
+            DriverMonitoringMode.OFF ->
+                stringResource(R.string.home_dms_status_off)
+
+            DriverMonitoringMode.SAFE ->
+                stringResource(R.string.home_dms_status_safe)
+
+            DriverMonitoringMode.FULL ->
+                stringResource(R.string.home_dms_status_full)
+        }
+
+    val fatigueText =
+        when (state.fatigueState) {
+            DriverFatigueState.NORMAL ->
+                stringResource(R.string.home_dms_fatigue_normal)
+
+            DriverFatigueState.WARNING ->
+                stringResource(R.string.home_dms_fatigue_warning)
+
+            DriverFatigueState.CRITICAL ->
+                stringResource(R.string.home_dms_fatigue_critical)
+
+            DriverFatigueState.DISTRACTED ->
+                stringResource(R.string.home_dms_fatigue_distracted)
+
+            DriverFatigueState.DROWSY ->
+                stringResource(R.string.home_dms_fatigue_drowsy)
+        }
+
+    val alertColor =
+        when (state.fatigueState) {
+            DriverFatigueState.CRITICAL ->
+                SwiftRed
+
+            DriverFatigueState.WARNING,
+            DriverFatigueState.DISTRACTED,
+            DriverFatigueState.DROWSY ->
+                SwiftOrange
+
+            DriverFatigueState.NORMAL ->
+                SwiftGreen
+        }
+
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(top = 10.dp)
+            .clip(RoundedCornerShape(24.dp))
+            .background(Color(0xFFF2F2F7))
+            .padding(14.dp),
+        verticalArrangement = Arrangement.spacedBy(6.dp),
+    ) {
+        Text(
+            text = stringResource(R.string.home_dms_title),
+            color = Color.Black,
+            fontSize = 19.sp,
+            fontWeight = FontWeight.Bold,
+        )
+
+        Text(
+            text = statusText,
+            color = SwiftSecondaryText,
+            fontSize = 14.sp,
+            fontWeight = FontWeight.Medium,
+        )
+
+        Text(
+            text = fatigueText,
+            color = alertColor,
+            fontSize = 18.sp,
+            fontWeight = FontWeight.Bold,
+        )
+
+        Text(
+            text = stringResource(
+                R.string.home_dms_eye_score,
+                (state.smoothedEyeOpenScore * 100f).roundToInt(),
+            ),
+            color = Color.Black,
+            fontSize = 15.sp,
+        )
+
+        Text(
+            text = stringResource(
+                R.string.home_dms_perclos,
+                (state.perclos * 100.0).roundToInt(),
+            ),
+            color = Color.Black,
+            fontSize = 15.sp,
+        )
+
+        if (state.microsleepActive) {
+            Text(
+                text = stringResource(R.string.home_dms_microsleep),
+                color = SwiftRed,
+                fontSize = 16.sp,
+                fontWeight = FontWeight.Bold,
+            )
+        }
+
+        if (!state.faceDetected && state.monitoringMode != DriverMonitoringMode.OFF) {
+            Text(
+                text = stringResource(R.string.home_dms_face_not_detected),
+                color = SwiftOrange,
+                fontSize = 15.sp,
+                fontWeight = FontWeight.Medium,
+            )
+        }
     }
 }
 

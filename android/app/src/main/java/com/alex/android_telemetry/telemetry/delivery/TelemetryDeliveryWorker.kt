@@ -11,6 +11,10 @@ class TelemetryDeliveryWorker(
 ) : CoroutineWorker(appContext, params) {
 
     override suspend fun doWork(): Result {
+        android.util.Log.d(
+            "TelemetryWorker",
+            "doWork started"
+        )
         Log.d(
             "TelemetryDelivery",
             "Worker started workId=$id runAttemptCount=$runAttemptCount"
@@ -30,6 +34,11 @@ class TelemetryDeliveryWorker(
                         )
 
                         graph.tripRepository.retryPendingFinishes()
+
+                        android.util.Log.d(
+                            "TelemetryWorker",
+                            "runOnce finished"
+                        )
 
                         Log.d(
                             "TelemetryDelivery",
@@ -55,6 +64,11 @@ class TelemetryDeliveryWorker(
             Log.d(
                 "TelemetryDelivery",
                 "Worker maxLoopsReached workId=$id deliveredTotal=$deliveredTotal"
+            )
+
+            android.util.Log.d(
+                "TelemetryWorker",
+                "runOnce finished"
             )
 
             Result.success()

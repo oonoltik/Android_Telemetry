@@ -22,6 +22,7 @@ import java.util.concurrent.Executor
 import com.alex.android_telemetry.telemetry.crash.CrashEvent
 import android.Manifest
 import android.content.pm.PackageManager
+import androidx.camera.core.ImageAnalysis
 
 data class DashcamRecordingState(
     val isRecording: Boolean = false,
@@ -39,7 +40,8 @@ class DashcamRecordingController(
     context: Context,
     private val repository: DashcamVideoRepository,
 ) {
-    private val appContext = context.applicationContext
+    private val appContext =
+        context
 
     private val mainExecutor: Executor =
         ContextCompat.getMainExecutor(appContext)
@@ -48,7 +50,7 @@ class DashcamRecordingController(
         Handler(Looper.getMainLooper())
 
     private val segmentDurationMs: Long =
-        10_000L
+        120_000L
 
     private val recorder =
         Recorder.Builder()
@@ -66,6 +68,24 @@ class DashcamRecordingController(
         Preview.Builder()
             .build()
 
+    private val driverMonitoringAnalyzer =
+        DriverMonitoringAnalyzer(
+            appContext,
+        )
+
+    private val driverImageAnalysis: ImageAnalysis =
+        ImageAnalysis.Builder()
+            .setBackpressureStrategy(
+                ImageAnalysis.STRATEGY_KEEP_ONLY_LATEST,
+            )
+            .build()
+            .also { analysis ->
+                analysis.setAnalyzer(
+                    mainExecutor,
+                    driverMonitoringAnalyzer,
+                )
+            }
+
     private var hasPreviewSurface: Boolean = false
 
     private var activeRecording: Recording? = null
@@ -79,6 +99,9 @@ class DashcamRecordingController(
     private var segmentIndex: Int = 0
     private var emergencyMode: Boolean = false
     private var userStopRequested: Boolean = false
+    private var emergencyKeepRecordingUntilMs: Long = 0L
+
+    private var driverMonitoringEnabledForRecording: Boolean = false
 
     private var currentTripId: String? = null
     private var currentSessionId: String? = null
@@ -118,6 +141,38 @@ class DashcamRecordingController(
         hasPreviewSurface = false
 
         persistentPreview.setSurfaceProvider(null)
+    }
+
+    fun startDriverMonitoringOnly() {
+        android.util.Log.d(
+            "DriverMonitoring",
+            "monitoring-only disabled: DMS runs only during driver video recording"
+        )
+
+        stopDriverMonitoringOnly()
+    }
+
+    fun stopDriverMonitoringOnly() {
+        val provider =
+            cameraProvider ?: return
+
+        if (activeRecording != null) {
+            return
+        }
+
+        driverMonitoringEnabledForRecording = false
+
+
+        provider.unbindAll()
+
+        DriverMonitoringStateStore.updateMode(
+            DriverMonitoringMode.OFF,
+        )
+
+        android.util.Log.d(
+            "DriverMonitoring",
+            "monitoring-only stopped; analyzer released"
+        )
     }
 
     fun bindPreview(
@@ -183,6 +238,10 @@ class DashcamRecordingController(
         currentSessionId = sessionId
         userStopRequested = false
         emergencyMode = false
+        emergencyKeepRecordingUntilMs = 0L
+        driverMonitoringEnabledForRecording =
+            currentCameraType == DashcamCameraType.DRIVER
+
         rollingSessionId = UUID.randomUUID().toString().take(8)
         segmentIndex = 1
 
@@ -197,6 +256,12 @@ class DashcamRecordingController(
         postCrashMs: Long,
     ) {
         emergencyMode = true
+
+        emergencyKeepRecordingUntilMs =
+            maxOf(
+                emergencyKeepRecordingUntilMs,
+                event.detectedAtMs + postCrashMs,
+            )
 
         val session =
             rollingSessionId
@@ -214,14 +279,69 @@ class DashcamRecordingController(
     }
 
     fun rotateSegmentForCrashPackage() {
+        android.util.Log.d(
+            "DashcamRotation",
+            "rotateSegmentForCrashPackage activeRecording=${activeRecording != null} userStopRequested=$userStopRequested segmentIndex=$segmentIndex emergencyMode=$emergencyMode"
+        )
+
         if (activeRecording != null && !userStopRequested) {
             activeRecording?.stop()
         }
     }
 
     fun stopRecording() {
+
+        driverMonitoringEnabledForRecording = false
+
+
+        DriverMonitoringStateStore.updateMode(
+            DriverMonitoringMode.OFF,
+        )
+
+        android.util.Log.d(
+            "DriverMonitoring",
+            "DMS disabled immediately on stopRecording"
+        )
+        val now =
+            System.currentTimeMillis()
+
+        val mustKeepRecording =
+            emergencyKeepRecordingUntilMs > now
+
+        if (mustKeepRecording) {
+            val delayMs =
+                emergencyKeepRecordingUntilMs - now + 500L
+
+            android.util.Log.d(
+                "DashcamRecording",
+                "stop deferred for crash post window delayMs=$delayMs keepUntil=$emergencyKeepRecordingUntilMs now=$now"
+            )
+
+            handler.postDelayed(
+                {
+                    userStopRequested = true
+                    driverMonitoringEnabledForRecording = false
+
+
+                    DriverMonitoringStateStore.updateMode(
+                        DriverMonitoringMode.OFF,
+                    )
+
+                    handler.removeCallbacks(segmentRotationRunnable)
+                    activeRecording?.stop()
+                },
+                delayMs,
+            )
+
+            emitState(
+                isRecording = activeRecording != null,
+            )
+
+            return
+        }
+
         userStopRequested = true
-        handler.removeCallbacksAndMessages(null)
+        handler.removeCallbacks(segmentRotationRunnable)
 
         activeRecording?.stop()
     }
@@ -233,15 +353,28 @@ class DashcamRecordingController(
     }
 
     fun release() {
-        handler.removeCallbacksAndMessages(null)
+        handler.removeCallbacks(segmentRotationRunnable)
 
         activeRecording?.close()
         activeRecording = null
 
+        android.util.Log.d(
+            "DriverMonitoring",
+            "stopRecording completed activeRecording=$activeRecording"
+        )
+
         cameraProvider?.unbindAll()
+
+        driverMonitoringAnalyzer.release()
     }
 
     private fun startSegment() {
+        android.util.Log.d(
+            "DashcamRotation",
+            "startSegment rollingSessionId=$rollingSessionId segmentIndex=$segmentIndex"
+        )
+
+
         val session =
             rollingSessionId ?: UUID.randomUUID().toString().take(8)
 
@@ -251,6 +384,10 @@ class DashcamRecordingController(
                 rollingSessionId = session,
                 segmentIndex = segmentIndex,
             )
+        android.util.Log.d(
+            "DashcamRotation",
+            "startSegment output=${outputFile.absolutePath} exists=${outputFile.exists()}"
+        )
 
         currentOutputFile = outputFile
         currentStartedAtMs = System.currentTimeMillis()
@@ -289,33 +426,132 @@ class DashcamRecordingController(
                     }
 
                     is VideoRecordEvent.Finalize -> {
-                        finalizeCurrentSegment()
+
+                        android.util.Log.d(
+                            "DashcamRotation",
+                            "Finalize hasError=${event.hasError()} " +
+                                    "error=${event.error} " +
+                                    "output=${currentOutputFile?.absolutePath} " +
+                                    "exists=${currentOutputFile?.exists()} " +
+                                    "size=${currentOutputFile?.length()} " +
+                                    "segmentIndex=$segmentIndex"
+                        )
+
+                        val hadError =
+                            event.hasError()
+
+                        val outputFile =
+                            currentOutputFile
+
+                        if (outputFile != null && outputFile.exists() && outputFile.length() > 0L) {
+                            finalizeCurrentSegment()
+                        } else {
+                            android.util.Log.w(
+                                "DashcamRotation",
+                                "skip register empty segment path=${outputFile?.absolutePath} exists=${outputFile?.exists()} size=${outputFile?.length()} error=${event.error}"
+                            )
+                        }
 
                         activeRecording = null
                         currentOutputFile = null
 
                         if (!userStopRequested) {
                             segmentIndex += 1
-                            startSegment()
+
+                            if (hadError) {
+                                android.util.Log.w(
+                                    "DashcamRotation",
+                                    "Finalize had error=${event.error}; rebinding camera before next segment segmentIndex=$segmentIndex"
+                                )
+
+                                handler.removeCallbacks(segmentRotationRunnable)
+
+                                handler.postDelayed(
+                                    {
+                                        rebindCameraUseCases()
+                                        startSegment()
+                                    },
+                                    500L,
+                                )
+                            } else {
+                                android.util.Log.d(
+                                    "DashcamRotation",
+                                    "Starting next segment segmentIndex=$segmentIndex cameraType=$currentCameraType"
+                                )
+
+                                if (currentCameraType == DashcamCameraType.DRIVER) {
+                                    handler.removeCallbacks(segmentRotationRunnable)
+
+                                    handler.postDelayed(
+                                        {
+                                            android.util.Log.d(
+                                                "DashcamRotation",
+                                                "Driver camera rebind before next segment segmentIndex=$segmentIndex"
+                                            )
+
+                                            rebindCameraUseCases()
+
+                                            handler.postDelayed(
+                                                {
+                                                    android.util.Log.d(
+                                                        "DashcamRotation",
+                                                        "Driver camera start after rebind segmentIndex=$segmentIndex"
+                                                    )
+
+                                                    startSegment()
+                                                },
+                                                250L,
+                                            )
+                                        },
+                                        150L,
+                                    )
+                                } else {
+                                    startSegment()
+                                }
+                            }
                         } else {
+                            handler.removeCallbacks(segmentRotationRunnable)
+
+                            driverMonitoringEnabledForRecording = false
+
+
+                            cameraProvider?.unbindAll()
+
+                            DriverMonitoringStateStore.updateMode(
+                                DriverMonitoringMode.OFF,
+                            )
+
                             emitState(isRecording = false)
+
                             currentTripId = null
                             currentSessionId = null
+                            rollingSessionId = null
+                            segmentIndex = 0
+                            emergencyMode = false
+                            emergencyKeepRecordingUntilMs = 0L
+
+                            android.util.Log.d(
+                                "DriverMonitoring",
+                                "stopped after video stop: camera unbound, DMS OFF"
+                            )
                         }
                     }
                 }
             }
     }
 
+    private val segmentRotationRunnable =
+        Runnable {
+            if (activeRecording != null && !userStopRequested) {
+                activeRecording?.stop()
+            }
+        }
+
     private fun scheduleSegmentRotation() {
-        handler.removeCallbacksAndMessages(null)
+        handler.removeCallbacks(segmentRotationRunnable)
 
         handler.postDelayed(
-            {
-                if (activeRecording != null && !userStopRequested) {
-                    activeRecording?.stop()
-                }
-            },
+            segmentRotationRunnable,
             segmentDurationMs,
         )
     }
@@ -360,12 +596,74 @@ class DashcamRecordingController(
                     CameraSelector.DEFAULT_FRONT_CAMERA
             }
 
-        provider.bindToLifecycle(
-            owner,
-            selector,
-            persistentPreview,
-            videoCapture,
-        )
+//        val shouldEnableDriverMonitoring = false
+
+        val shouldEnableDriverMonitoring =
+            currentCameraType == DashcamCameraType.DRIVER &&
+                    driverMonitoringEnabledForRecording
+
+        if (!shouldEnableDriverMonitoring) {
+            provider.bindToLifecycle(
+                owner,
+                selector,
+                persistentPreview,
+                videoCapture,
+            )
+
+            DriverMonitoringStateStore.updateMode(
+                DriverMonitoringMode.OFF,
+            )
+
+            android.util.Log.d(
+                "DriverMonitoring",
+                "mode=OFF Preview+VideoCapture only cameraType=$currentCameraType recordingDms=$driverMonitoringEnabledForRecording"
+            )
+
+            return
+        }
+
+        try {
+            provider.bindToLifecycle(
+                owner,
+                selector,
+                persistentPreview,
+                videoCapture,
+                driverImageAnalysis,
+            )
+
+            DriverMonitoringStateStore.updateMode(
+                DriverMonitoringMode.FULL,
+            )
+
+            android.util.Log.d(
+                "DriverMonitoring",
+                "mode=FULL driver camera uses Preview+VideoCapture+ImageAnalysis"
+            )
+        } catch (error: Throwable) {
+            android.util.Log.w(
+                "DriverMonitoring",
+                "mode=SAFE fallback: Preview+VideoCapture+ImageAnalysis failed",
+                error,
+            )
+
+            provider.unbindAll()
+
+            provider.bindToLifecycle(
+                owner,
+                selector,
+                persistentPreview,
+                videoCapture,
+            )
+
+            DriverMonitoringStateStore.updateMode(
+                DriverMonitoringMode.SAFE,
+            )
+
+            android.util.Log.d(
+                "DriverMonitoring",
+                "mode=SAFE driver camera uses Preview+VideoCapture only"
+            )
+        }
     }
 
     private fun emitState(

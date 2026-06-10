@@ -27,6 +27,21 @@ class CrashClipExactExportWorker(
             return Result.failure()
         }
 
+        val driverId =
+            inputData.getString(KEY_DRIVER_ID)?.trim().orEmpty()
+
+        val deviceId =
+            inputData.getString(KEY_DEVICE_ID)?.trim().orEmpty()
+
+        val cameraType =
+            runCatching {
+                DashcamCameraType.valueOf(
+                    inputData.getString(KEY_CAMERA_TYPE)?.trim().orEmpty()
+                )
+            }.getOrDefault(
+                DashcamCameraType.ROAD
+            )
+
         val videoRepository =
             DashcamVideoRepository(applicationContext)
 
@@ -158,6 +173,26 @@ class CrashClipExactExportWorker(
                 exactClipPath = outputFile.absolutePath,
             )
 
+            if (driverId.isBlank() || deviceId.isBlank()) {
+                android.util.Log.e(
+                    "CrashClipUpload",
+                    "upload not enqueued after exact export: missing driverId/deviceId crashId=$crashId"
+                )
+            } else {
+                android.util.Log.d(
+                    "CrashClipUpload",
+                    "enqueue upload after exact export crashId=$crashId driverId=$driverId deviceId=$deviceId cameraType=$cameraType file=${outputFile.absolutePath}"
+                )
+
+                CrashClipUploadScheduler(applicationContext)
+                    .enqueueUpload(
+                        crashId = crashId,
+                        driverId = driverId,
+                        deviceId = deviceId,
+                        cameraType = cameraType,
+                    )
+            }
+
             Result.success()
         } else {
             crashClipRepository.markExactExportFailed(
@@ -171,5 +206,8 @@ class CrashClipExactExportWorker(
 
     companion object {
         const val KEY_CRASH_ID = "crash_id"
+        const val KEY_DRIVER_ID = "driver_id"
+        const val KEY_DEVICE_ID = "device_id"
+        const val KEY_CAMERA_TYPE = "camera_type"
     }
 }

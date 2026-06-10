@@ -155,6 +155,7 @@ enum class TelemetryEventType {
     ACCEL_IN_TURN,
     BRAKE_IN_TURN,
     ROAD_ANOMALY,
+    CRASH,
 }
 
 data class MotionVector(

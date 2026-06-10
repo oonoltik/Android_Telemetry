@@ -326,6 +326,7 @@ private fun TelemetryEventType.toWireValue(): String = when (this) {
     TelemetryEventType.ACCEL_IN_TURN -> "accel_in_turn"
     TelemetryEventType.BRAKE_IN_TURN -> "brake_in_turn"
     TelemetryEventType.ROAD_ANOMALY -> "road_anomaly"
+    TelemetryEventType.CRASH -> "crash"
 }
 
 private fun Instant.toIsoString(): String = toString()

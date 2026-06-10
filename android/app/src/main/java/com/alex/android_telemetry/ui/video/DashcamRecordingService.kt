@@ -14,6 +14,7 @@ import com.alex.android_telemetry.R
 import androidx.lifecycle.lifecycleScope
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import android.app.Service.START_NOT_STICKY
 
 class DashcamRecordingService : LifecycleService() {
     private lateinit var controller: DashcamRecordingController
@@ -91,7 +92,7 @@ class DashcamRecordingService : LifecycleService() {
             }
         }
 
-        return START_STICKY
+        return START_NOT_STICKY
     }
 
     private fun startServiceRecording(

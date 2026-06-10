@@ -984,6 +984,8 @@ private class TripMetricsAccumulator {
                 TelemetryEventType.TURN -> turn.add(event.intensity)
 
                 TelemetryEventType.ROAD_ANOMALY -> road.add(event.intensity)
+
+                TelemetryEventType.CRASH -> Unit
             }
         }
     }

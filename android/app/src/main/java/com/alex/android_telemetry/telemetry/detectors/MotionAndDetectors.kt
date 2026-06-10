@@ -447,58 +447,75 @@ class RoadAnomalyDetector(
     private val thresholds: () -> EventThresholdSet,
 ) : TelemetryEventDetector {
     private data class VertPoint(val timestampMs: Long, val aVertG: Double)
+
+    private val lock = Any()
     private val vertBuffer = ArrayDeque<VertPoint>()
     private var lastEventAt: Instant? = null
 
     override fun detect(vector: MotionVector, now: Instant): DetectedTelemetryEvent? =
         detectWithTimestamp(vector, now, now.toEpochMilliseconds())
 
-    fun detectWithTimestamp(vector: MotionVector, now: Instant, nowMs: Long): DetectedTelemetryEvent? {
-        val cfg = thresholds()
-        val aVert = vector.aVertG ?: return null
-        val speed = vector.speedMS ?: -1.0
-        if (speed in 0.0..2.0) return null
+    fun detectWithTimestamp(vector: MotionVector, now: Instant, nowMs: Long): DetectedTelemetryEvent? =
+        synchronized(lock) {
+            val cfg = thresholds()
+            val aVert = vector.aVertG ?: return@synchronized null
+            val speed = vector.speedMS ?: -1.0
+            if (speed in 0.0..2.0) return@synchronized null
 
-        vertBuffer.addLast(VertPoint(nowMs, aVert))
-        val windowMs = (cfg.roadWindowS * 1000).toLong()
-        while (vertBuffer.isNotEmpty() && vertBuffer.first().timestampMs < nowMs - windowMs) {
-            vertBuffer.removeFirst()
+            vertBuffer.addLast(VertPoint(nowMs, aVert))
+
+            val windowMs = (cfg.roadWindowS * 1000).toLong()
+            while (vertBuffer.isNotEmpty() && vertBuffer.first().timestampMs < nowMs - windowMs) {
+                vertBuffer.removeFirst()
+            }
+
+            if (vertBuffer.size < 3) return@synchronized null
+            if (!cooldownPassed(lastEventAt, now, cfg.roadCooldownS)) return@synchronized null
+
+            var maxAbs = 0.0
+            var maxVal = Double.NEGATIVE_INFINITY
+            var minVal = Double.POSITIVE_INFINITY
+
+            for (p in vertBuffer) {
+                val v = p.aVertG
+                if (abs(v) > maxAbs) maxAbs = abs(v)
+                if (v > maxVal) maxVal = v
+                if (v < minVal) minVal = v
+            }
+
+            val p2p = maxVal - minVal
+            val severity = when {
+                p2p >= (cfg.roadHighG ?: 1.10) || maxAbs >= 0.75 -> "high"
+                p2p >= (cfg.roadLowG ?: 0.70) || maxAbs >= 0.45 -> "low"
+                else -> return@synchronized null
+            }
+
+            lastEventAt = now
+
+            val subtype = when {
+                minVal <= -0.35 && maxVal >= 0.35 -> "pothole"
+                (nowMs - (vertBuffer.firstOrNull()?.timestampMs ?: nowMs)) >= (windowMs * 0.85).toLong() -> "speed_bump"
+                else -> "bump"
+            }
+
+            DetectedTelemetryEvent(
+                type = TelemetryEventType.ROAD_ANOMALY,
+                timestamp = now,
+                intensity = p2p,
+                speedMS = if (speed >= 0) speed else null,
+                severity = severity,
+                subtype = subtype,
+                algoVersion = "v2",
+            )
         }
-        if (vertBuffer.size < 3) return null
-        if (!cooldownPassed(lastEventAt, now, cfg.roadCooldownS)) return null
 
-        var maxAbs = 0.0; var maxVal = Double.NEGATIVE_INFINITY; var minVal = Double.POSITIVE_INFINITY
-        for (p in vertBuffer) {
-            val v = p.aVertG
-            if (abs(v) > maxAbs) maxAbs = abs(v)
-            if (v > maxVal) maxVal = v
-            if (v < minVal) minVal = v
+    fun clearBuffer() {
+        synchronized(lock) {
+            vertBuffer.clear()
+            lastEventAt = null
         }
-
-        val p2p = maxVal - minVal
-        val severity = when {
-            p2p >= (cfg.roadHighG ?: 1.10) || maxAbs >= 0.75 -> "high"
-            p2p >= (cfg.roadLowG ?: 0.70) || maxAbs >= 0.45 -> "low"
-            else -> return null
-        }
-
-        lastEventAt = now
-        val subtype = when {
-            minVal <= -0.35 && maxVal >= 0.35 -> "pothole"
-            (nowMs - (vertBuffer.firstOrNull()?.timestampMs ?: nowMs)) >= (windowMs * 0.85).toLong() -> "speed_bump"
-            else -> "bump"
-        }
-
-        return DetectedTelemetryEvent(
-            type = TelemetryEventType.ROAD_ANOMALY, timestamp = now,
-            intensity = p2p, speedMS = if (speed >= 0) speed else null,
-            severity = severity, subtype = subtype, algoVersion = "v2",
-        )
     }
-
-    fun clearBuffer() { vertBuffer.clear() }
 }
-
 private fun cooldownPassed(lastAt: Instant?, now: Instant, seconds: Double): Boolean {
     if (lastAt == null) return true
     return (now - lastAt).inWholeMilliseconds >= (seconds * 1000.0).toLong()
