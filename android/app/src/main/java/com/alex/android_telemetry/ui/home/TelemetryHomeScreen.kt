@@ -601,6 +601,9 @@ fun TelemetryHomeScreen(
                                 } else {
                                     DashcamCameraType.ROAD
                                 },
+                            driverId = currentDriverId,
+                            deviceId = deviceId,
+                            tripSessionId = state.sessionId,
                         )
                     }
                 },

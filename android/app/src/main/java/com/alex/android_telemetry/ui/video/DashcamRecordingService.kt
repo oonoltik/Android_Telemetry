@@ -10,11 +10,10 @@ import androidx.camera.lifecycle.ProcessCameraProvider
 import androidx.core.app.NotificationCompat
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.LifecycleService
-import com.alex.android_telemetry.R
 import androidx.lifecycle.lifecycleScope
+import com.alex.android_telemetry.R
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
-import android.app.Service.START_NOT_STICKY
 
 class DashcamRecordingService : LifecycleService() {
     private lateinit var controller: DashcamRecordingController
@@ -47,6 +46,15 @@ class DashcamRecordingService : LifecycleService() {
                         DashcamCameraType.ROAD,
                     )
 
+                val driverId =
+                    intent.getStringExtra(EXTRA_DRIVER_ID)
+
+                val deviceId =
+                    intent.getStringExtra(EXTRA_DEVICE_ID)
+
+                val tripSessionId =
+                    intent.getStringExtra(EXTRA_TRIP_SESSION_ID)
+
                 startForeground(
                     NOTIFICATION_ID,
                     buildRecordingNotification(),
@@ -54,6 +62,9 @@ class DashcamRecordingService : LifecycleService() {
 
                 startServiceRecording(
                     cameraType = cameraType,
+                    driverId = driverId,
+                    deviceId = deviceId,
+                    tripSessionId = tripSessionId,
                 )
             }
 
@@ -97,6 +108,9 @@ class DashcamRecordingService : LifecycleService() {
 
     private fun startServiceRecording(
         cameraType: DashcamCameraType,
+        driverId: String?,
+        deviceId: String?,
+        tripSessionId: String?,
     ) {
         if (controller.isRecording()) {
             return
@@ -117,7 +131,12 @@ class DashcamRecordingService : LifecycleService() {
                     cameraType = cameraType,
                 )
 
-                controller.startRecording { state ->
+                controller.startRecording(
+                    tripId = tripSessionId,
+                    sessionId = tripSessionId,
+                    driverId = driverId,
+                    deviceId = deviceId,
+                ) { state ->
                     DashcamRecordingStateStore.update(state)
 
                     if (!state.isRecording && state.errorMessage != null) {
@@ -172,6 +191,15 @@ class DashcamRecordingService : LifecycleService() {
         private const val EXTRA_CAMERA_TYPE =
             "extra_camera_type"
 
+        private const val EXTRA_DRIVER_ID =
+            "extra_driver_id"
+
+        private const val EXTRA_DEVICE_ID =
+            "extra_device_id"
+
+        private const val EXTRA_TRIP_SESSION_ID =
+            "extra_trip_session_id"
+
         const val ACTION_START =
             "com.alex.android_telemetry.dashcam.START"
 
@@ -181,6 +209,9 @@ class DashcamRecordingService : LifecycleService() {
         fun start(
             context: Context,
             cameraType: DashcamCameraType,
+            driverId: String?,
+            deviceId: String?,
+            tripSessionId: String?,
         ) {
             val intent =
                 Intent(
@@ -188,9 +219,25 @@ class DashcamRecordingService : LifecycleService() {
                     DashcamRecordingService::class.java,
                 ).apply {
                     action = ACTION_START
+
                     putExtra(
                         EXTRA_CAMERA_TYPE,
                         cameraType.name,
+                    )
+
+                    putExtra(
+                        EXTRA_DRIVER_ID,
+                        driverId,
+                    )
+
+                    putExtra(
+                        EXTRA_DEVICE_ID,
+                        deviceId,
+                    )
+
+                    putExtra(
+                        EXTRA_TRIP_SESSION_ID,
+                        tripSessionId,
                     )
                 }
 

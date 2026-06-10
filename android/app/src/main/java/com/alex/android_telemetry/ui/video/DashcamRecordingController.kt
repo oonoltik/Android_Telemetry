@@ -23,6 +23,13 @@ import com.alex.android_telemetry.telemetry.crash.CrashEvent
 import android.Manifest
 import android.content.pm.PackageManager
 import androidx.camera.core.ImageAnalysis
+import android.util.Log
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.launch
+import com.alex.android_telemetry.BuildConfig
+import com.alex.android_telemetry.telemetry.dashcam.DashcamTelemetrySessionSnapshotStore
 
 data class DashcamRecordingState(
     val isRecording: Boolean = false,
@@ -48,6 +55,12 @@ class DashcamRecordingController(
 
     private val handler =
         Handler(Looper.getMainLooper())
+
+    private val sessionApi =
+        DashcamSessionApi(appContext)
+
+    private val sessionScope =
+        CoroutineScope(SupervisorJob() + Dispatchers.IO)
 
     private val segmentDurationMs: Long =
         120_000L
@@ -105,6 +118,11 @@ class DashcamRecordingController(
 
     private var currentTripId: String? = null
     private var currentSessionId: String? = null
+
+    private var currentDriverId: String? = null
+    private var currentDeviceId: String? = null
+    private var recordingStartedAtMs: Long = 0L
+
 
     private var latestStateCallback: ((DashcamRecordingState) -> Unit)? = null
 
@@ -214,6 +232,8 @@ class DashcamRecordingController(
     fun startRecording(
         tripId: String? = null,
         sessionId: String? = null,
+        driverId: String? = null,
+        deviceId: String? = null,
         onStateChanged: (DashcamRecordingState) -> Unit,
     ) {
         latestStateCallback = onStateChanged
@@ -236,6 +256,9 @@ class DashcamRecordingController(
 
         currentTripId = tripId
         currentSessionId = sessionId
+        currentDriverId = driverId
+        currentDeviceId = deviceId
+        recordingStartedAtMs = System.currentTimeMillis()
         userStopRequested = false
         emergencyMode = false
         emergencyKeepRecordingUntilMs = 0L
@@ -244,6 +267,8 @@ class DashcamRecordingController(
 
         rollingSessionId = UUID.randomUUID().toString().take(8)
         segmentIndex = 1
+
+        postVideoSessionStart()
 
         rebindCameraUseCases()
 
@@ -523,6 +548,11 @@ class DashcamRecordingController(
 
                             emitState(isRecording = false)
 
+                            postFinalSessionStopAndCameraLog(
+                                stoppedAtMs = System.currentTimeMillis(),
+                                stopReason = "user_stop",
+                            )
+
                             currentTripId = null
                             currentSessionId = null
                             rollingSessionId = null
@@ -684,6 +714,228 @@ class DashcamRecordingController(
                 isEmergency = emergencyMode,
             )
         )
+    }
+
+    private fun postFinalSessionStopAndCameraLog(
+        stoppedAtMs: Long,
+        stopReason: String,
+    ) {
+        val session =
+            rollingSessionId ?: return
+
+        val driver =
+            currentDriverId?.trim().orEmpty()
+
+        val device =
+            currentDeviceId?.trim().orEmpty()
+
+        if (driver.isBlank() || device.isBlank()) {
+            Log.w(
+                "DashcamSessionApi",
+                "skip session stop/camera-log: driverId or deviceId is blank session=$session",
+            )
+            return
+        }
+
+        val segments =
+            repository
+                .loadVideos()
+                .filter { item ->
+                    item.rollingSessionId == session
+                }
+                .sortedBy { item ->
+                    item.segmentIndex
+                }
+
+        val totalSizeBytes =
+            segments.sumOf { item ->
+                item.sizeBytes
+            }
+
+        val normalSegments =
+            repository
+                .loadRegularVideos()
+
+        val crashSegments =
+            repository
+                .loadEmergencyVideos()
+
+        val cameraMode =
+            when (currentCameraType) {
+                DashcamCameraType.ROAD -> "road"
+                DashcamCameraType.DRIVER -> "driver"
+            }
+
+        val startedAtMs =
+            segments.minOfOrNull { item ->
+                item.startedAtMs
+            } ?: recordingStartedAtMs
+
+        val endedAtMs =
+            segments.maxOfOrNull { item ->
+                item.endedAtMs
+            } ?: stoppedAtMs
+
+        val firstSegment =
+            segments.firstOrNull()
+
+        val lastSegment =
+            segments.lastOrNull()
+
+        val telemetrySnapshot =
+            DashcamTelemetrySessionSnapshotStore.snapshot(
+                startedAtMs = startedAtMs,
+                endedAtMs = endedAtMs,
+            )
+
+        sessionScope.launch {
+            try {
+                sessionApi.stopVideoSession(
+                    VideoSessionStopPayload(
+                        video_session_id = session,
+                        ended_at = DashcamSessionApi.isoUtc(endedAtMs),
+                        stop_reason = stopReason,
+                        final_linked_trip_session_id = currentSessionId,
+                        segments_count = segments.size,
+                        total_size_bytes = totalSizeBytes,
+                    )
+                )
+
+                sessionApi.postCameraLog(
+                    DashcamCameraLogPayload(
+                        video_session_id = session,
+                        linked_trip_session_id = currentSessionId,
+                        driver_id = driver,
+                        device_id = device,
+                        started_at = DashcamSessionApi.isoUtc(startedAtMs),
+                        ended_at = DashcamSessionApi.isoUtc(endedAtMs),
+
+                        recording_start_lat =
+                            telemetrySnapshot.recordingStartLat ?: firstSegment?.gpsStartLat,
+
+                        recording_start_lon =
+                            telemetrySnapshot.recordingStartLon ?: firstSegment?.gpsStartLon,
+
+                        recording_end_lat =
+                            telemetrySnapshot.recordingEndLat ?: lastSegment?.gpsEndLat,
+
+                        recording_end_lon =
+                            telemetrySnapshot.recordingEndLon ?: lastSegment?.gpsEndLon,
+
+                        session_start_sample_t =
+                            telemetrySnapshot.sessionStartSampleT,
+
+                        session_end_sample_t =
+                            telemetrySnapshot.sessionEndSampleT,
+
+                        total_samples =
+                            telemetrySnapshot.totalSamples,
+
+                        total_events =
+                            telemetrySnapshot.totalEvents,
+
+                        session_start_speed_kmh =
+                            telemetrySnapshot.sessionStartSpeedKmh ?: firstSegment?.speedStartKmh,
+
+                        session_end_speed_kmh =
+                            telemetrySnapshot.sessionEndSpeedKmh ?: lastSegment?.speedEndKmh,
+
+                        session_event_types =
+                            telemetrySnapshot.sessionEventTypes,
+
+                        stop_reason = stopReason,
+                        camera_mode = cameraMode,
+                        audio_enabled = true,
+
+                        is_crash_log = false,
+
+                        total_size_bytes = totalSizeBytes,
+                        total_segments_count = segments.size,
+
+                        archive_normal_count = normalSegments.size,
+                        archive_crash_count = crashSegments.size,
+                        archive_normal_size_bytes = normalSegments.sumOf { item ->
+                            item.sizeBytes
+                        },
+                        archive_crash_size_bytes = crashSegments.sumOf { item ->
+                            item.sizeBytes
+                        },
+                    )
+                )
+
+                Log.d(
+                    "DashcamSessionApi",
+                    "session stop + camera-log posted session=$session segments=${segments.size}",
+                )
+            } catch (error: Throwable) {
+                Log.e(
+                    "DashcamSessionApi",
+                    "session stop/camera-log failed session=$session: ${error.message}",
+                    error,
+                )
+            }
+        }
+    }
+    private fun postVideoSessionStart() {
+        val session =
+            rollingSessionId ?: return
+
+        val driver =
+            currentDriverId?.trim().orEmpty()
+
+        val device =
+            currentDeviceId?.trim().orEmpty()
+
+        if (driver.isBlank() || device.isBlank()) {
+            Log.w(
+                "DashcamSessionApi",
+                "skip session/start: driverId or deviceId is blank session=$session",
+            )
+            return
+        }
+
+        val cameraMode =
+            when (currentCameraType) {
+                DashcamCameraType.ROAD -> "road"
+                DashcamCameraType.DRIVER -> "driver"
+            }
+
+        val startedAtMs =
+            if (recordingStartedAtMs > 0L) {
+                recordingStartedAtMs
+            } else {
+                System.currentTimeMillis()
+            }
+
+        sessionScope.launch {
+            try {
+                sessionApi.startVideoSession(
+                    VideoSessionStartPayload(
+                        video_session_id = session,
+                        device_id = device,
+                        driver_id = driver,
+                        started_at = DashcamSessionApi.isoUtc(startedAtMs),
+                        linked_trip_session_id = currentSessionId,
+                        trip_source = "dashcam",
+                        camera_mode = cameraMode,
+                        audio_enabled = true,
+                        app_version = "android-${BuildConfig.VERSION_NAME}",
+                        device_model = android.os.Build.MODEL,
+                    )
+                )
+
+                Log.d(
+                    "DashcamSessionApi",
+                    "session/start posted session=$session",
+                )
+            } catch (error: Throwable) {
+                Log.e(
+                    "DashcamSessionApi",
+                    "session/start failed session=$session: ${error.message}",
+                    error,
+                )
+            }
+        }
     }
 
 

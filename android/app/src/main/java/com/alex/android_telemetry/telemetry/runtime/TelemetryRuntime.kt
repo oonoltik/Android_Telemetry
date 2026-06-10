@@ -60,6 +60,7 @@ import com.alex.android_telemetry.sensors.api.ScreenInteractionSource
 import kotlin.math.abs
 
 import com.alex.android_telemetry.telemetry.domain.model.TelemetryEventType
+import com.alex.android_telemetry.telemetry.dashcam.DashcamTelemetrySessionSnapshotStore
 
 
 interface TripRuntimeStateStore {
@@ -808,6 +809,11 @@ class TelemetryOrchestrator(
         detectors.forEach { detector ->
             detector.detect(motion, now)?.let { event ->
                 batchBuilder.addEvent(event)
+
+                DashcamTelemetrySessionSnapshotStore.recordEvent(
+                    event,
+                )
+
                 mutableState.emit(state.value.copy(lastEventAt = event.timestamp))
             }
         }
@@ -822,6 +828,10 @@ class TelemetryOrchestrator(
             motionVector = motion,
         )
         batchBuilder.addFrame(frame)
+
+        DashcamTelemetrySessionSnapshotStore.recordFrame(
+            frame,
+        )
 //        Log.d(
 //            "TelemetryTrip",
 //            "onSensorTick(): frame added sessionId=${state.value.sessionId}"

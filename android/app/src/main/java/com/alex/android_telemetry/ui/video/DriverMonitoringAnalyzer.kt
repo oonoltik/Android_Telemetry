@@ -83,6 +83,9 @@ class DriverMonitoringAnalyzer(
     private val microsleepFrames =
         35
 
+    private val emergencyStopFrames =
+        90
+
     private var microsleepActive =
         false
 
@@ -91,6 +94,12 @@ class DriverMonitoringAnalyzer(
 
     private val microsleepRecoveryFrames =
         45
+
+    private var suppressCriticalFramesAfterRecovery =
+        0
+
+    private val suppressCriticalFramesAfterRecoveryLimit =
+        90
 
     private var recoveringFromMicrosleep =
         false
@@ -111,7 +120,7 @@ class DriverMonitoringAnalyzer(
         0
 
     private val drowsyFramesThreshold =
-        30
+        8
 
     private var candidateState =
         DriverFatigueState.NORMAL
@@ -133,6 +142,12 @@ class DriverMonitoringAnalyzer(
 
     private val fatigueScoreFallStep =
         0.008
+
+    private var fatigueScoreHoldUntilMs =
+        0L
+
+    private val fatigueScoreHoldDurationMs =
+        60L * 60L * 1000L
 
     private val lastVoiceAlertAtByKey =
         mutableMapOf<String, Long>()
@@ -170,6 +185,15 @@ class DriverMonitoringAnalyzer(
     private val pitchDownThresholdDeg =
         18f
 
+    private val headPoseCalibrationSamples =
+        mutableListOf<Pair<Float, Float>>()
+
+    private var calibratedYawBaseline: Float? =
+        null
+
+    private var calibratedPitchBaseline: Float? =
+        null
+
     private var yawnFrames =
         0
 
@@ -177,7 +201,7 @@ class DriverMonitoringAnalyzer(
         45
 
     private val yawnMouthOpenThreshold =
-        0.12f
+        0.40f
 
     override fun onInit(
         status: Int,
@@ -302,11 +326,16 @@ class DriverMonitoringAnalyzer(
             smoothedEyeOpenScore,
         )
 
+        updateHeadPoseCalibrationIfNeeded(
+            yawDeg = -face.headEulerAngleY,
+            pitchDeg = face.headEulerAngleX,
+        )
+
         val yawDeg =
-            -face.headEulerAngleY
+            -face.headEulerAngleY - (calibratedYawBaseline ?: 0f)
 
         val pitchDeg =
-            face.headEulerAngleX
+            face.headEulerAngleX - (calibratedPitchBaseline ?: 0f)
 
         val rollDeg =
             face.headEulerAngleZ
@@ -422,6 +451,9 @@ class DriverMonitoringAnalyzer(
             consecutiveOpenFramesAfterMicrosleep = 0
         }
 
+        val emergencyStopActive =
+            consecutiveClosedFrames >= emergencyStopFrames
+
         eyeClosedWindow.addLast(
             effectiveEyesClosed,
         )
@@ -457,6 +489,9 @@ class DriverMonitoringAnalyzer(
 
         val measuredState =
             when {
+                emergencyStopActive ->
+                    DriverFatigueState.CRITICAL
+
                 microsleepActive ->
                     DriverFatigueState.CRITICAL
 
@@ -477,9 +512,26 @@ class DriverMonitoringAnalyzer(
             }
 
         val stableState =
-            updateStateMachine(
-                measuredState,
-            )
+            if (
+                emergencyStopActive ||
+                microsleepActive ||
+                (
+                        recoveringFromMicrosleep &&
+                                consecutiveOpenFramesAfterMicrosleep < microsleepRecoveryFrames
+                        )
+            ) {
+                candidateState =
+                    DriverFatigueState.CRITICAL
+
+                candidateFrameCount =
+                    stateDebounceFrames
+
+                DriverFatigueState.CRITICAL
+            } else {
+                updateStateMachine(
+                    measuredState,
+                )
+            }
 
         currentFatigueState =
             stableState
@@ -490,8 +542,15 @@ class DriverMonitoringAnalyzer(
         ) {
             recoveringFromMicrosleep = false
             consecutiveOpenFramesAfterMicrosleep = 0
+            suppressCriticalFramesAfterRecovery =
+                suppressCriticalFramesAfterRecoveryLimit
+
             currentFatigueState =
                 DriverFatigueState.WARNING
+        }
+
+        if (suppressCriticalFramesAfterRecovery > 0) {
+            suppressCriticalFramesAfterRecovery -= 1
         }
 
         val fatigueScore =
@@ -616,6 +675,50 @@ class DriverMonitoringAnalyzer(
         )
     }
 
+    private fun updateHeadPoseCalibrationIfNeeded(
+        yawDeg: Float,
+        pitchDeg: Float,
+    ) {
+        if (
+            calibratedYawBaseline != null &&
+            calibratedPitchBaseline != null
+        ) {
+            return
+        }
+
+        if (
+            abs(yawDeg) <= 10f &&
+            abs(pitchDeg) <= 10f
+        ) {
+            headPoseCalibrationSamples.add(
+                yawDeg to pitchDeg,
+            )
+        }
+
+        if (headPoseCalibrationSamples.size >= 60) {
+            calibratedYawBaseline =
+                headPoseCalibrationSamples
+                    .map { sample ->
+                        sample.first
+                    }
+                    .average()
+                    .toFloat()
+
+            calibratedPitchBaseline =
+                headPoseCalibrationSamples
+                    .map { sample ->
+                        sample.second
+                    }
+                    .average()
+                    .toFloat()
+
+            Log.d(
+                "DriverMonitoring",
+                "calibrated headPose yawBaseline=$calibratedYawBaseline pitchBaseline=$calibratedPitchBaseline",
+            )
+        }
+    }
+
     private fun updateCalibrationIfNeeded(
         score: Float,
     ) {
@@ -661,6 +764,12 @@ class DriverMonitoringAnalyzer(
     private fun measuredFatigueState(
         perclos: Double,
     ): DriverFatigueState {
+        if (
+            suppressCriticalFramesAfterRecovery > 0 &&
+            perclos >= criticalPerclosThreshold
+        ) {
+            return DriverFatigueState.WARNING
+        }
         return when (currentFatigueState) {
             DriverFatigueState.NORMAL,
             DriverFatigueState.DISTRACTED,
@@ -748,6 +857,7 @@ class DriverMonitoringAnalyzer(
                 )
         }
 
+
         if (isDrowsy) {
             targetScore =
                 max(
@@ -772,11 +882,28 @@ class DriverMonitoringAnalyzer(
                 )
         }
 
+        if (targetScore >= 60.0) {
+            fatigueScoreHoldUntilMs =
+                System.currentTimeMillis() + fatigueScoreHoldDurationMs
+        }
+
+        if (
+            System.currentTimeMillis() < fatigueScoreHoldUntilMs &&
+            targetScore < 60.0
+        ) {
+            targetScore =
+                max(
+                    targetScore,
+                    60.0,
+                )
+        }
+
         targetScore =
             min(
                 targetScore,
                 100.0,
             )
+
 
         rawFatigueScore =
             if (targetScore > rawFatigueScore) {
