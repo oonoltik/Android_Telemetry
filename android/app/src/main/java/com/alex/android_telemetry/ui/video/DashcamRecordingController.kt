@@ -317,24 +317,24 @@ class DashcamRecordingController(
                 "stop deferred for crash post window delayMs=$delayMs keepUntil=$emergencyKeepRecordingUntilMs now=$now"
             )
 
+            userStopRequested = true
+            driverMonitoringEnabledForRecording = false
+
+            DriverMonitoringStateStore.updateMode(
+                DriverMonitoringMode.OFF,
+            )
+
+            handler.removeCallbacks(segmentRotationRunnable)
+
+            emitState(
+                isRecording = false,
+            )
+
             handler.postDelayed(
                 {
-                    userStopRequested = true
-                    driverMonitoringEnabledForRecording = false
-
-
-                    DriverMonitoringStateStore.updateMode(
-                        DriverMonitoringMode.OFF,
-                    )
-
-                    handler.removeCallbacks(segmentRotationRunnable)
                     activeRecording?.stop()
                 },
                 delayMs,
-            )
-
-            emitState(
-                isRecording = activeRecording != null,
             )
 
             return
