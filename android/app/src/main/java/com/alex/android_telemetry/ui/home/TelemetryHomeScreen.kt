@@ -1479,6 +1479,7 @@ private fun DashcamBlock(
             if (useFrontCamera) {
                 DriverFatigueCard(
                     state = driverMonitoringState,
+                    isRecording = isRecording,
                 )
             }
         }
@@ -1944,17 +1945,22 @@ private fun localizedDriverLevel(raw: String): String {
 @Composable
 private fun DriverFatigueCard(
     state: DriverMonitoringState,
+    isRecording: Boolean,
 ) {
     val statusText =
-        when (state.monitoringMode) {
-            DriverMonitoringMode.OFF ->
-                stringResource(R.string.home_dms_status_off)
+        if (isRecording && state.monitoringMode == DriverMonitoringMode.OFF) {
+            stringResource(R.string.home_dms_status_full)
+        } else {
+            when (state.monitoringMode) {
+                DriverMonitoringMode.OFF ->
+                    stringResource(R.string.home_dms_status_off)
 
-            DriverMonitoringMode.SAFE ->
-                stringResource(R.string.home_dms_status_safe)
+                DriverMonitoringMode.SAFE ->
+                    stringResource(R.string.home_dms_status_safe)
 
-            DriverMonitoringMode.FULL ->
-                stringResource(R.string.home_dms_status_full)
+                DriverMonitoringMode.FULL ->
+                    stringResource(R.string.home_dms_status_full)
+            }
         }
 
     val fatigueText =
