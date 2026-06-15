@@ -126,6 +126,7 @@ fun TelemetryHomeScreen(
     onOpenDiagnostics: () -> Unit,
     onOpenVideoMode: () -> Unit,
     onOpenVideoArchive: () -> Unit,
+    onOpenDriveTelemetryGuide: () -> Unit,
 ) {
     val isTripActive = state.telemetryMode != TelemetryMode.IDLE
     val hasDriver = !currentDriverId.isNullOrBlank()
@@ -551,6 +552,10 @@ fun TelemetryHomeScreen(
                 onOpenVideoArchive = onOpenVideoArchive,
             )
 
+            DriveTelemetryGuideButton(
+                onClick = onOpenDriveTelemetryGuide,
+            )
+
             DashcamBlock(
                 isRecording = isVideoRecording,
                 isSaving = isVideoSaving,
@@ -620,6 +625,8 @@ fun TelemetryHomeScreen(
             )
 
             TrackingModeSegment()
+
+
 
 
 
@@ -1168,6 +1175,20 @@ private fun VideoModeButton(
 private fun TrackingModeSegment() {
 
 }
+@Composable
+private fun DriveTelemetryGuideButton(
+    onClick: () -> Unit,
+) {
+    PillButton(
+        text = "🚗 Возможности DriveTelemetry",
+        modifier = Modifier.fillMaxWidth(),
+        height = 58,
+        backgroundColor = Color(0xFFE8F2FF),
+        contentColor = SwiftBlue,
+        onClick = onClick,
+    )
+}
+
 
 @Composable
 private fun SaveFishButton(

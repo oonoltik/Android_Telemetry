@@ -67,6 +67,13 @@ class TelemetryAuthManager(
             attestationObjectB64 = TelemetryAuthConfig.STUB_ATTESTATION_OBJECT_B64,
             platform = TelemetryAuthConfig.PLATFORM,
             appPackage = TelemetryAuthConfig.APP_PACKAGE,
+
+            appVersion = deviceIdProvider.appVersion(),
+            appBuild = deviceIdProvider.appBuild(),
+            iosVersion = deviceIdProvider.androidVersionLabel(),
+            deviceModel = deviceIdProvider.deviceModel(),
+            locale = deviceIdProvider.localeTag(),
+            timezone = deviceIdProvider.timezoneId(),
         )
 
         Log.d("TelemetryDelivery", "auth: register deviceId=$deviceId keyId=$keyId")

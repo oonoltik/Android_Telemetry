@@ -64,6 +64,7 @@ import androidx.core.content.ContextCompat
 
 import android.content.Context
 import com.alex.android_telemetry.core.localization.AppLanguageStore
+import com.alex.android_telemetry.ui.guide.DriveTelemetryGuideScreen
 
 
 
@@ -118,6 +119,10 @@ class MainActivity : ComponentActivity() {
                 var telemetryRestored by remember { mutableStateOf(graph.recoveryUxStore.consumeTelemetryRestored()) }
                 var replayResumed by remember { mutableStateOf(graph.recoveryUxStore.consumeReplayResumed()) }
                 var showSaveFishGame by rememberSaveable { mutableStateOf(false) }
+
+                var showDriveTelemetryGuide by rememberSaveable {
+                    mutableStateOf(false)
+                }
 
                 if (showTripsArchive) {
                     TripsArchiveScreen(
@@ -240,8 +245,22 @@ class MainActivity : ComponentActivity() {
                     return@Android_TelemetryTheme
                 }
 
+                if (showDriveTelemetryGuide) {
+                    DriveTelemetryGuideScreen(
+                        onBack = {
+                            showDriveTelemetryGuide = false
+                        },
+                        onStartFirstTrip = {
+                            showDriveTelemetryGuide = false
+                        },
+                    )
+                    return@Android_TelemetryTheme
+                }
+
                 if (!showDiagnostics) {
+
                     TelemetryHomeScreen(
+
                         state = state,
                         deviceId = graph.deviceIdProvider.get(),
                         tripApi = graph.tripApi,
@@ -273,6 +292,9 @@ class MainActivity : ComponentActivity() {
                                     Log.e("UI", "home stopTrip() FAILED", t)
                                 }
                             }
+                        },
+                        onOpenDriveTelemetryGuide = {
+                            showDriveTelemetryGuide = true
                         },
                         onOpenTripsArchive = {
                             showTripsArchive = true
