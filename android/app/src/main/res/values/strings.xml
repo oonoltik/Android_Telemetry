@@ -435,6 +435,64 @@ Move the glass carefully — the water reacts to motion and may spill. The fish 
 <string name="dms_tts_yawning">Driver is yawning. Take a break.</string>
 <string name="dashcam_crash_saving">Crash video is being saved...</string>
 
+    <string name="guide_close">Close</string>
+    <string name="guide_back">Back</string>
+    <string name="guide_next">Next</string>
+    <string name="guide_get_rating">Get Score</string>
+
+    <string name="guide_1_title">Imagine an ordinary trip</string>
+    <string name="guide_1_subtitle">DriveTelemetry runs in the background and monitors every trip to help make your driving safer.</string>
+
+    <string name="guide_2_title">How safely do you drive?</string>
+    <string name="guide_2_subtitle">The app analyzes your driving style and gives you a score after every trip.</string>
+
+    <string name="guide_3_title">Fatigue Monitoring</string>
+    <string name="guide_3_subtitle">If the driver starts to fall asleep, the app will warn them with voice and visual alerts.</string>
+
+    <string name="guide_4_title">What if an accident happens?</string>
+    <string name="guide_4_subtitle">The app automatically saves video before and after a crash.</string>
+
+    <string name="guide_5_title">Dashcam Included</string>
+    <string name="guide_5_subtitle">Two cameras: road and driver. All recordings are stored in the app archive.</string>
+
+    <string name="guide_6_title">Protecting Your Family</string>
+    <string name="guide_6_subtitle">DriveTelemetry helps protect the people who matter most to you.</string>
+
+    <string name="guide_7_title">Your Driving Score</string>
+    <string name="guide_7_subtitle">Can you improve your score?</string>
+
+    <string name="guide_icon_video">Video</string>
+    <string name="guide_icon_driving">Driving</string>
+    <string name="guide_icon_safety">Safety</string>
+    <string name="guide_icon_stats">Statistics</string>
+
+    <string name="guide_safety_braking">Harsh Braking</string>
+    <string name="guide_safety_acceleration">Harsh Acceleration</string>
+    <string name="guide_safety_turns">Dangerous Turns</string>
+    <string name="guide_safety_speeding">Speeding</string>
+
+    <string name="guide_fatigue_normal">Normal</string>
+    <string name="guide_fatigue_warning">Fatigue</string>
+    <string name="guide_fatigue_microsleep">Microsleep</string>
+    <string name="guide_fatigue_alert">Driver is falling asleep. Pull over safely.</string>
+
+    <string name="guide_crash_before">Video Before</string>
+    <string name="guide_crash_protected">Protection</string>
+    <string name="guide_crash_after">Video After</string>
+
+    <string name="guide_dashcam_road">Road Camera</string>
+    <string name="guide_dashcam_driver">Driver Camera</string>
+    <string name="guide_dashcam_archive">Video Archive</string>
+
+    <string name="guide_family_notifications">Family Notifications</string>
+    <string name="guide_family_route">Route Tracking</string>
+    <string name="guide_family_safety">Safety First</string>
+
+    <string name="guide_rating_out_of">out of 100</string>
+    <string name="guide_rating_safety">Safety</string>
+    <string name="guide_rating_attention">Attention</string>
+    <string name="guide_rating_smoothness">Smoothness</string>
+    <string name="guide_rating_speed">Speed</string>
 
 
 

@@ -436,6 +436,65 @@
     <string name="dms_tts_yawning">Водитель зевает. Сделайте паузу.</string>
     <string name="dashcam_crash_saving">Аварийная запись сохраняется...</string>
 
+    <string name="guide_close">Закрыть</string>
+    <string name="guide_back">Назад</string>
+    <string name="guide_next">Далее</string>
+    <string name="guide_get_rating">Получить рейтинг</string>
+
+    <string name="guide_1_title">Представьте обычную поездку</string>
+    <string name="guide_1_subtitle">DriveTelemetry работает в фоне и следит за каждой вашей поездкой, чтобы сделать её безопаснее.</string>
+
+    <string name="guide_2_title">Насколько безопасно вы водите?</string>
+    <string name="guide_2_subtitle">Приложение анализирует стиль вождения и выставляет оценку после каждой поездки.</string>
+
+    <string name="guide_3_title">Контроль усталости</string>
+    <string name="guide_3_subtitle">Если водитель начинает засыпать, приложение предупредит голосом и визуальным сигналом.</string>
+
+    <string name="guide_4_title">Что если произойдёт ДТП?</string>
+    <string name="guide_4_subtitle">Приложение автоматически сохранит видео до и после аварии.</string>
+
+    <string name="guide_5_title">Видеорегистратор уже внутри</string>
+    <string name="guide_5_subtitle">Две камеры: дорога и водитель. Все записи хранятся в архиве приложения.</string>
+
+    <string name="guide_6_title">Защита вашей семьи</string>
+    <string name="guide_6_subtitle">DriveTelemetry помогает заботиться о тех, кто вам дорог.</string>
+
+    <string name="guide_7_title">Ваш личный рейтинг</string>
+    <string name="guide_7_subtitle">Сможете улучшить свой результат?</string>
+
+    <string name="guide_icon_video">Видео</string>
+    <string name="guide_icon_driving">Вождение</string>
+    <string name="guide_icon_safety">Безопасность</string>
+    <string name="guide_icon_stats">Статистика</string>
+
+    <string name="guide_safety_braking">Резкое торможение</string>
+    <string name="guide_safety_acceleration">Резкое ускорение</string>
+    <string name="guide_safety_turns">Опасные повороты</string>
+    <string name="guide_safety_speeding">Превышение скорости</string>
+
+    <string name="guide_fatigue_normal">Норма</string>
+    <string name="guide_fatigue_warning">Усталость</string>
+    <string name="guide_fatigue_microsleep">Микросон</string>
+    <string name="guide_fatigue_alert">Водитель засыпает. Остановитесь.</string>
+
+    <string name="guide_crash_before">Видео до</string>
+    <string name="guide_crash_protected">Защита</string>
+    <string name="guide_crash_after">Видео после</string>
+
+    <string name="guide_dashcam_road">Камера дороги</string>
+    <string name="guide_dashcam_driver">Камера водителя</string>
+    <string name="guide_dashcam_archive">Архив записей</string>
+
+    <string name="guide_family_notifications">Уведомления близким</string>
+    <string name="guide_family_route">Отслеживание маршрута</string>
+    <string name="guide_family_safety">Безопасность на первом месте</string>
+
+    <string name="guide_rating_out_of">из 100</string>
+    <string name="guide_rating_safety">Безопасность</string>
+    <string name="guide_rating_attention">Внимание</string>
+    <string name="guide_rating_smoothness">Плавность</string>
+    <string name="guide_rating_speed">Скорость</string>
+
 
 
 </resources>
