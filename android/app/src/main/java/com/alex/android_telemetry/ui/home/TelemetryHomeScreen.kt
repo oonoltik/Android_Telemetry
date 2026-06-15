@@ -453,7 +453,7 @@ fun TelemetryHomeScreen(
                 .fillMaxSize()
                 .verticalScroll(homeScrollState)
                 .padding(horizontal = 10.dp)
-                .padding(top = 2.dp, bottom = 2.dp),
+                .padding(top = 4.dp, bottom = 2.dp),
             verticalArrangement = Arrangement.spacedBy(2.dp),
         ) {
             HomeToolbar(
