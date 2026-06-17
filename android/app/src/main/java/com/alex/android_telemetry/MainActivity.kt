@@ -206,6 +206,10 @@ class MainActivity : ComponentActivity() {
                             AppLanguageStore.set(this@MainActivity, language)
                             recreate()
                         },
+                        onOpenGuide = {
+                            showSettingsScreen = false
+                            showDriveTelemetryGuide = true
+                        },
                         onDone = {
                             showSettingsScreen = false
                         },

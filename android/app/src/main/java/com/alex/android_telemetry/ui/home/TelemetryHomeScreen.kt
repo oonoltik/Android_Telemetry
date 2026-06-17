@@ -457,6 +457,7 @@ fun TelemetryHomeScreen(
             verticalArrangement = Arrangement.spacedBy(2.dp),
         ) {
             HomeToolbar(
+                onOpenGuide = onOpenDriveTelemetryGuide,
                 onOpenSettings = onOpenPermissionsBackground,
             )
 
@@ -552,9 +553,7 @@ fun TelemetryHomeScreen(
                 onOpenVideoArchive = onOpenVideoArchive,
             )
 
-            DriveTelemetryGuideButton(
-                onClick = onOpenDriveTelemetryGuide,
-            )
+
 
             DashcamBlock(
                 isRecording = isVideoRecording,
@@ -748,13 +747,36 @@ private fun PermissionWarningCard(
 }
 @Composable
 private fun HomeToolbar(
+    onOpenGuide: () -> Unit,
     onOpenSettings: () -> Unit,
 ) {
     Row(
         modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.End,
+        horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically,
     ) {
+
+        TextButton(
+            onClick = onOpenGuide,
+            modifier = Modifier
+                .padding(top = 3.dp)
+                .size(52.dp)
+                .clip(CircleShape)
+                .background(Color(0xFFEAF3FF))
+                .border(
+                    width = 2.dp,
+                    color = Color(0xFF0A84FF),
+                    shape = CircleShape,
+                ),
+        ) {
+            Text(
+                text = "?",
+                color = Color.Black,
+                fontSize = 26.sp,
+                fontWeight = FontWeight.Bold,
+            )
+        }
+
         TextButton(
             onClick = onOpenSettings,
             modifier = Modifier
@@ -772,7 +794,6 @@ private fun HomeToolbar(
                 color = Color.Black,
                 fontSize = 14.sp,
                 fontWeight = FontWeight.SemiBold,
-                lineHeight = 16.sp,
             )
         }
     }

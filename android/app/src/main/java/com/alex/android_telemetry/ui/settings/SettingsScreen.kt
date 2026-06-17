@@ -36,10 +36,16 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.layout.size
+import androidx.compose.ui.unit.sp
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.foundation.border
 @Composable
 fun SettingsScreen(
     currentDriverId: String?,
     onDone: () -> Unit,
+    onOpenGuide: () -> Unit,
     onOpenDriverAccount: () -> Unit,
     onOpenPermissionsBackground: () -> Unit,
     onOpenDiagnostics: () -> Unit,
@@ -57,7 +63,10 @@ fun SettingsScreen(
             .padding(horizontal = TelemetrySpacing.ScreenHorizontal)
             .padding(top = 10.dp, bottom = 28.dp),
     ) {
-        SettingsNavigationBar(onDone = onDone)
+        SettingsNavigationBar(
+            onDone = onDone,
+            onOpenGuide = onOpenGuide,
+        )
 
         Spacer(Modifier.height(12.dp))
 
@@ -238,15 +247,40 @@ private fun SettingsLanguageRow(
 @Composable
 private fun SettingsNavigationBar(
     onDone: () -> Unit,
+    onOpenGuide: () -> Unit,
 ) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .height(46.dp),
-        horizontalArrangement = Arrangement.End,
+            .height(54.dp),
+        horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        TextButton(onClick = onDone) {
+
+        TextButton(
+            onClick = onOpenGuide,
+            modifier = Modifier
+                .padding(top = 3.dp)
+                .size(52.dp)
+                .clip(CircleShape)
+                .background(Color(0xFFEAF3FF))
+                .border(
+                    width = 2.dp,
+                    color = Color(0xFF0A84FF),
+                    shape = CircleShape,
+                )
+        ) {
+            Text(
+                text = "?",
+                color = Color.Black,
+                fontSize = 26.sp,
+                fontWeight = FontWeight.Bold,
+            )
+        }
+
+        TextButton(
+            onClick = onDone,
+        ) {
             Text(
                 text = stringResource(R.string.settings_done),
                 color = Color(0xFF0A84FF),
