@@ -16,6 +16,9 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.cancelAndJoin
 import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.launch
+import com.alex.android_telemetry.telemetry.domain.model.TelemetryCounters
+import com.alex.android_telemetry.telemetry.domain.model.DeliveryRouteStats
+import com.alex.android_telemetry.telemetry.crash.CrashTelemetryBuffer
 
 class TelemetryCaptureCoordinator(
     private val clockProvider: ClockProvider,
@@ -39,6 +42,11 @@ class TelemetryCaptureCoordinator(
         locationTelemetrySource.start()
         collectionJob = scope.launch {
             locationTelemetrySource.observeSamples().collect { sample ->
+                CrashTelemetryBuffer.append(
+                    sample = sample,
+                    tripSessionId = session.sessionId,
+                )
+
                 batchWindow.append(sample)
                 runtimeStore.update { state -> state.copy(counters = state.counters.copy(samplesBuffered = batchWindow.size())) }
                 val elapsed = clockProvider.elapsedRealtimeMillis() - lastFlushElapsedMs

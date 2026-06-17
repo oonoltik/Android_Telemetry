@@ -14,6 +14,14 @@ class StaticThresholdResolver : EventThresholdResolver {
             turnEmergencyG = 0.30,
             roadLowG = 0.45,
             roadHighG = 0.75,
+            roadWindowS = 0.40,
+            // Combined risk — iOS V2Thresholds defaults
+            combinedLatMinG = 0.35,
+            accelInTurnSharpG = 0.22,
+            accelInTurnEmergencyG = 0.32,
+            brakeInTurnSharpG = 0.22,
+            brakeInTurnEmergencyG = 0.32,
+            combinedCooldownS = 0.8,
         )
     }
 }

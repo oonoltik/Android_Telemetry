@@ -21,6 +21,18 @@ class TelemetryOutboxRepository(
             nowEpochMs = clock.now().toEpochMilliseconds(),
         )
 
+    private fun prioritizeCrashEvents(
+        candidates: List<TelemetryOutboxEntity>,
+    ): List<TelemetryOutboxEntity> {
+        return candidates.sortedWith(
+            compareBy<TelemetryOutboxEntity> {
+                if (it.batchId.startsWith("crash_event_")) 0 else 1
+            }.thenBy {
+                it.id
+            }
+        )
+    }
+
     suspend fun markSending(id: Long) {
         dao.markInFlightById(
             id = id,
@@ -107,7 +119,13 @@ class TelemetryOutboxRepository(
             return emptyList()
         }
 
-        val ids = candidates.map { it.id }
+        val orderedCandidates = prioritizeCrashEvents(candidates)
+
+        val ids = orderedCandidates.map { it.id }
+        val crashPriorityCount = orderedCandidates.count {
+            it.batchId.startsWith("crash_event_")
+        }
+
         val updated = dao.markInFlight(
             ids = ids,
             updatedAtEpochMs = now,
@@ -115,7 +133,7 @@ class TelemetryOutboxRepository(
 
         Log.d(
             "TelemetryDelivery",
-            "claimNextForDelivery(): prioritySessions=$prioritySessionIds candidates=${candidates.size}"
+            "claimNextForDelivery(): prioritySessions=$prioritySessionIds candidates=${orderedCandidates.size} crashPriority=$crashPriorityCount"
         )
         Log.d(
             "TelemetryDelivery",
@@ -124,7 +142,7 @@ class TelemetryOutboxRepository(
 
         if (updated <= 0) return emptyList()
 
-        return candidates
+        return orderedCandidates
     }
     suspend fun markTerminalFailed(
         id: Long,

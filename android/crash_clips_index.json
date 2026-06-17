@@ -1,0 +1,56 @@
+[
+    {
+        "crashId": "crash_1780345233227_bf281373",
+        "detectedAtMs": 1780345233227,
+        "gForce": 1.693530255630548,
+        "rollingSessionId": "91e3a633",
+        "preCrashMs": 10000,
+        "postCrashMs": 10000,
+        "segmentPaths": [
+            "/storage/emulated/0/Android/data/com.alex.android_telemetry/files/Movies/dashcam/road_91e3a633_clip_001.mp4",
+            "/storage/emulated/0/Android/data/com.alex.android_telemetry/files/Movies/dashcam/road_91e3a633_clip_002.mp4",
+            "/storage/emulated/0/Android/data/com.alex.android_telemetry/files/Movies/dashcam/road_91e3a633_clip_003.mp4"
+        ],
+        "mergedClipPath": "/storage/emulated/0/Android/data/com.alex.android_telemetry/files/Movies/dashcam/exact_crash_packages/crash_1780345233227_bf281373.mp4",
+        "createdAtMs": 1780345250360,
+        "telemetrySnapshot": null,
+        "telemetryTimeline": [],
+        "uploadState": "UPLOADED",
+        "assemblyState": "COMPLETED",
+        "assemblyAttempts": 1,
+        "lastAssemblyAttemptAtMs": 1780345250360,
+        "lastAssemblyError": null,
+        "exactExportState": "COMPLETED",
+        "exactClipPath": "/storage/emulated/0/Android/data/com.alex.android_telemetry/files/Movies/dashcam/exact_crash_packages/crash_1780345233227_bf281373.mp4",
+        "exactExportAttempts": 1,
+        "lastExactExportAttemptAtMs": 1780345270585,
+        "lastExactExportError": null
+    },
+    {
+        "crashId": "crash_1780344820853_ba7d0045",
+        "detectedAtMs": 1780344820853,
+        "gForce": 1.5792466503851923,
+        "rollingSessionId": "2fb57bae",
+        "preCrashMs": 10000,
+        "postCrashMs": 10000,
+        "segmentPaths": [
+            "/storage/emulated/0/Android/data/com.alex.android_telemetry/files/Movies/dashcam/road_2fb57bae_clip_001.mp4",
+            "/storage/emulated/0/Android/data/com.alex.android_telemetry/files/Movies/dashcam/road_2fb57bae_clip_002.mp4",
+            "/storage/emulated/0/Android/data/com.alex.android_telemetry/files/Movies/dashcam/road_2fb57bae_clip_003.mp4"
+        ],
+        "mergedClipPath": "/storage/emulated/0/Android/data/com.alex.android_telemetry/files/Movies/dashcam/crash_packages/crash_1780344820853_ba7d0045.mp4",
+        "createdAtMs": 1780344838303,
+        "telemetrySnapshot": null,
+        "telemetryTimeline": [],
+        "uploadState": "UPLOADED",
+        "assemblyState": "COMPLETED",
+        "assemblyAttempts": 1,
+        "lastAssemblyAttemptAtMs": 1780344838303,
+        "lastAssemblyError": null,
+        "exactExportState": "FAILED",
+        "exactClipPath": null,
+        "exactExportAttempts": 1,
+        "lastExactExportAttemptAtMs": 1780344838890,
+        "lastExactExportError": "Media3 exact export failed"
+    }
+]

@@ -11,6 +11,7 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.distinctUntilChanged
+import android.util.Log
 
 class AndroidGyroscopeSource(
     private val sensorManager: SensorManager,
@@ -24,8 +25,26 @@ class AndroidGyroscopeSource(
     private var listener: SensorEventListener? = null
 
     override suspend fun start() {
-        if (listener != null) return
-        val sensor = sensorManager.getDefaultSensor(Sensor.TYPE_GYROSCOPE) ?: return
+        if (listener != null) {
+            Log.d("TelemetryTrip", "GyroscopeSource.start(): already started")
+            return
+        }
+
+        val sensor = sensorManager.getDefaultSensor(Sensor.TYPE_GYROSCOPE)
+
+        Log.d(
+            "TelemetryTrip",
+            "GyroscopeSource.start(): gyroscope=${sensor != null}"
+        )
+
+        if (sensor == null) {
+            Log.w(
+                "TelemetryTrip",
+                "GyroscopeSource.start(): missing gyroscope, no gyro samples will be emitted"
+            )
+            return
+        }
+
         val gyroListener = object : SensorEventListener {
             override fun onSensorChanged(event: SensorEvent) {
                 mutableSamples.tryEmit(
@@ -37,10 +56,14 @@ class AndroidGyroscopeSource(
                     ),
                 )
             }
+
             override fun onAccuracyChanged(sensor: Sensor?, accuracy: Int) = Unit
         }
+
         sensorManager.registerListener(gyroListener, sensor, samplingPeriodUs)
         listener = gyroListener
+
+        Log.d("TelemetryTrip", "GyroscopeSource.start(): listener registered")
     }
 
     override suspend fun stop() {

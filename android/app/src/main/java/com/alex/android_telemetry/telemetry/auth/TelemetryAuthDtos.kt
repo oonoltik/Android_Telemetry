@@ -18,6 +18,13 @@ data class AuthRegisterRequestDto(
     @SerialName("attestation_object_b64") val attestationObjectB64: String,
     @SerialName("platform") val platform: String,
     @SerialName("app_package") val appPackage: String,
+
+    @SerialName("app_version") val appVersion: String? = null,
+    @SerialName("app_build") val appBuild: String? = null,
+    @SerialName("ios_version") val iosVersion: String? = null,
+    @SerialName("device_model") val deviceModel: String? = null,
+    @SerialName("locale") val locale: String? = null,
+    @SerialName("timezone") val timezone: String? = null,
 )
 
 @Serializable

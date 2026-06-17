@@ -4,6 +4,8 @@ import android.app.Application
 import com.alex.android_telemetry.core.di.AppContainer
 import com.alex.android_telemetry.core.di.ServiceLocator
 import com.alex.android_telemetry.core.foreground.NotificationChannels
+import com.alex.android_telemetry.telemetry.delivery.TelemetryDeliveryScheduler
+import com.alex.android_telemetry.telemetry.trips.finish.FinishRetryScheduler
 
 class TelemetryApplication : Application() {
     lateinit var appContainer: AppContainer
@@ -15,5 +17,9 @@ class TelemetryApplication : Application() {
         ServiceLocator.init(appContainer)
         NotificationChannels.create(this)
         appContainer.tripRecoveryManager.onAppStarted()
+
+        TelemetryDeliveryScheduler(this).scheduleImmediate()
+        TelemetryDeliveryScheduler(this).schedulePeriodic()
+        FinishRetryScheduler(this).scheduleImmediate()
     }
 }

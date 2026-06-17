@@ -8,10 +8,14 @@ import androidx.work.NetworkType
 import androidx.work.OneTimeWorkRequestBuilder
 import androidx.work.WorkManager
 
+interface FinishRetryGateway {
+    fun scheduleImmediate()
+}
+
 class FinishRetryScheduler(
     private val context: Context,
-) {
-    fun scheduleImmediate() {
+) : FinishRetryGateway {
+    override fun scheduleImmediate() {
         Log.d("TelemetryTrip", "scheduleFinishRetryImmediate()")
 
         val request = OneTimeWorkRequestBuilder<FinishRetryWorker>()
@@ -24,7 +28,7 @@ class FinishRetryScheduler(
 
         WorkManager.getInstance(context).enqueueUniqueWork(
             UNIQUE_WORK_NAME,
-            ExistingWorkPolicy.REPLACE,
+            ExistingWorkPolicy.KEEP,
             request,
         )
     }

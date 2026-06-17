@@ -1,0 +1,111 @@
+[
+  {
+    "name": "no_event_low_speed_accel",
+    "input": {
+      "t": "2026-04-30T12:00:00.000Z",
+      "aLongG": 0.30,
+      "aLatG": 0.00,
+      "aVertG": 1.00,
+      "speedMS": 2.00
+    },
+    "expected": null
+  },
+  {
+    "name": "accel_sharp",
+    "input": {
+      "t": "2026-04-30T12:00:01.500Z",
+      "aLongG": 0.20,
+      "aLatG": 0.00,
+      "aVertG": 1.00,
+      "speedMS": 12.00
+    },
+    "expected": {
+      "type": "accel",
+      "intensity": 0.20,
+      "speedMS": 12.00,
+      "eventClass": "sharp"
+    }
+  },
+  {
+    "name": "accel_emergency",
+    "input": {
+      "t": "2026-04-30T12:00:03.000Z",
+      "aLongG": 0.31,
+      "aLatG": 0.00,
+      "aVertG": 1.00,
+      "speedMS": 12.00
+    },
+    "expected": {
+      "type": "accel",
+      "intensity": 0.31,
+      "speedMS": 12.00,
+      "eventClass": "emergency"
+    }
+  },
+  {
+    "name": "brake_sharp",
+    "input": {
+      "t": "2026-04-30T12:00:04.500Z",
+      "aLongG": -0.24,
+      "aLatG": 0.00,
+      "aVertG": 1.00,
+      "speedMS": 12.00
+    },
+    "expected": {
+      "type": "brake",
+      "intensity": 0.24,
+      "speedMS": 12.00,
+      "eventClass": "sharp"
+    }
+  },
+  {
+    "name": "brake_emergency",
+    "input": {
+      "t": "2026-04-30T12:00:06.000Z",
+      "aLongG": -0.34,
+      "aLatG": 0.00,
+      "aVertG": 1.00,
+      "speedMS": 12.00
+    },
+    "expected": {
+      "type": "brake",
+      "intensity": 0.34,
+      "speedMS": 12.00,
+      "eventClass": "emergency"
+    }
+  },
+  {
+    "name": "turn_right_sharp",
+    "input": {
+      "t": "2026-04-30T12:00:07.500Z",
+      "aLongG": 0.00,
+      "aLatG": 0.24,
+      "aVertG": 1.00,
+      "speedMS": 12.00
+    },
+    "expected": {
+      "type": "turn",
+      "intensity": 0.24,
+      "speedMS": 12.00,
+      "eventClass": "sharp",
+      "subtype": "right"
+    }
+  },
+  {
+    "name": "turn_left_emergency",
+    "input": {
+      "t": "2026-04-30T12:00:09.000Z",
+      "aLongG": 0.00,
+      "aLatG": -0.32,
+      "aVertG": 1.00,
+      "speedMS": 12.00
+    },
+    "expected": {
+      "type": "turn",
+      "intensity": 0.32,
+      "speedMS": 12.00,
+      "eventClass": "emergency",
+      "subtype": "left"
+    }
+  }
+]

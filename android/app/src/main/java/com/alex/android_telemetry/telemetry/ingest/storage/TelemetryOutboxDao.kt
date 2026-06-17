@@ -88,14 +88,16 @@ interface TelemetryOutboxDao {
 
     @Query(
         """
-        SELECT * FROM telemetry_outbox
-        WHERE (
-            status = :pendingStatus
-            OR (status = :retryWaitStatus AND next_retry_at_epoch_ms <= :nowEpochMs)
-        )
-        ORDER BY created_at_epoch_ms ASC
-        LIMIT :limit
-        """
+    SELECT * FROM telemetry_outbox
+    WHERE (
+        status = :pendingStatus
+        OR (status = :retryWaitStatus AND next_retry_at_epoch_ms <= :nowEpochMs)
+    )
+    ORDER BY
+        CASE WHEN batch_id LIKE 'crash_event_%' THEN 0 ELSE 1 END,
+        created_at_epoch_ms ASC
+    LIMIT :limit
+    """
     )
     suspend fun findCandidatesForDelivery(
         nowEpochMs: Long,
@@ -214,8 +216,14 @@ interface TelemetryOutboxDao {
         status = :pendingStatus
         OR (status = :retryWaitStatus AND next_retry_at_epoch_ms <= :nowEpochMs)
     )
-      AND session_id IN (:sessionIds)
-    ORDER BY batch_seq ASC, created_at_epoch_ms ASC
+      AND (
+    session_id IN (:sessionIds)
+    OR batch_id LIKE 'crash_event_%'
+)
+    ORDER BY
+    CASE WHEN batch_id LIKE 'crash_event_%' THEN 0 ELSE 1 END,
+    batch_seq ASC,
+    created_at_epoch_ms ASC
     LIMIT :limit
     """
     )
@@ -235,7 +243,9 @@ interface TelemetryOutboxDao {
         OR (status = :retryWaitStatus AND next_retry_at_epoch_ms <= :nowEpochMs)
     )
       AND session_id NOT IN (:excludedSessionIds)
-    ORDER BY created_at_epoch_ms ASC
+    ORDER BY
+    CASE WHEN batch_id LIKE 'crash_event_%' THEN 0 ELSE 1 END,
+    created_at_epoch_ms ASC
     LIMIT :limit
     """
     )

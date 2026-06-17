@@ -32,7 +32,7 @@ class RoomTelemetryBatchEnqueuer(
 
         Log.d(
             "TelemetryDelivery",
-            "enqueue payload: sessionId=${batch.sessionId} batchId=${batch.batchId} seq=${batch.batchSeq} payload=${payload.take(4000)}"
+            "enqueue payload: sessionId=${batch.sessionId} batchId=${batch.batchId} seq=${batch.batchSeq} payloadBytes=${payload.toByteArray().size}"
         )
 
         val now = clock.now().toEpochMilliseconds()

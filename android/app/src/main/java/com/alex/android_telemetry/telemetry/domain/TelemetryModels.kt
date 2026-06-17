@@ -135,11 +135,17 @@ data class TripRuntimeState(
     val lastLocationAt: Instant? = null,
     val lastEventAt: Instant? = null,
     val distanceM: Double = 0.0,
+    val currentSpeedMS: Double? = null,
     val isForegroundCollection: Boolean = false,
     val pendingFinish: Boolean = false,
     val finishUiState: TripFinishUiState = TripFinishUiState.IDLE,
     val lastTripReport: TripReportDto? = null,
     val lastFinishError: String? = null,
+    val dayMonitoringEnabled: Boolean = false,
+    val dayMonitoringAutoTripActive: Boolean = false,
+    val dayMonitoringAutoStartedSessionId: String? = null,
+    val counters: TelemetryCounters = TelemetryCounters(),
+    val routeStats: DeliveryRouteStats = DeliveryRouteStats(),
 )
 
 enum class TelemetryEventType {
@@ -149,6 +155,7 @@ enum class TelemetryEventType {
     ACCEL_IN_TURN,
     BRAKE_IN_TURN,
     ROAD_ANOMALY,
+    CRASH,
 }
 
 data class MotionVector(
@@ -187,6 +194,13 @@ data class EventThresholdSet(
     val accelBrakeCooldownS: Double = 1.2,
     val turnCooldownS: Double = 0.8,
     val roadCooldownS: Double = 1.2,
+    val roadWindowS: Double = 0.4,
+    val combinedLatMinG: Double = 0.35,
+    val accelInTurnSharpG: Double? = null,
+    val accelInTurnEmergencyG: Double? = null,
+    val brakeInTurnSharpG: Double? = null,
+    val brakeInTurnEmergencyG: Double? = null,
+    val combinedCooldownS: Double = 0.8,
 )
 
 data class Attitude(

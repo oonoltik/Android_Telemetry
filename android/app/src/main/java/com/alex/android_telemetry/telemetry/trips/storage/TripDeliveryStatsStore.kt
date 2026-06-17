@@ -5,11 +5,16 @@ import com.alex.android_telemetry.telemetry.delivery.api.DeliveryRoute
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
+import com.alex.android_telemetry.telemetry.delivery.DeliveryFinishRetryStatsStore
+
+interface TripDeliveryStatsReader {
+    fun getDeliveredBatches(sessionId: String): Int
+}
 
 class TripDeliveryStatsStore(
     context: Context,
     private val json: Json,
-) {
+) : TripDeliveryStatsReader, DeliveryFinishRetryStatsStore {
     @Serializable
     data class DeliveryStats(
         val euBatches: Int = 0,
@@ -48,4 +53,15 @@ class TripDeliveryStatsStore(
     }
 
     private fun key(sessionId: String): String = statsKeyPrefix + sessionId
+
+    override fun getDeliveredBatches(sessionId: String): Int {
+        return get(sessionId).deliveredBatches
+    }
+
+    override fun recordDeliveredBatch(
+        sessionId: String,
+        route: DeliveryRoute,
+    ): Int {
+        return recordBatchDelivery(sessionId, route).deliveredBatches
+    }
 }

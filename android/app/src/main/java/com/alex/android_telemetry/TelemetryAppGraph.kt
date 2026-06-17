@@ -55,10 +55,14 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.serialization.json.Json
 import okhttp3.OkHttpClient
+import com.alex.android_telemetry.telemetry.trips.api.TripApi
+import com.alex.android_telemetry.core.recovery.RecoveryUxStore
+import com.alex.android_telemetry.telemetry.glass.GlassGameApi
 
 class TelemetryAppGraph private constructor(
     val facade: TelemetryFacade,
     val scheduler: TelemetryDeliveryScheduler,
+    val tripApi: TripApi,
     val driverRepository: DriverRepository,
     val driverPrepareManager: DriverPrepareManager,
     val driverRegisterManager: DriverRegisterManager,
@@ -66,6 +70,8 @@ class TelemetryAppGraph private constructor(
     val accountDeleteManager: AccountDeleteManager,
     val deviceIdProvider: TelemetryDeviceIdProvider,
     val dayMonitoringManager: DayMonitoringManager,
+    val recoveryUxStore: RecoveryUxStore,
+    val glassGameApi: GlassGameApi,
 ) {
     companion object {
         @Volatile
@@ -78,6 +84,7 @@ class TelemetryAppGraph private constructor(
 
         private fun build(context: Context): TelemetryAppGraph {
             val applicationScope = CoroutineScope(Dispatchers.Default)
+            val recoveryUxStore = RecoveryUxStore(context)
 
             val database =
                 com.alex.android_telemetry.telemetry.delivery.storage.TelemetryDatabase.get(context)
@@ -111,6 +118,11 @@ class TelemetryAppGraph private constructor(
                 tokenStore = telemetryTokenStore,
                 keyIdStore = telemetryKeyIdStore,
                 deviceIdProvider = telemetryDeviceIdProvider,
+            )
+            val glassGameApi = GlassGameApi(
+                client = okHttpClient,
+                json = appJson,
+                authManager = telemetryAuthManager,
             )
 
             val deliveryGraph = TelemetryDeliveryGraph.from(context)
@@ -265,7 +277,7 @@ class TelemetryAppGraph private constructor(
                     telemetryServiceStarter.autoStartTrip(
                         deviceId = telemetryDeviceIdProvider.get(),
                         driverId = driverIdStore.get(),
-                        transportMode = TransportMode.CAR,
+                        transportMode = TransportMode.UNKNOWN,
                     )
                 },
                 onAutoStopRequested = {
@@ -278,6 +290,7 @@ class TelemetryAppGraph private constructor(
             return TelemetryAppGraph(
                 facade = facade,
                 scheduler = scheduler,
+                tripApi = deliveryGraph.tripApi,
                 driverRepository = driverRepository,
                 driverPrepareManager = driverPrepareManager,
                 driverRegisterManager = driverRegisterManager,
@@ -285,6 +298,8 @@ class TelemetryAppGraph private constructor(
                 accountDeleteManager = accountDeleteManager,
                 deviceIdProvider = telemetryDeviceIdProvider,
                 dayMonitoringManager = dayMonitoringManager,
+                recoveryUxStore = recoveryUxStore,
+                glassGameApi = glassGameApi,
             )
         }
     }

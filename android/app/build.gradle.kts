@@ -7,6 +7,8 @@ plugins {
 }
 
 android {
+
+
     namespace = "com.alex.android_telemetry"
     compileSdk {
         version = release(36) {
@@ -14,12 +16,16 @@ android {
         }
     }
 
+    testOptions {
+        unitTests.isReturnDefaultValues = true
+    }
+
     defaultConfig {
         applicationId = "com.alex.android_telemetry"
         minSdk = 24
         targetSdk = 36
-        versionCode = 1
-        versionName = "1.0"
+        versionCode = 5
+        versionName = "1.4"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 
@@ -52,6 +58,7 @@ android {
 }
 
 dependencies {
+    implementation("androidx.activity:activity-compose:1.9.3")
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.lifecycle.runtime.ktx)
     implementation(libs.androidx.activity.compose)
@@ -81,6 +88,27 @@ dependencies {
     implementation("androidx.work:work-runtime-ktx:2.10.0")
     implementation("com.squareup.okhttp3:okhttp:4.12.0")
     implementation("androidx.startup:startup-runtime:1.1.1")
+
+    val cameraxVersion = "1.3.4"
+
+    implementation("androidx.camera:camera-core:$cameraxVersion")
+    implementation("androidx.camera:camera-camera2:$cameraxVersion")
+    implementation("androidx.camera:camera-lifecycle:$cameraxVersion")
+    implementation("androidx.camera:camera-video:$cameraxVersion")
+    implementation("androidx.camera:camera-view:$cameraxVersion")
+
+    implementation("com.google.mlkit:face-detection:16.1.7")
+
+
+    implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.6.3")
+    implementation("androidx.media3:media3-exoplayer:1.4.1")
+    implementation("androidx.media3:media3-ui:1.4.1")
+    implementation("androidx.media3:media3-transformer:1.4.1")
+
+    implementation("androidx.work:work-runtime-ktx:2.10.1")
+    implementation("androidx.lifecycle:lifecycle-service:2.8.7")
+
+
 }
 
 

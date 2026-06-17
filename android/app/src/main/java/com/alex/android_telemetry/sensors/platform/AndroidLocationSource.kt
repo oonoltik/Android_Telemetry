@@ -15,6 +15,8 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.asSharedFlow
 
+import android.util.Log
+
 class AndroidLocationSource(
     private val fusedLocationClient: FusedLocationProviderClient,
     private val locationRequestFactory: () -> LocationRequest = {
@@ -32,11 +34,24 @@ class AndroidLocationSource(
 
     @SuppressLint("MissingPermission")
     override suspend fun start() {
+        Log.d("TelemetryTrip", "LocationSource.start(): called")
         if (callback != null) return
         val newCallback = object : LocationCallback() {
             override fun onLocationResult(result: LocationResult) {
+//                Log.d(
+//                    "TelemetryTrip",
+//                    "LocationSource.onLocationResult(): count=${result.locations.size}"
+//                )
+
                 result.locations.forEach { location ->
-                    mutableFixes.tryEmit(location.toFix())
+                    val fix = location.toFix()
+
+//                    Log.d(
+//                        "TelemetryTrip",
+//                        "LocationSource.fix(): lat=${fix.lat} lon=${fix.lon} speed=${fix.speedMS} bearing=${fix.bearingDeg}"
+//                    )
+
+                    mutableFixes.tryEmit(fix)
                 }
             }
         }

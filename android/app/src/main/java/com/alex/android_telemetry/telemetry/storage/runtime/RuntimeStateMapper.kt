@@ -21,8 +21,10 @@ class RuntimeStateMapper {
         sessionId = entity.sessionId,
         deviceId = entity.deviceId,
         driverId = entity.driverId,
-        trackingMode = runCatching { TrackingMode.valueOf(entity.trackingMode) }.getOrDefault(TrackingMode.SINGLE_TRIP),
-        transportMode = runCatching { TransportMode.valueOf(entity.transportMode) }.getOrDefault(TransportMode.CAR),
+        trackingMode = runCatching { TrackingMode.valueOf(entity.trackingMode) }
+            .getOrDefault(TrackingMode.SINGLE_TRIP),
+        transportMode = runCatching { TransportMode.valueOf(entity.transportMode) }
+            .getOrDefault(TransportMode.UNKNOWN),
         startedAt = entity.startedAt,
         startedAtEpochMillis = entity.startedAtEpochMillis,
         nextBatchSeq = entity.nextBatchSeq,

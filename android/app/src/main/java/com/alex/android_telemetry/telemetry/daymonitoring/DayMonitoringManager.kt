@@ -8,6 +8,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.onEach
+import kotlinx.coroutines.launch
 
 class DayMonitoringManager(
     private val scope: CoroutineScope,
@@ -22,6 +23,10 @@ class DayMonitoringManager(
 
     fun start() {
         if (collectionJob != null) return
+
+        scope.launch {
+            syncRuntimeState()
+        }
 
         collectionJob = activityRecognitionSource.samples
             .onEach { sample ->
@@ -38,23 +43,49 @@ class DayMonitoringManager(
 
     fun enable() {
         stateStore.setEnabled(true)
+        scope.launch {
+            syncRuntimeState()
+        }
         Log.d("DayMonitoring", "enabled=true")
     }
 
     fun disable() {
         stateStore.setEnabled(false)
-        stateStore.markAutoTripStopped()
         tripGate.reset()
+
+        scope.launch {
+            val dmState = stateStore.load()
+            val runtime = telemetryFacade.observeState().value
+            val currentSessionId = runtime.sessionId
+
+            if (
+                dmState.autoStartedTripActive &&
+                currentSessionId != null &&
+                dmState.autoStartedSessionId == currentSessionId
+            ) {
+                Log.d(
+                    "DayMonitoring",
+                    "disable(): stopping owned auto trip sessionId=$currentSessionId"
+                )
+                onAutoStopRequested()
+            }
+
+            stateStore.markAutoTripStopped()
+            syncRuntimeState()
+        }
+
         Log.d("DayMonitoring", "enabled=false")
     }
 
     suspend fun markAutoTripStartedFromService() {
         val currentState = telemetryFacade.observeState().value
         stateStore.markAutoTripStarted(currentState.sessionId)
+        syncRuntimeState()
     }
 
     suspend fun markTripStoppedFromService() {
         stateStore.markAutoTripStopped()
+        syncRuntimeState()
     }
 
     private suspend fun handleSample(sample: ActivitySample) {
@@ -88,6 +119,7 @@ class DayMonitoringManager(
                     onAutoStartRequested()
                     val updatedState = telemetryFacade.observeState().value
                     stateStore.markAutoTripStarted(updatedState.sessionId)
+                    syncRuntimeState()
                 }
             }
 
@@ -99,9 +131,19 @@ class DayMonitoringManager(
                     )
                     onAutoStopRequested()
                     stateStore.markAutoTripStopped()
+                    syncRuntimeState()
                 }
             }
         }
+    }
+
+    private suspend fun syncRuntimeState() {
+        val dmState = stateStore.load()
+        telemetryFacade.setDayMonitoringState(
+            enabled = dmState.enabled,
+            autoTripActive = dmState.autoStartedTripActive,
+            autoStartedSessionId = dmState.autoStartedSessionId,
+        )
     }
 
     private fun isManualTripActive(

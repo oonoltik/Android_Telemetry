@@ -58,7 +58,7 @@ class TelemetryServiceStarter(
     fun autoStartTrip(
         deviceId: String,
         driverId: String?,
-        transportMode: TransportMode = TransportMode.CAR
+        transportMode: TransportMode = TransportMode.UNKNOWN
     ) {
         val intent = Intent(context, TelemetryForegroundService::class.java).apply {
             action = TelemetryServiceActions.ACTION_AUTO_START_TRIP
