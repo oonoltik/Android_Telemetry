@@ -685,4 +685,51 @@ enum LocalizationKey: String {
     case tripConfigHelpPenaltyRoadHighBody
     case tripConfigHelpPenaltyRoadHighMore
     case tripConfigHelpPenaltyRoadHighLess
+    // Guide / onboarding
+    case guideTitle
+    case guideClose
+    case guideBack
+    case guideNext
+    case guideGetRating
+    case guide1Title
+    case guide1Subtitle
+    case guide2Title
+    case guide2Subtitle
+    case guide3Title
+    case guide3Subtitle
+    case guide4Title
+    case guide4Subtitle
+    case guide5Title
+    case guide5Subtitle
+    case guide6Title
+    case guide6Subtitle
+    case guide7Title
+    case guide7Subtitle
+    case guideRatingOutOf
+    case guideRatingSafety
+    case guideRatingAttention
+    case guideRatingSmoothness
+    case guideRatingSpeed
+    case guideIconVideo
+    case guideIconDriving
+    case guideIconSafety
+    case guideIconStats
+    case guideSafetyBraking
+    case guideSafetyAcceleration
+    case guideSafetyTurns
+    case guideSafetySpeeding
+    case guideFatigueNormal
+    case guideFatigueWarning
+    case guideFatigueMicrosleep
+    case guideFatigueAlert
+    case guideCrashBefore
+    case guideCrashProtected
+    case guideCrashAfter
+    case guideDashcamRoad
+    case guideDashcamDriver
+    case guideDashcamArchive
+    case guideFamilyNotifications
+    case guideFamilyRoute
+    case guideFamilySafety
+
 }

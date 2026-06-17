@@ -44,6 +44,8 @@ struct ContentView: View {
 
     @State private var loginInput: String = ""
     @State private var showingSettings: Bool = false
+    @State private var showingDriveTelemetryGuide: Bool = false
+    @State private var toolbarRefreshToken: Int = 0
     @State private var showingDriverSetup: Bool = false
     
 //    @State private var showingDashcamTeaser: Bool = false
@@ -661,8 +663,22 @@ struct ContentView: View {
                                     .padding(.vertical, 10)
                             }
                             .buttonStyle(.bordered)
+
                         }
                         .padding(.horizontal)
+
+
+                        if dashcamManager.state == .idle {
+                            Picker(t(.camera), selection: Binding(
+                                get: { dashcamManager.cameraMode },
+                                set: { dashcamManager.setCameraMode($0) }
+                            )) {
+                                Text(t(.roadCamera)).tag(DashcamCameraMode.rear)
+                                Text(t(.driverCamera)).tag(DashcamCameraMode.front)
+                            }
+                            .pickerStyle(.segmented)
+                            .padding(.horizontal)
+                        }
 
                         Button {
                             sensorManager.markScreenInteractionInApp()
@@ -670,6 +686,7 @@ struct ContentView: View {
                                 do {
                                     try await dashcamManager.requestPermissionsIfNeeded()
                                     try await dashcamManager.startVideoMode(trigger: .userButton)
+                                    isPreviewContainerVisible = true
                                 } catch {
                                     print("[DashcamUI] start error: \(error)")
                                 }
@@ -682,7 +699,6 @@ struct ContentView: View {
                         .buttonStyle(.bordered)
                         .padding(.horizontal)
                         .disabled(dashcamManager.state != .idle || sensorManager.driverId.isEmpty)
-                       
                         
                         if dashcamManager.state == .recording || dashcamManager.state == .preparing || dashcamManager.state == .stopping {
                             VStack(spacing: 12) {
@@ -805,16 +821,7 @@ struct ContentView: View {
                     }
                     
                     // ===== Live visualization: glass of water =====
-                    Picker(t(.camera), selection: Binding(
-                        get: { dashcamManager.cameraMode },
-                        set: { dashcamManager.setCameraMode($0) }
-                    )) {
-                        Text(t(.roadCamera)).tag(DashcamCameraMode.rear)
-                        Text(t(.driverCamera)).tag(DashcamCameraMode.front)
-                    }
-                    .pickerStyle(.segmented)
-                    .padding(.horizontal)
-                    .disabled(dashcamManager.state != .idle)
+                
                     
                     Button {
                         sensorManager.markScreenInteractionInApp()
@@ -827,6 +834,7 @@ struct ContentView: View {
                     }
                     .buttonStyle(.bordered)
                     .padding(.horizontal)
+
                     .padding(.top, 12)   // отступ от предыдущего блока}
 
                     
@@ -1059,6 +1067,18 @@ struct ContentView: View {
                 .navigationTitle(FeatureFlags.isDeveloperBuild ? "Telemetry" : "")
                 
                 .toolbar {
+                    ToolbarItem(placement: .navigationBarLeading) {
+                        Button {
+                            sensorManager.markScreenInteractionInApp()
+                            showingDriveTelemetryGuide = true
+                        } label: {
+                            Image(systemName: "questionmark.circle")
+                                .font(.title3)
+                        }
+                        .buttonStyle(.plain)
+                        .id(toolbarRefreshToken)
+                    }
+
                     ToolbarItem(placement: .navigationBarTrailing) {
                         HStack(spacing: 8) {
 
@@ -1106,7 +1126,13 @@ struct ContentView: View {
                         do {
                             try await sensorManager.ensureDriverReadyForAppLaunch()
                         } catch {
-                            showingDriverSetup = true
+                            let currentDriverId = sensorManager.driverId.trimmingCharacters(in: .whitespacesAndNewlines)
+
+                            if currentDriverId.isEmpty {
+                                showingDriverSetup = true
+                            } else {
+                                print("[DriverSetup] Suppressed automatic username popup because driverId already exists. error=\(error.localizedDescription)")
+                            }
                         }
 
                         await refreshHomeMetrics()
@@ -1150,6 +1176,20 @@ struct ContentView: View {
                         showingPermissionOnboarding = false
                         showingDriverSetup = false
                     }
+                }
+
+                .fullScreenCover(isPresented: $showingDriveTelemetryGuide) {
+                    DriveTelemetryGuideView(
+                        onBack: {
+                            showingDriveTelemetryGuide = false
+                            toolbarRefreshToken += 1
+                        },
+                        onStartFirstTrip: {
+                            showingDriveTelemetryGuide = false
+                            toolbarRefreshToken += 1
+                        }
+                    )
+                    .environmentObject(languageManager)
                 }
                 
                 .sheet(item: $tripReport, content: tripReportSheet)
@@ -2060,8 +2100,477 @@ private func smoothnessScore(accelGPerKm: Double, brakeGPerKm: Double, turnGPerK
     let raw = 100.0 - (weighted / 0.50) * 100.0
     return Int(max(0, min(100, raw)).rounded())
 }
-        
+
+// MARK: - DriveTelemetry Guide
+
+private struct DriveTelemetryGuideSlide {
+    let landscapeImage: String
+    let portraitImage: String
+    let titleKey: LocalizationKey
+    let subtitleKey: LocalizationKey
+}
+
+private let driveTelemetryGuideSlides: [DriveTelemetryGuideSlide] = [
+    .init(landscapeImage: "guide_bg_1", portraitImage: "guide_bg_1_portrait", titleKey: .guide1Title, subtitleKey: .guide1Subtitle),
+    .init(landscapeImage: "guide_bg_2", portraitImage: "guide_bg_2_portrait", titleKey: .guide2Title, subtitleKey: .guide2Subtitle),
+    .init(landscapeImage: "guide_bg_3", portraitImage: "guide_bg_3_portrait", titleKey: .guide3Title, subtitleKey: .guide3Subtitle),
+    .init(landscapeImage: "guide_bg_4", portraitImage: "guide_bg_4_portrait", titleKey: .guide4Title, subtitleKey: .guide4Subtitle),
+    .init(landscapeImage: "guide_bg_5", portraitImage: "guide_bg_5_portrait", titleKey: .guide5Title, subtitleKey: .guide5Subtitle),
+    .init(landscapeImage: "guide_bg_6", portraitImage: "guide_bg_6_portrait", titleKey: .guide6Title, subtitleKey: .guide6Subtitle),
+    .init(landscapeImage: "guide_bg_7", portraitImage: "guide_bg_7_portrait", titleKey: .guide7Title, subtitleKey: .guide7Subtitle)
+]
+
+private func guideColor(_ red: Double, _ green: Double, _ blue: Double, _ opacity: Double = 1.0) -> Color {
+    Color(red: red / 255.0, green: green / 255.0, blue: blue / 255.0).opacity(opacity)
+}
+
+struct DriveTelemetryGuideView: View {
+    @EnvironmentObject var languageManager: LanguageManager
+
+    let onBack: () -> Void
+    let onStartFirstTrip: () -> Void
+
+    @State private var page = 0
+    @State private var demoRating = 90
+    @State private var lastIsPortrait: Bool?
+
+    private func t(_ key: LocalizationKey) -> String {
+        languageManager.text(key)
+    }
+
+    private func setPage(_ newPage: Int) {
+        let clamped = max(0, min(driveTelemetryGuideSlides.count - 1, newPage))
+        guard clamped != page else { return }
+
+        withAnimation(.easeInOut(duration: 0.22)) {
+            page = clamped
+        }
+    }
+
+    private func handleSwipe(_ translationWidth: CGFloat) {
+        if translationWidth < -45 {
+            setPage(page + 1)
+        } else if translationWidth > 45 {
+            setPage(page - 1)
+        }
+    }
+
+    var body: some View {
+        GeometryReader { geometry in
+            let isPortrait = geometry.size.height >= geometry.size.width
+            let isLastPage = page == driveTelemetryGuideSlides.count - 1
+            let slide = driveTelemetryGuideSlides[page]
+
+            ZStack {
+                DriveTelemetryGuidePageView(
+                    page: page,
+                    imageName: isPortrait ? slide.portraitImage : slide.landscapeImage,
+                    title: t(slide.titleKey),
+                    subtitle: t(slide.subtitleKey),
+                    isPortrait: isPortrait,
+                    demoRating: demoRating
+                )
+                .environmentObject(languageManager)
+                .id("\(page)-\(isPortrait ? "portrait" : "landscape")")
+                .contentShape(Rectangle())
+                .gesture(
+                    DragGesture(minimumDistance: 28, coordinateSpace: .local)
+                        .onEnded { value in
+                            handleSwipe(value.translation.width)
+                        }
+                )
+                .ignoresSafeArea()
+
+                VStack {
+                    HStack {
+                        Button {
+                            onBack()
+                        } label: {
+                            ZStack(alignment: .topLeading) {
+                                Text(t(.guideClose))
+                                    .font(.system(size: 16, weight: .semibold))
+                                    .foregroundColor(.white.opacity(0.92))
+                            }
+                            .frame(width: 112, height: 44, alignment: .topLeading)
+                            .contentShape(Rectangle())
+                        }
+                        .buttonStyle(.plain)
+                        .zIndex(20)
+
+                        Spacer()
+
+                        Text("\(page + 1)/\(driveTelemetryGuideSlides.count)")
+                            .font(.system(size: 16, weight: .semibold))
+                            .foregroundColor(.white.opacity(0.92))
+                    }
+                    .padding(.horizontal, 14)
+                    .padding(.top, 0)
+                    .offset(y: isPortrait ? -24 : 8)
+
+                    Spacer()
+
+                    VStack(spacing: 12) {
+                        DriveTelemetryGuideDots(currentPage: page, pageCount: driveTelemetryGuideSlides.count)
+
+                        HStack(spacing: 12) {
+                            if page > 0 {
+                                Button {
+                                    setPage(page - 1)
+                                } label: {
+                                    Text(t(.guideBack))
+                                        .font(.system(size: 16, weight: .semibold))
+                                        .foregroundColor(.white)
+                                        .frame(maxWidth: .infinity)
+                                        .padding(.vertical, 12)
+                                }
+                                .background(Color.white.opacity(0.16))
+                                .clipShape(RoundedRectangle(cornerRadius: 28))
+                            }
+
+                            Button {
+                                if isLastPage {
+                                    onStartFirstTrip()
+                                } else {
+                                    setPage(page + 1)
+                                }
+                            } label: {
+                                Text(isLastPage ? t(.guideGetRating) : t(.guideNext))
+                                    .font(.system(size: 16, weight: .semibold))
+                                    .foregroundColor(.white)
+                                    .frame(maxWidth: .infinity)
+                                    .padding(.vertical, 12)
+                            }
+                            .background(guideColor(10, 132, 255))
+                            .clipShape(RoundedRectangle(cornerRadius: 28))
+                        }
+                    }
+                    .padding(.horizontal, 18)
+                    .padding(.bottom, 18)
+                }
+                .offset(y: isPortrait ? 10 : 0)
+            }
+            .background(Color.black)
+            .onAppear {
+                lastIsPortrait = isPortrait
+            }
+            .onChange(of: page) { newPage in
+                if newPage != driveTelemetryGuideSlides.count - 1 {
+                    demoRating = 90
+                    lastIsPortrait = isPortrait
+                }
+            }
+            .onChange(of: isPortrait) { newValue in
+                if page == driveTelemetryGuideSlides.count - 1,
+                   let previous = lastIsPortrait,
+                   previous != newValue {
+                    demoRating = min(demoRating + 1, 99)
+                }
+                lastIsPortrait = newValue
+            }
+        }
+    }
+}
 
 
-        
+private struct DriveTelemetryGuidePageView: View {
+    @EnvironmentObject var languageManager: LanguageManager
 
+    let page: Int
+    let imageName: String
+    let title: String
+    let subtitle: String
+    let isPortrait: Bool
+    let demoRating: Int
+
+    private func t(_ key: LocalizationKey) -> String {
+        languageManager.text(key)
+    }
+
+    var body: some View {
+        ZStack {
+            Image(imageName)
+                .resizable()
+                .scaledToFit()
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .background(Color.black)
+                .ignoresSafeArea()
+
+            Color.black.opacity(isPortrait ? 0.36 : 0.28)
+                .ignoresSafeArea()
+
+            VStack(alignment: .leading, spacing: 0) {
+                Text("\(page + 1)")
+                    .font(.system(size: 26, weight: .bold))
+                    .foregroundColor(.white)
+                    .padding(.horizontal, 14)
+                    .padding(.vertical, 8)
+                    .background(guideColor(10, 132, 255))
+                    .clipShape(RoundedRectangle(cornerRadius: 10))
+                    .offset(y: 5)
+
+                Spacer().frame(height: 16)
+
+                Text(title)
+                    .font(.system(size: isPortrait ? 34 : 30, weight: .bold))
+                    .lineSpacing(isPortrait ? 2 : 1)
+                    .foregroundColor(.white)
+                    .fixedSize(horizontal: false, vertical: true)
+
+                Spacer().frame(height: 12)
+
+                Text(subtitle)
+                    .font(.system(size: isPortrait ? 19 : 18, weight: .regular))
+                    .lineSpacing(isPortrait ? 5 : 3)
+                    .foregroundColor(.white.opacity(0.92))
+                    .fixedSize(horizontal: false, vertical: true)
+
+                Spacer()
+
+                if page == 6 {
+                    HStack(spacing: 0) {
+                        DriveTelemetryGuideIconLabel(icon: "🛡", label: t(.guideRatingSafety), isPortrait: isPortrait)
+                        DriveTelemetryGuideIconLabel(icon: "👁", label: t(.guideRatingAttention), isPortrait: isPortrait)
+                        DriveTelemetryGuideIconLabel(icon: "🛞", label: t(.guideRatingSmoothness), isPortrait: isPortrait)
+                        DriveTelemetryGuideIconLabel(icon: "🏁", label: t(.guideRatingSpeed), isPortrait: isPortrait)
+                    }
+                    .frame(maxWidth: .infinity)
+                } else {
+                    bottomContent
+                }
+            }
+            .padding(.leading, isPortrait ? 28 : 84)
+            .padding(.trailing, isPortrait ? 28 : 84)
+            .padding(.top, isPortrait ? 60 : 10)
+            .padding(.bottom, isPortrait ? 190 : 125)
+
+            if page == 6 {
+                VStack {
+                    HStack {
+                        if isPortrait {
+                            Spacer()
+                            DriveTelemetryGuideRatingCircle(rating: demoRating, isPortrait: isPortrait)
+                            Spacer()
+                        } else {
+                            Spacer()
+                            DriveTelemetryGuideRatingCircle(rating: demoRating, isPortrait: isPortrait)
+                                .padding(.trailing, 96)
+                        }
+                    }
+                    Spacer()
+                }
+                .padding(.top, isPortrait ? 320 : 38)
+            }
+        }
+    }
+
+    @ViewBuilder
+    private var bottomContent: some View {
+        switch page {
+        case 1:
+            responsiveCards([
+                ("⚠️", t(.guideSafetyBraking), guideColor(10, 132, 255)),
+                ("🚀", t(.guideSafetyAcceleration), guideColor(10, 132, 255)),
+                ("↪️", t(.guideSafetyTurns), guideColor(10, 132, 255)),
+                ("🏁", t(.guideSafetySpeeding), guideColor(10, 132, 255))
+            ])
+        case 2:
+            responsiveCards([
+                ("🙂", t(.guideFatigueNormal), guideColor(85, 242, 122)),
+                ("😟", t(.guideFatigueWarning), guideColor(255, 194, 71)),
+                ("😴", t(.guideFatigueMicrosleep), guideColor(255, 69, 58)),
+                ("🚨", t(.guideFatigueAlert), guideColor(255, 69, 58))
+            ])
+        case 3:
+            HStack(spacing: 0) {
+                DriveTelemetryGuideIconLabel(icon: "🎥", label: t(.guideCrashBefore), isPortrait: isPortrait)
+                DriveTelemetryGuideIconLabel(icon: "🛡", label: t(.guideCrashProtected), isPortrait: isPortrait)
+                DriveTelemetryGuideIconLabel(icon: "🎥", label: t(.guideCrashAfter), isPortrait: isPortrait)
+            }
+            .frame(maxWidth: .infinity)
+        case 4:
+            responsiveCards([
+                ("📷", t(.guideDashcamRoad), guideColor(10, 132, 255)),
+                ("👤", t(.guideDashcamDriver), guideColor(10, 132, 255)),
+                ("📁", t(.guideDashcamArchive), guideColor(10, 132, 255))
+            ])
+        case 5:
+            responsiveCards([
+                ("🔔", t(.guideFamilyNotifications), guideColor(10, 132, 255)),
+                ("📍", t(.guideFamilyRoute), guideColor(10, 132, 255)),
+                ("🛡", t(.guideFamilySafety), guideColor(10, 132, 255))
+            ])
+        default:
+            HStack(spacing: 0) {
+                DriveTelemetryGuideIconLabel(icon: "📹", label: t(.guideIconVideo), isPortrait: isPortrait)
+                DriveTelemetryGuideIconLabel(icon: "🚗", label: t(.guideIconDriving), isPortrait: isPortrait)
+                DriveTelemetryGuideIconLabel(icon: "🛡", label: t(.guideIconSafety), isPortrait: isPortrait)
+                DriveTelemetryGuideIconLabel(icon: "📊", label: t(.guideIconStats), isPortrait: isPortrait)
+            }
+            .frame(maxWidth: .infinity)
+        }
+    }
+
+    @ViewBuilder
+    private func responsiveCards(_ items: [(String, String, Color)]) -> some View {
+        if isPortrait {
+            VStack(spacing: 10) {
+                ForEach(items.indices, id: \.self) { index in
+                    DriveTelemetryGuideFeatureCard(
+                        icon: items[index].0,
+                        text: items[index].1,
+                        accentColor: items[index].2,
+                        isPortrait: isPortrait
+                    )
+                }
+            }
+        } else {
+            HStack(spacing: 10) {
+                ForEach(items.indices, id: \.self) { index in
+                    DriveTelemetryGuideCompactFeatureCard(
+                        icon: items[index].0,
+                        text: items[index].1,
+                        accentColor: items[index].2
+                    )
+                }
+            }
+        }
+    }
+}
+
+private struct DriveTelemetryGuideRatingCircle: View {
+    @EnvironmentObject var languageManager: LanguageManager
+
+    let rating: Int
+    let isPortrait: Bool
+
+    private func t(_ key: LocalizationKey) -> String {
+        languageManager.text(key)
+    }
+
+    var body: some View {
+        let size: CGFloat = isPortrait ? 170 : 160
+
+        ZStack {
+            Circle()
+                .trim(from: 0, to: 0.75)
+                .stroke(Color.white.opacity(0.18), style: StrokeStyle(lineWidth: 18, lineCap: .round))
+                .rotationEffect(.degrees(135))
+
+            Circle()
+                .trim(from: 0, to: 0.75)
+                .stroke(guideColor(85, 242, 122), style: StrokeStyle(lineWidth: 18, lineCap: .round))
+                .rotationEffect(.degrees(135))
+
+            VStack(spacing: 2) {
+                Text("\(rating)")
+                    .font(.system(size: size < 180 ? 46 : 58, weight: .bold))
+                    .foregroundColor(guideColor(85, 242, 122))
+
+                Text(t(.guideRatingOutOf))
+                    .font(.system(size: size < 180 ? 16 : 19, weight: .semibold))
+                    .foregroundColor(.white)
+
+                Text("★★★★★")
+                    .font(.system(size: size < 180 ? 20 : 24, weight: .bold))
+                    .foregroundColor(guideColor(255, 194, 71))
+            }
+        }
+        .frame(width: size, height: size)
+    }
+}
+
+private struct DriveTelemetryGuideCompactFeatureCard: View {
+    let icon: String
+    let text: String
+    let accentColor: Color
+
+    var body: some View {
+        HStack(spacing: 8) {
+            Text(icon)
+                .font(.system(size: 20))
+                .foregroundColor(accentColor)
+
+            Text(text)
+                .font(.system(size: 13, weight: .semibold))
+                .lineLimit(2)
+                .lineSpacing(1)
+                .foregroundColor(.white)
+
+            Spacer(minLength: 0)
+        }
+        .padding(.horizontal, 10)
+        .padding(.vertical, 10)
+        .frame(maxWidth: .infinity)
+        .background(Color.black.opacity(0.48))
+        .clipShape(RoundedRectangle(cornerRadius: 16))
+    }
+}
+
+private struct DriveTelemetryGuideFeatureCard: View {
+    let icon: String
+    let text: String
+    let accentColor: Color
+    let isPortrait: Bool
+
+    var body: some View {
+        HStack(spacing: 12) {
+            Text(icon)
+                .font(.system(size: isPortrait ? 26 : 22))
+                .foregroundColor(accentColor)
+
+            Text(text)
+                .font(.system(size: isPortrait ? 18 : 16, weight: .semibold))
+                .foregroundColor(.white)
+                .fixedSize(horizontal: false, vertical: true)
+
+            Spacer(minLength: 0)
+        }
+        .padding(.horizontal, 16)
+        .padding(.vertical, isPortrait ? 14 : 10)
+        .frame(maxWidth: .infinity)
+        .background(Color.black.opacity(0.48))
+        .clipShape(RoundedRectangle(cornerRadius: 18))
+    }
+}
+
+private struct DriveTelemetryGuideIconLabel: View {
+    let icon: String
+    let label: String
+    let isPortrait: Bool
+
+    var body: some View {
+        VStack(spacing: 6) {
+            Text(icon)
+                .font(.system(size: isPortrait ? 28 : 24))
+                .padding(12)
+                .background(Color.black.opacity(0.45))
+                .clipShape(Circle())
+
+            Text(label)
+                .font(.system(size: isPortrait ? 12 : 11, weight: .semibold))
+                .foregroundColor(.white)
+                .multilineTextAlignment(.center)
+                .lineLimit(2)
+                .minimumScaleFactor(0.72)
+                .allowsTightening(true)
+                .fixedSize(horizontal: false, vertical: true)
+                .frame(maxWidth: .infinity)
+        }
+        .frame(maxWidth: .infinity)
+    }
+}
+
+private struct DriveTelemetryGuideDots: View {
+    let currentPage: Int
+    let pageCount: Int
+
+    var body: some View {
+        HStack(spacing: 7) {
+            ForEach(0..<pageCount, id: \.self) { index in
+                Capsule()
+                    .fill(index == currentPage ? guideColor(10, 132, 255) : Color.white.opacity(0.35))
+                    .frame(width: index == currentPage ? 20 : 10, height: 10)
+            }
+        }
+    }
+}

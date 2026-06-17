@@ -14,6 +14,8 @@ struct SettingsView: View {
 
     @State private var driverDraft: String = ""
     @State private var showingDriverSetup: Bool = false
+    @State private var showingDriveTelemetryGuide: Bool = false
+    @State private var toolbarRefreshToken: Int = 0
     
     @State private var showingDeleteAccountAlert = false
     @State private var deleteAccountError: String?
@@ -195,6 +197,17 @@ struct SettingsView: View {
             }
             .navigationTitle(t(.settings))
             .toolbar {
+                ToolbarItem(placement: .navigationBarLeading) {
+                    Button {
+                        showingDriveTelemetryGuide = true
+                    } label: {
+                        Image(systemName: "questionmark.circle")
+                            .font(.title3)
+                    }
+                    .buttonStyle(.plain)
+                    .id(toolbarRefreshToken)
+                }
+
                 ToolbarItem(placement: .navigationBarTrailing) {
                     Button(t(.done)) { dismiss() }
                 }
@@ -252,6 +265,19 @@ struct SettingsView: View {
                     .environmentObject(sensorManager)
                     .environmentObject(languageManager)
                     
+            }
+            .fullScreenCover(isPresented: $showingDriveTelemetryGuide) {
+                DriveTelemetryGuideView(
+                    onBack: {
+                        showingDriveTelemetryGuide = false
+                        toolbarRefreshToken += 1
+                    },
+                    onStartFirstTrip: {
+                        showingDriveTelemetryGuide = false
+                        toolbarRefreshToken += 1
+                    }
+                )
+                .environmentObject(languageManager)
             }
         }
     }

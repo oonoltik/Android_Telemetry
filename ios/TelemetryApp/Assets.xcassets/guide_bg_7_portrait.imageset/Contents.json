@@ -1,0 +1,13 @@
+{
+  "images": [
+    {
+      "filename": "guide_bg_7_portrait.png",
+      "idiom": "universal",
+      "scale": "1x"
+    }
+  ],
+  "info": {
+    "author": "xcode",
+    "version": 1
+  }
+}
