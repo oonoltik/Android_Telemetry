@@ -43,15 +43,15 @@ struct SettingsView: View {
                 }
 
                 if FeatureFlags.isDeveloperBuild {
-                    Section("Идентификаторы") {
+                    Section(t(.developerIdentifiersSection)) {
                         HStack {
-                            Text("Driver")
+                            Text(t(.driver))
                             Spacer()
                             Text(sensorManager.driverId.isEmpty ? "—" : sensorManager.driverId)
                                 .foregroundColor(.secondary)
                         }
                         HStack {
-                            Text("Device")
+                            Text(t(.device))
                             Spacer()
                             Text(sensorManager.deviceIdForDisplay)
                                 .foregroundColor(.secondary)
@@ -59,7 +59,7 @@ struct SettingsView: View {
                                 .truncationMode(.middle)
                         }
                         HStack {
-                            Text("Session")
+                            Text(t(.session))
                             Spacer()
                             Text(sensorManager.currentSessionId)
                                 .foregroundColor(.secondary)
@@ -177,15 +177,15 @@ struct SettingsView: View {
                 }
                 
                 if FeatureFlags.isDeveloperBuild {                    
-                    Section("Ошибки") {
-                        Button("Clear errors") {
+                    Section(t(.errorsSection)) {
+                        Button(t(.clearErrors)) {
                             sensorManager.clearNetworkErrors()
                         }
                         .foregroundColor(.red)
                         .disabled(sensorManager.lastNetworkErrors.isEmpty)
                         
                         if FeatureFlags.manualTuning {
-                            NavigationLink("Настройка порога датчиков") {
+                            NavigationLink(t(.sensorThresholdSettings)) {
                                 TripConfigView()
                             }
                         }
@@ -202,8 +202,8 @@ struct SettingsView: View {
             .onAppear {
                 driverDraft = sensorManager.driverId
             }
-            .alert("Delete account?", isPresented: $showingDeleteAccountAlert) {
-                Button("Delete", role: .destructive) {
+            .alert(t(.deleteAccountTitle), isPresented: $showingDeleteAccountAlert) {
+                Button(t(.delete), role: .destructive) {
                     Task {
                         do {
                             try await sensorManager.deleteAccountInApp()

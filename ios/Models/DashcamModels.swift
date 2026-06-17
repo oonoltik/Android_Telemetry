@@ -87,31 +87,31 @@ enum DashcamError: Error, Equatable, LocalizedError {
     var errorDescription: String? {
         switch self {
         case .cameraUnavailable:
-            return "Задняя камера недоступна."
+            return LocalizationCatalog.text(.dashcamErrorCameraUnavailable)
         case .microphoneUnavailable:
-            return "Микрофон недоступен."
+            return LocalizationCatalog.text(.dashcamErrorMicrophoneUnavailable)
         case .cameraPermissionDenied:
-            return "Доступ к камере не выдан."
+            return LocalizationCatalog.text(.dashcamErrorCameraPermissionDenied)
         case .microphonePermissionDenied:
-            return "Доступ к микрофону не выдан."
+            return LocalizationCatalog.text(.dashcamErrorMicrophonePermissionDenied)
         case .photoLibraryDenied:
-            return "Доступ к медиатеке не выдан."
+            return LocalizationCatalog.text(.dashcamErrorPhotoLibraryDenied)
         case .cannotCreateSession:
-            return "Не удалось создать capture session."
+            return LocalizationCatalog.text(.dashcamErrorCannotCreateSession)
         case .cannotCreateOutput:
-            return "Не удалось создать video output."
+            return LocalizationCatalog.text(.dashcamErrorCannotCreateOutput)
         case .cannotStartRecording:
-            return "Не удалось начать запись видео."
+            return LocalizationCatalog.text(.dashcamErrorCannotStartRecording)
         case .quotaExceeded:
-            return "Превышен лимит локального архива."
+            return LocalizationCatalog.text(.dashcamErrorQuotaExceeded)
         case .archiveBlockedByCrashRecords:
-            return "Архив заполнен аварийными записями. Удалите часть аварийных записей вручную или сохраните их в медиатеку."
+            return LocalizationCatalog.text(.dashcamErrorArchiveBlockedByCrashRecords)
         case .insufficientSpaceForNextSegment:
-            return "Недостаточно места для следующего сегмента. Текущая запись завершена."
+            return LocalizationCatalog.text(.dashcamErrorInsufficientSpaceForNextSegment)
         case .storageFailure(let message):
             return message
         case .interrupted:
-            return "Запись была прервана системой."
+            return LocalizationCatalog.text(.dashcamErrorInterrupted)
         case .unknown(let message):
             return message
         }

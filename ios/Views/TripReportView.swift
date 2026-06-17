@@ -174,7 +174,7 @@ struct TripReportView: View {
                     HStack(spacing: 6) {
                         ProgressView()
                             .controlSize(.small)
-                        Text("Ждём данные с сервера")
+                        Text(t(.waitingServerData))
                             .font(.footnote.weight(.semibold))
                             .foregroundStyle(.secondary)
                     }
@@ -695,12 +695,12 @@ private struct TripReportDetailsView: View {
 
                     if FeatureFlags.isDeveloperBuild {
                         if let s2 = report.trip_score_exposure {
-                            KVRow("Оценка (exposure)", value: String(format: "%.1f", s2))
+                            KVRow(t(.exposureScore), value: String(format: "%.1f", s2))
                             if let p = report.trip_preset {
-                                KVRow("Preset", value: p)
+                                KVRow(t(.preset), value: p)
                             }
                         }
-                        KVRow("Худший batch score", value: fmt1(report.worst_batch_score))
+                        KVRow(t(.worstBatchScore), value: fmt1(report.worst_batch_score))
                     }
                 }
 
@@ -714,10 +714,10 @@ private struct TripReportDetailsView: View {
                 }
 
                 if FeatureFlags.isDeveloperBuild {
-                    Section("Скорость") {
-                        KVRow("Максимальная", value: fmt1(report.speed_max_kmh, suffix: " км/ч"))
-                        KVRow("Средняя", value: fmt1(report.speed_avg_kmh, suffix: " км/ч"))
-                        KVRow("P95", value: fmt1(report.speed_p95_kmh, suffix: " км/ч"))
+                    Section(t(.speedSection)) {
+                        KVRow(t(.speedMax), value: fmt1(report.speed_max_kmh, suffix: " \(t(.kmh))"))
+                        KVRow(t(.speedAverage), value: fmt1(report.speed_avg_kmh, suffix: " \(t(.kmh))"))
+                        KVRow("P95", value: fmt1(report.speed_p95_kmh, suffix: " \(t(.kmh))"))
                     }
                 }
 
@@ -728,28 +728,28 @@ private struct TripReportDetailsView: View {
                     KVRow(t(.roadAnomalies),value: "\(report.road_anomaly_low_total + report.road_anomaly_high_total)")
 
                     if FeatureFlags.isDeveloperBuild {
-                        KVRow("Ускорения (резкие)", value: "\(report.accel_sharp_total)")
-                        KVRow("Ускорения (экстренные)", value: "\(report.accel_emergency_total)")
+                        KVRow(t(.accelerationSharp), value: "\(report.accel_sharp_total)")
+                        KVRow(t(.accelerationEmergency), value: "\(report.accel_emergency_total)")
 
-                        KVRow("Торможения (резкие)", value: "\(report.brake_sharp_total)")
-                        KVRow("Торможения (экстренные)", value: "\(report.brake_emergency_total)")
+                        KVRow(t(.brakingSharp), value: "\(report.brake_sharp_total)")
+                        KVRow(t(.brakingEmergency), value: "\(report.brake_emergency_total)")
 
-                        KVRow("Повороты (резкие)", value: "\(report.turn_sharp_total)")
-                        KVRow("Повороты (экстренные)", value: "\(report.turn_emergency_total)")
+                        KVRow(t(.turnsSharp), value: "\(report.turn_sharp_total)")
+                        KVRow(t(.turnsEmergency), value: "\(report.turn_emergency_total)")
 
-                        KVRow("Ускорение в повороте", value: "\(report.accel_in_turn_total)")
-                        KVRow("Торможение в повороте", value: "\(report.brake_in_turn_total)")
+                        KVRow(t(.accelerationInTurn), value: "\(report.accel_in_turn_total)")
+                        KVRow(t(.brakingInTurn), value: "\(report.brake_in_turn_total)")
 
-                        KVRow("Неровности (низкие)", value: "\(report.road_anomaly_low_total)")
-                        KVRow("Неровности (высокие)", value: "\(report.road_anomaly_high_total)")
+                        KVRow(t(.roadAnomaliesLow), value: "\(report.road_anomaly_low_total)")
+                        KVRow(t(.roadAnomaliesHigh), value: "\(report.road_anomaly_high_total)")
 
-                        KVRow("Events (в пакетах)", value: "\(report.events_count)")
+                        KVRow(t(.eventsInBatches), value: "\(report.events_count)")
                     }
                 }
 
 
                 if FeatureFlags.isDeveloperBuild {
-                    Section("Датчики (экстремумы)") {
+                    Section(t(.sensorsExtremesSection)) {
                         KVRow("Accel X min", value: fmt3(report.accel_x_min))
                         KVRow("Accel X max", value: fmt3(report.accel_x_max))
                         KVRow("Accel Y |max|", value: fmt3(report.accel_y_abs_max))
@@ -759,33 +759,33 @@ private struct TripReportDetailsView: View {
                 }
 
                 if FeatureFlags.isDeveloperBuild {
-                    Section("Передача данных") {
+                    Section(t(.dataTransferSection)) {
                         KVRow("Batches", value: "\(report.batches_count)")
                         KVRow("Samples", value: "\(report.samples_count)")
 
-                        KVRow("Макс. batch_seq", value: intOrDash(report.batch_seq_max))
-                        KVRow("Пропущено batch_seq", value: intOrDash(report.batches_missing_count))
-                        KVRow("Отправлено batch в EU", value: "\(deliveryStats.euBatches)")
-                        KVRow("Отправлено batch через RU", value: "\(deliveryStats.ruBatches)")
-                        KVRow("Отчёт получен через", value: deliveryStats.reportVia?.rawValue ?? "—")
+                        KVRow(t(.maxBatchSeq), value: intOrDash(report.batch_seq_max))
+                        KVRow(t(.missingBatchSeq), value: intOrDash(report.batches_missing_count))
+                        KVRow(t(.sentBatchToEU), value: "\(deliveryStats.euBatches)")
+                        KVRow(t(.sentBatchViaRU), value: "\(deliveryStats.ruBatches)")
+                        KVRow(t(.reportReceivedVia), value: deliveryStats.reportVia?.rawValue ?? "—")
                     }
                 }
                 
                 if FeatureFlags.isDeveloperBuild {
-                    Section("Качество GPS") {
+                    Section(t(.gpsQualitySection)) {
                         KVRow("GPS points", value: intOrDash(report.gps_points))
                         KVRow("GPS 1Hz points", value: intOrDash(report.gps_1hz_points))
 
                         KVRow(
-                            "Точность GPS (P95)",
+                            t(.gpsAccuracyP95),
                             value: {
                                 guard let v = report.gps_hacc_p95_m else { return "—" }
-                                return String(format: "%.0f м", v)
+                                return String(format: "%.0f \(t(.metersSuffix))", v)
                             }()
                         )
 
                         KVRow(
-                            "Хороших точек (≤100 м)",
+                            t(.goodPoints100m),
                             value: {
                                 guard let v = report.gps_good_100_share else { return "—" }
                                 return String(format: "%.0f%%", v * 100.0)
@@ -793,28 +793,28 @@ private struct TripReportDetailsView: View {
                         )
 
                         KVRow(
-                            "GPS залип",
+                            t(.gpsStuck),
                             value: {
                                 guard let v = report.gps_is_stuck else { return "—" }
-                                return (v == 1) ? "Да" : "Нет"
+                                return (v == 1) ? t(.yes) : t(.no)
                             }()
                         )
 
                         KVRow(
-                            "GPS качество",
+                            t(.gpsQuality),
                             value: {
                                 guard let v = report.gps_quality_score else { return "—" }
                                 return "\(v) / 100"
                             }()
                         )
 
-                        KVRow("Уникальные координаты", value: intOrDash(report.gps_unique_coords_5dp))
+                        KVRow(t(.uniqueCoordinates), value: intOrDash(report.gps_unique_coords_5dp))
 
                         KVRow(
-                            "Разброс координат",
+                            t(.coordinateSpread),
                             value: {
                                 guard let v = report.gps_span_m else { return "—" }
-                                return String(format: "%.1f м", v)
+                                return String(format: "%.1f \(t(.metersSuffix))", v)
                             }()
                         )
                     }
@@ -839,7 +839,7 @@ private struct TripReportDetailsView: View {
                     KVRow(t(.driverTripsCount), value: intOrDash(report.driver_trips_total))
                 }
                 if FeatureFlags.isDeveloperBuild {
-                    Section("Идентификаторы") {
+                    Section(t(.identifiersSection)) {
                         KVRow("session_id", value: report.session_id)
                         KVRow("driver_id", value: report.driver_id)
                         KVRow("device_id", value: report.device_id)
@@ -848,7 +848,7 @@ private struct TripReportDetailsView: View {
                 }
                 
                 if FeatureFlags.isDeveloperBuild {
-                    Section("Тайминги (сервер)") {
+                    Section(t(.serverTimingSection)) {
                         KVRow("received_started_at", value: fmtDate(report.received_started_at, locale: appLocale))
                         KVRow("received_ended_at", value: fmtDate(report.received_ended_at, locale: appLocale))
                     }

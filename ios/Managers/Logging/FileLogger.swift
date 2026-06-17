@@ -1,10 +1,3 @@
-//
-//  FileLogger.swift
-//  TelemetryApp
-//
-//  Created by Alex on 22.04.26.
-//
-
 import Foundation
 
 final class FileLogger {
@@ -12,6 +5,10 @@ final class FileLogger {
 
     private let queue = DispatchQueue(label: "telemetry.filelogger.queue")
     private let fileURL: URL
+
+    private let maxLogSizeBytes: UInt64 = 10 * 1024 * 1024 // 10 MB
+    private let trimToBytes: UInt64 = 5 * 1024 * 1024     // оставляем последние 5 MB
+
     private let formatter: ISO8601DateFormatter = {
         let f = ISO8601DateFormatter()
         f.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
@@ -38,6 +35,14 @@ final class FileLogger {
         if !fm.fileExists(atPath: fileURL.path) {
             fm.createFile(atPath: fileURL.path, contents: nil)
         }
+
+        // применяем ВСЕГДА
+        try? fm.setAttributes(
+            [.protectionKey: FileProtectionType.none],
+            ofItemAtPath: fileURL.path
+        )
+
+        trimIfNeeded()
     }
 
     func log(_ message: String) {
@@ -47,10 +52,10 @@ final class FileLogger {
             guard let data = line.data(using: .utf8) else { return }
 
             do {
+                try trimIfNeededLocked()
+
                 let handle = try FileHandle(forWritingTo: self.fileURL)
-                defer {
-                    try? handle.close()
-                }
+                defer { try? handle.close() }
 
                 try handle.seekToEnd()
                 try handle.write(contentsOf: data)
@@ -58,6 +63,8 @@ final class FileLogger {
                 if #available(iOS 13.0, *) {
                     try? handle.synchronize()
                 }
+
+                try trimIfNeededLocked()
             } catch {
                 print("❌ FileLogger write failed: \(error)")
             }
@@ -77,6 +84,35 @@ final class FileLogger {
     func currentLogURL() -> URL {
         fileURL
     }
-    
-    
+
+    private func trimIfNeeded() {
+        queue.sync {
+            try? trimIfNeededLocked()
+        }
+    }
+
+    private func trimIfNeededLocked() throws {
+        let fm = FileManager.default
+
+        guard
+            let attributes = try? fm.attributesOfItem(atPath: fileURL.path),
+            let size = attributes[.size] as? UInt64,
+            size > maxLogSizeBytes
+        else {
+            return
+        }
+
+        let data = try Data(contentsOf: fileURL)
+
+        if UInt64(data.count) <= trimToBytes {
+            return
+        }
+
+        let startIndex = data.count - Int(trimToBytes)
+        let trimmedData = data.subdata(in: startIndex..<data.count)
+
+        try trimmedData.write(to: fileURL, options: .atomic)
+
+        print("🧹 FileLogger trimmed from \(size) bytes to \(trimToBytes) bytes")
+    }
 }

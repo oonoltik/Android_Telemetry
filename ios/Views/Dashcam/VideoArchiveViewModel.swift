@@ -123,13 +123,13 @@ final class VideoArchiveViewModel: ObservableObject {
         let itemsToSave = selectedItems
 
         guard !itemsToSave.isEmpty else {
-            saveResultText = "Ничего не выбрано для сохранения."
+            saveResultText = LocalizationCatalog.text(.videoSaveNothingSelected)
             return
         }
 
         let granted = await requestPhotoLibraryAccess()
         guard granted else {
-            saveResultText = "Доступ к медиатеке не выдан."
+            saveResultText = LocalizationCatalog.text(.dashcamErrorPhotoLibraryDenied)
             return
         }
 
@@ -154,9 +154,9 @@ final class VideoArchiveViewModel: ObservableObject {
         }
 
         if failed == 0 {
-            saveResultText = "Сохранено в медиатеку: \(saved)"
+            saveResultText = String(format: LocalizationCatalog.text(.savedToLibraryFormat), saved)
         } else {
-            saveResultText = "Сохранено: \(saved), не удалось сохранить: \(failed)"
+            saveResultText = String(format: LocalizationCatalog.text(.videoSavePartialResultFormat), saved, failed)
         }
 
         reload()
@@ -173,7 +173,7 @@ final class VideoArchiveViewModel: ObservableObject {
                     continuation.resume(returning: ())
                 } else {
                     continuation.resume(
-                        throwing: DashcamError.unknown("Не удалось сохранить видео в медиатеку")
+                        throwing: DashcamError.unknown(LocalizationCatalog.text(.videoSaveToLibraryFailed))
                     )
                 }
             })

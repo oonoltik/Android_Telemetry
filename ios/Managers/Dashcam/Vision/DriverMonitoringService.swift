@@ -139,6 +139,65 @@ final class DriverMonitoringService: NSObject, ObservableObject, AVSpeechSynthes
     private var lastSpokenReason: String?
     
     
+    private var currentAppLanguage: AppLanguage {
+        if let rawLanguage = UserDefaults.standard.string(forKey: "app_language"),
+           let storedLanguage = AppLanguage(rawValue: rawLanguage),
+           AppLanguageRegistry.enabledInUI.contains(storedLanguage) {
+            return storedLanguage
+        }
+
+        if let preferredLanguage = Locale.preferredLanguages.first,
+           preferredLanguage.lowercased().hasPrefix("ru") {
+            return .russian
+        }
+
+        return .english
+    }
+
+    private var currentSpeechVoiceCode: String {
+        switch currentAppLanguage {
+        case .russian:
+            return "ru-RU"
+        case .english:
+            return "en-US"
+        default:
+            return "en-US"
+        }
+    }
+
+    private func voiceLocalizationKey(for reason: DriverAlertReason) -> LocalizationKey {
+        switch reason {
+        case .eyesClosed:
+            return .dmsVoiceEyesClosed
+        case .headDown:
+            return .dmsVoiceHeadDown
+        case .distractedLeft:
+            return .dmsVoiceDistractedLeft
+        case .distractedRight:
+            return .dmsVoiceDistractedRight
+        case .yawning:
+            return .dmsVoiceYawning
+        case .faceLost:
+            return .dmsVoiceFaceLost
+        case .emergencyStop:
+            return .dmsVoiceEmergencyStop
+        }
+    }
+
+    private func localizedVoiceText(for reason: DriverAlertReason) -> String {
+        let key = voiceLocalizationKey(for: reason)
+
+        if let value = LocalizationCatalog.catalog[currentAppLanguage]?[key] {
+            return value
+        }
+
+        if let fallback = LocalizationCatalog.catalog[AppLanguage.fallback]?[key] {
+            return fallback
+        }
+
+        return key.rawValue
+    }
+    
     
     
     override init() {
@@ -175,7 +234,7 @@ final class DriverMonitoringService: NSObject, ObservableObject, AVSpeechSynthes
         let next = speechQueue.removeFirst()
 
         let utterance = AVSpeechUtterance(string: next)
-        utterance.voice = AVSpeechSynthesisVoice(language: "ru-RU")
+        utterance.voice = AVSpeechSynthesisVoice(language: currentSpeechVoiceCode)
 
         speechSynthesizer.speak(utterance)
     }
@@ -197,29 +256,6 @@ final class DriverMonitoringService: NSObject, ObservableObject, AVSpeechSynthes
         processSpeechQueue()
     }
     
-//    private func speakAlert(reason: DriverAlertReason) {
-//        let text: String
-//
-//        switch reason {
-//        case .eyesClosed:
-//            text = "Глаза закрыты!"
-//        case .headDown:
-//            text = "Голова опущена!"
-//        case .distractedLeft:
-//            text = "Голова смотрит влево! Смотрите на дорогу! "
-//        case .distractedRight:
-//            text = "Голова смотрит вправо! Смотрите на дорогу!"
-//        }
-//        if speechSynthesizer.isSpeaking {
-//            speechSynthesizer.stopSpeaking(at: .immediate)
-//        }
-//
-//        let utterance = AVSpeechUtterance(string: text)
-//        utterance.voice = AVSpeechSynthesisVoice(language: "ru-RU")
-//        utterance.rate = 0.48
-//
-//        speechSynthesizer.speak(utterance)
-//    }
 
     private func handleFace(_ face: VNFaceObservation) {
         faceMissingFrames = 0
@@ -644,10 +680,9 @@ final class DriverMonitoringService: NSObject, ObservableObject, AVSpeechSynthes
 //        DispatchQueue.main.async {
 //            guard !self.speechSynthesizer.isSpeaking else { return }
 //
-//            let utterance = AVSpeechUtterance(string: "Водитель засыпает. Останови-тесь")
 //            utterance.rate = 0.5
 //            utterance.volume = 1.0
-//            utterance.voice = AVSpeechSynthesisVoice(language: "ru-RU")
+//            utterance.voice = AVSpeechSynthesisVoice(language: currentSpeechVoiceCode)
 //
 //            self.speechSynthesizer.speak(utterance)
 //        }
@@ -774,7 +809,7 @@ final class DriverMonitoringService: NSObject, ObservableObject, AVSpeechSynthes
     
     private func speakEmergencyAlert(text: String) {
         let utterance = AVSpeechUtterance(string: text)
-        utterance.voice = AVSpeechSynthesisVoice(language: "ru-RU")
+        utterance.voice = AVSpeechSynthesisVoice(language: currentSpeechVoiceCode)
         utterance.volume = 1.0
         utterance.rate = 0.55
         utterance.pitchMultiplier = 1.15
@@ -789,7 +824,7 @@ final class DriverMonitoringService: NSObject, ObservableObject, AVSpeechSynthes
             speechSynthesizer.stopSpeaking(at: .immediate)
             lastVoiceAlertAt = Date()
             lastVoiceAlertReason = reason
-            speakEmergencyAlert(text: "Срочно останови-тесь!")
+            speakEmergencyAlert(text: localizedVoiceText(for: reason))
             return
         }
 
@@ -817,31 +852,7 @@ final class DriverMonitoringService: NSObject, ObservableObject, AVSpeechSynthes
         lastVoiceAlertAt = now
         lastVoiceAlertReason = reason
 
-        let text: String
-
-        switch reason {
-        case .eyesClosed:
-            text = "Глаза закрыты!"
-
-        case .headDown:
-            text = "Голова опущена!"
-
-        case .distractedLeft:
-            text = "Голова смотрит влево! Смотрите на дорогу!"
-
-        case .distractedRight:
-            text = "Голова смотрит вправо! Смотрите на дорогу!"
-            
-        case .yawning:
-            text = "Водитель зевает!"
-
-        case .faceLost:
-            text = "Лицо не видно! Смотрите на дорогу!"
-            
-        case .emergencyStop:
-            text = "Срочно остановитесь!"
-        
-        }
+        let text = localizedVoiceText(for: reason)
 
         DispatchQueue.main.async {
             self.speakAlert(text: text)

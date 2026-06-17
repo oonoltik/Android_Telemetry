@@ -15,8 +15,8 @@ enum TrackingMode: String, CaseIterable, Identifiable {
 
     var title: String {
         switch self {
-        case .singleTrip: return "Одна поездка"
-        case .dayMonitoring: return "Мониторинг дня"
+        case .singleTrip: return LocalizationCatalog.text(.trackingModeSingleTrip)
+        case .dayMonitoring: return LocalizationCatalog.text(.trackingModeDayMonitoring)
         }
     }
 }

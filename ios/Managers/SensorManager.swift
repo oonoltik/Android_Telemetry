@@ -241,8 +241,8 @@ final class SensorManager: NSObject, ObservableObject {
 
     // MARK: - Published UI state
 
-    @Published var statusText: String = "Idle"
-    @Published var appStateText: String = "Приложение в ожидании"
+    @Published var statusText: String = LocalizationCatalog.text(.statusIdle)
+    @Published var appStateText: String = LocalizationCatalog.text(.appIdle)
     @Published var lastLocationString: String = "—"
     @Published var lastSpeedString: String = "—"
     @Published var lastAccelString: String = "—"
@@ -614,7 +614,7 @@ final class SensorManager: NSObject, ObservableObject {
     
     // MARK: - Telemetry mode / GPS freshness
 
-    @Published var telemetryModeText: String = "IMU only"
+    @Published var telemetryModeText: String = LocalizationCatalog.text(.telemetryModeImuOnly)
 
     // Отсекаем "старые" GPS-точки (часто прилетают при возврате из фона)
     private var acceptLocationMaxAge: TimeInterval = 5.0
@@ -631,7 +631,7 @@ final class SensorManager: NSObject, ObservableObject {
     }
 
     private func updateTelemetryModeText() {
-        telemetryModeText = hasFreshLocation() ? "GPS" : "IMU only"
+        telemetryModeText = hasFreshLocation() ? "GPS" : LocalizationCatalog.text(.telemetryModeImuOnly)
     }
     
     // Day monitoring should keep app alive in background (low-power)
@@ -1211,7 +1211,7 @@ if self.debugPrintsEnabled {
     private var imuCalibUpdateEvery: Int = 20       // recompute eigenvector every N samples
     
     private func currentTelemetryModeString() -> String {
-        hasFreshLocation() ? "GPS" : "IMU only"
+        hasFreshLocation() ? "GPS" : LocalizationCatalog.text(.telemetryModeImuOnly)
     }
     
     /// Stable device identifier (must not change between launches).
@@ -1506,19 +1506,19 @@ if self.debugPrintsEnabled {
             #if DEBUG
             print("[Session] Start ignored: already collecting. sessionId=\(sessionId)")
             #endif
-            setStatusOnMain("Уже запущено")
+            setStatusOnMain(LocalizationCatalog.text(.alreadyStarted))
             return
         }
 
         // 1) Валидация
         guard !driverId.isEmpty else {
-            setStatusOnMain("Введите driverId")
+            setStatusOnMain(LocalizationCatalog.text(.enterDriverIdStatus))
             return
         }
 
         // 2) UI/State: фиксируем старт сессии ОДИН раз
-        setStatusOnMain("Starting…")
-        setAppStateOnMain("Collecting")
+        setStatusOnMain(LocalizationCatalog.text(.statusStarting))
+        setAppStateOnMain(LocalizationCatalog.text(.statusCollecting))
 
 
         sessionId = UUID().uuidString
@@ -1721,7 +1721,7 @@ if self.debugPrintsEnabled {
         startNetworkMonitor()
 
         // 8) Финальный статус
-        setStatusOnMain("Running (\(telemetryMode.rawValue))")
+        setStatusOnMain(String(format: LocalizationCatalog.text(.statusRunningFormat), telemetryMode.rawValue))
         
         // Public Alpha additive fields
         UIDevice.current.isBatteryMonitoringEnabled = true
@@ -1875,15 +1875,15 @@ if self.debugPrintsEnabled {
             self.isCollectingNow = false
             self.applyBackgroundGpsPolicy()
             self.startIdleBackgroundLocationIfNeeded()
-            self.statusText = "Stopped"
-            self.appStateText = "Приложение в ожидании"
+            self.statusText = LocalizationCatalog.text(.statusStopped)
+            self.appStateText = LocalizationCatalog.text(.appIdle)
         } else {
             DispatchQueue.main.sync {
                 self.isCollectingNow = false
                 self.applyBackgroundGpsPolicy()
                 self.startIdleBackgroundLocationIfNeeded()
-                self.statusText = "Stopped"
-                self.appStateText = "Приложение в ожидании"
+                self.statusText = LocalizationCatalog.text(.statusStopped)
+                self.appStateText = LocalizationCatalog.text(.appIdle)
             }
         }
     }
@@ -1895,7 +1895,7 @@ if self.debugPrintsEnabled {
             #if DEBUG
             print("[Session] Stop ignored: not collecting.")
             #endif
-            setStatusOnMain("Уже остановлено")
+            setStatusOnMain(LocalizationCatalog.text(.alreadyStopped))
             return
         }
 
@@ -2058,7 +2058,7 @@ if self.debugPrintsEnabled {
     private func startMotion(interval: TimeInterval) {
         guard motionManager.isDeviceMotionAvailable else {
             DispatchQueue.main.async {
-                self.statusText = "DeviceMotion not available"
+                self.statusText = LocalizationCatalog.text(.deviceMotionUnavailable)
             }
             return
         }
@@ -2083,7 +2083,7 @@ if self.debugPrintsEnabled {
             guard let self else { return }
             if let error = error {
                 DispatchQueue.main.async {
-                    self.statusText = "Motion error: \(error.localizedDescription)"
+                    self.statusText = String(format: LocalizationCatalog.text(.motionErrorFormat), error.localizedDescription)
                 }
                 return
             }
@@ -3458,9 +3458,9 @@ if self.debugPrintsEnabled {
                 uiTelemetryModeText = gpsOrImu
 
                 if suppress2 {
-                    uiStatusText = "Running (\(mode.rawValue)) [\(gpsOrImu)] — stabilizing…"
+                    uiStatusText = String(format: LocalizationCatalog.text(.statusRunningStabilizingFormat), mode.rawValue, gpsOrImu)
                 } else {
-                    uiStatusText = "Running (\(mode.rawValue)) [\(gpsOrImu)] calib=\(self.imuCalibState.rawValue)"
+                    uiStatusText = String(format: LocalizationCatalog.text(.statusRunningCalibrationFormat), mode.rawValue, gpsOrImu, self.imuCalibState.rawValue)
                 }
             }
 
@@ -4693,7 +4693,7 @@ if self.debugPrintsEnabled {
         let st = locationManager.authorizationStatus
         let text: String
         switch st {
-        case .notDetermined:        text = "Не запрошено"
+        case .notDetermined:        text = LocalizationCatalog.text(.locationNotRequested)
         case .restricted:          text = "Restricted"
         case .denied:              text = "Denied"
         case .authorizedWhenInUse: text = "When In Use"
@@ -4870,8 +4870,8 @@ extension SensorManager {
 
         // Session / trip state
         isCollectingNow = false
-        statusText = "Stopped"
-        appStateText = "Приложение в ожидании"
+        statusText = LocalizationCatalog.text(.statusStopped)
+        appStateText = LocalizationCatalog.text(.appIdle)
 
         tripStartedAt = nil
         sessionStartedAt = nil

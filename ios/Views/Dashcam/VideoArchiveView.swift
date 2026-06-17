@@ -234,12 +234,7 @@ struct VideoArchiveView: View {
     }
     
     private var localizedSaveResultText: String {
-        guard let text = viewModel.saveResultText else { return t(.readyShort) }
-        let prefix = "Сохранено в медиатеку: "
-        if text.hasPrefix(prefix), let count = Int(text.dropFirst(prefix.count)) {
-            return String(format: t(.savedToLibraryFormat), count)
-        }
-        return text
+        viewModel.saveResultText ?? t(.readyShort)
     }
 
     private var headerView: some View {

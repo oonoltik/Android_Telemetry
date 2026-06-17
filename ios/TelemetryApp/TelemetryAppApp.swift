@@ -20,9 +20,21 @@ final class AppDelegate: NSObject, UIApplicationDelegate {
 //   }
 //#endif
         
+//        cleanupSplashBoardSnapshots()
+        
         logEvent("=== APP LAUNCH ===")
         logEvent("LOG FILE = \(FileLogger.shared.currentLogURL().path)")
         return true
+    }
+    
+    func cleanupSplashBoardSnapshots() {
+        let libraryURL = FileManager.default.urls(
+            for: .libraryDirectory,
+            in: .userDomainMask
+        )[0]
+
+        let splashBoardURL = libraryURL.appendingPathComponent("SplashBoard")
+        try? FileManager.default.removeItem(at: splashBoardURL)
     }
 
     func application(
@@ -41,7 +53,7 @@ final class AppDelegate: NSObject, UIApplicationDelegate {
 @main
 struct TelemetryAppApp: App {
     
-    @UIApplicationDelegateAdaptor(AppDelegate.self) var appDelegate
+//    @UIApplicationDelegateAdaptor(AppDelegate.self) var appDelegate
     @Environment(\.scenePhase) private var scenePhase
 
     @StateObject private var sensorManager = SensorManager.shared
@@ -81,5 +93,8 @@ struct TelemetryAppApp: App {
                     }
                 }
         }
+        
+        
     }
 }
+

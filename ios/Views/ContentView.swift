@@ -25,6 +25,21 @@ struct ContentView: View {
         TrackingMode(rawValue: trackingModeRaw) ?? .singleTrip
     }
 
+    private func localizedDriverFatigueState(_ state: DriverFatigueState) -> String {
+        switch state {
+        case .normal:
+            return t(.dmsStateNormal)
+        case .warning:
+            return t(.dmsStateWarning)
+        case .critical:
+            return t(.dmsStateCritical)
+        case .distracted:
+            return t(.dmsStateDistracted)
+        case .drowsy:
+            return t(.dmsStateDrowsy)
+        }
+    }
+
 
 
     @State private var loginInput: String = ""
@@ -95,29 +110,29 @@ struct ContentView: View {
 
         var title: String {
             switch self {
-            case .event:      return "Событие"
-            case .count:      return "Кол-во"
-            case .sumG:       return "Σ g"
-            case .maxG:       return "Max g"
-            case .countPerKm: return "Кол/км"
-            case .gPerKm:     return "g/км"
+            case .event:      return LocalizationCatalog.text(.statsColumnEvent)
+            case .count:      return LocalizationCatalog.text(.statsColumnCount)
+            case .sumG:       return LocalizationCatalog.text(.statsColumnSumG)
+            case .maxG:       return LocalizationCatalog.text(.statsColumnMaxG)
+            case .countPerKm: return LocalizationCatalog.text(.statsColumnCountPerKm)
+            case .gPerKm:     return LocalizationCatalog.text(.statsColumnGPerKm)
             }
         }
 
         var help: String {
             switch self {
             case .event:
-                return "Тип зарегистрированного телеметрического события."
+                return LocalizationCatalog.text(.statsColumnHelpEvent)
             case .count:
-                return "Количество событий данного типа за поездку."
+                return LocalizationCatalog.text(.statsColumnHelpCount)
             case .sumG:
-                return "Суммарная перегрузка (g), накопленная всеми событиями данного типа."
+                return LocalizationCatalog.text(.statsColumnHelpSumG)
             case .maxG:
-                return "Максимальная перегрузка одного события (самое резкое действие)."
+                return LocalizationCatalog.text(.statsColumnHelpMaxG)
             case .countPerKm:
-                return "Частота событий на 1 км пути (сравнение поездок разной длины)."
+                return LocalizationCatalog.text(.statsColumnHelpCountPerKm)
             case .gPerKm:
-                return "Интенсивность (суммарная перегрузка) на 1 км пути."
+                return LocalizationCatalog.text(.statsColumnHelpGPerKm)
             }
         }
     }
@@ -705,32 +720,32 @@ struct ContentView: View {
                                 
                                 if dashcamManager.cameraMode == .front && dashcamManager.state == .recording {
                                     VStack(alignment: .leading, spacing: 6) {
-                                        Text("Driver monitoring")
+                                        Text(t(.dmsMonitoringTitle))
                                             .font(.caption)
                                             .foregroundColor(.secondary)
 
                                         HStack(alignment: .firstTextBaseline, spacing: 14) {
-                                            Text("Eye score: \(dashcamManager.driverEyeOpenScore, specifier: "%.2f")")
+                                            Text(String(format: t(.dmsEyeScoreFormat), dashcamManager.driverEyeOpenScore))
                                                 .font(.caption)
 
                                             Spacer(minLength: 8)
 
-                                            Text("Fatigue:")
+                                            Text(t(.dmsFatigueLabel))
                                                 .font(.caption)
                                                 .foregroundColor(.secondary)
 
                                             Text("\(dashcamManager.driverFatigueScore, specifier: "%.0f")")
                                                 .font(.system(size: 34, weight: .bold, design: .rounded))
 
-                                            Text("/100")
+                                            Text(t(.dmsScoreMax))
                                                 .font(.caption)
                                                 .foregroundColor(.secondary)
                                         }
 
-                                        Text("PERCLOS: \(dashcamManager.driverPerclos, specifier: "%.2f")")
+                                        Text(String(format: t(.dmsPerclosFormat), dashcamManager.driverPerclos))
                                             .font(.caption)
 
-                                        Text("State: \(dashcamManager.driverFatigueState.rawValue)")
+                                        Text(String(format: t(.dmsStateFormat), localizedDriverFatigueState(dashcamManager.driverFatigueState)))
                                             .font(.caption)
                                     }
                                     
@@ -790,12 +805,12 @@ struct ContentView: View {
                     }
                     
                     // ===== Live visualization: glass of water =====
-                    Picker("Камера", selection: Binding(
+                    Picker(t(.camera), selection: Binding(
                         get: { dashcamManager.cameraMode },
                         set: { dashcamManager.setCameraMode($0) }
                     )) {
-                        Text("Дорога").tag(DashcamCameraMode.rear)
-                        Text("Водитель").tag(DashcamCameraMode.front)
+                        Text(t(.roadCamera)).tag(DashcamCameraMode.rear)
+                        Text(t(.driverCamera)).tag(DashcamCameraMode.front)
                     }
                     .pickerStyle(.segmented)
                     .padding(.horizontal)
@@ -921,10 +936,10 @@ struct ContentView: View {
                     }
                     
                     if FeatureFlags.isDeveloperBuild {
-                        Toggle("Indoor test mode (тест дома)", isOn: $sensorManager.indoorTestMode)
+                        Toggle(t(.indoorTestModeToggle), isOn: $sensorManager.indoorTestMode)
                             .padding(.horizontal)
                         
-                        Text("Indoor test mode: понижает пороги TURN/ROAD/ACCEL/BRAKE и повышает порог gyro spike (удобно для тестов в помещении).")
+                        Text(t(.indoorTestModeDescription))
                             .font(.footnote)
                             .foregroundColor(.secondary)
                             .padding(.horizontal)
@@ -933,43 +948,38 @@ struct ContentView: View {
                     
                     // ===== Telemetry card =====
                     if FeatureFlags.isDeveloperBuild {
-                        Toggle("Режим теста манёвров", isOn: $drivingTestMode)
+                        Toggle(t(.maneuverTestModeToggle), isOn: $drivingTestMode)
                             .padding(.horizontal)
 
                         VStack(alignment: .leading, spacing: 8) {
                             if drivingTestMode {
 
-                                Text("Тест манёвров (смотрите только эти строки):")
+                                Text(t(.maneuverTestTitle))
                                     .font(.headline)
 
-                                Text("""
-                        Разгон:    aLong один знак, aLat ~ 0, rr.z ~ 0
-                        Торможение:aLong противоположный знак, aLat ~ 0
-                        Поворот:   aLat заметный, rr.z заметный, aLong ~ 0
-                        Неровность:aVert пики, aLong/aLat небольшие
-                        """)
+                                Text(t(.maneuverTestDescription))
                                 .font(.footnote)
                                 .foregroundColor(.secondary)
                                 .fixedSize(horizontal: false, vertical: true)
 
                                 Divider()
 
-                                Text("Projected (g):").font(.system(.callout))
+                                Text(t(.projectedG)).font(.system(.callout))
                                 Text(sensorManager.lastProjString)
                                     .font(.system(.callout, design: .monospaced))
                                     .fixedSize(horizontal: false, vertical: true)
 
-                                Text("RotationRate (rad/s):").font(.system(.callout))
+                                Text(t(.rotationRate)).font(.system(.callout))
                                 Text(sensorManager.lastRotRateString)
                                     .font(.system(.callout, design: .monospaced))
 
-                                Text("UserAcceleration (m/s²):").font(.system(.callout))
+                                Text(t(.userAcceleration)).font(.system(.callout))
                                 Text(sensorManager.lastUserAccelString)
                                     .font(.system(.callout, design: .monospaced))
 
                                 Divider()
 
-                                Text("Last event:").font(.system(.callout))
+                                Text(t(.lastEvent)).font(.system(.callout))
                                 Text(sensorManager.lastFiredEventString)
                                     .font(.system(.callout, design: .monospaced))
                                     .fixedSize(horizontal: false, vertical: true)
@@ -977,10 +987,10 @@ struct ContentView: View {
                             } else {
                                 
                                 
-                                infoRow(label: "Status:", value: sensorManager.statusText)
+                                infoRow(label: t(.statusLabel), value: sensorManager.statusText)
                                 
                                 VStack(alignment: .leading, spacing: 2) {
-                                    Text("Last 5 errors:")
+                                    Text(t(.lastFiveErrors))
                                         .font(.system(.callout))
                                         .padding(.top, 4)
                                     
@@ -1007,7 +1017,7 @@ struct ContentView: View {
                                     
                                     
                                     if !sensorManager.lastNetworkErrors.isEmpty {
-                                        Button("Clear errors") {
+                                        Button(t(.clearErrors)) {
                                             sensorManager.clearNetworkErrors()
                                         }
                                         .font(.footnote)
@@ -1015,11 +1025,11 @@ struct ContentView: View {
                                     }
                                 }
                                 
-                                infoRow(label: "Last GPS:", value: sensorManager.lastLocationString)
-                                infoRow(label: "Speed (km/h):", value: sensorManager.lastSpeedString)
+                                infoRow(label: t(.lastGps), value: sensorManager.lastLocationString)
+                                infoRow(label: t(.speedKmhLabel), value: sensorManager.lastSpeedString)
                                 
                                 VStack(alignment: .leading, spacing: 2) {
-                                    Text("Accel XYZ:")
+                                    Text(t(.accelXyz))
                                         .font(.system(.callout))
                                     
                                     Text(sensorManager.lastAccelString)
@@ -1073,6 +1083,8 @@ struct ContentView: View {
                 
                 .onAppear {
                     loginInput = sensorManager.driverId
+                    
+                    
 
                     // Auto-retry any pending "finishTrip" records saved from previous offline stops.
                     if !didRunStartupRecovery {
@@ -1180,12 +1192,12 @@ struct ContentView: View {
 
             case .critical:
                 VStack(spacing: 6) {
-                    Text("ВОДИТЕЛЬ ЗАСЫПАЕТ")
+                    Text(t(.dmsAlertCriticalTitle))
                         .font(.headline)
                         .fontWeight(.bold)
                         .foregroundColor(.white)
 
-                    Text("СРОЧНО ОСТАНОВИТЕСЬ")
+                    Text(t(.dmsAlertCriticalSubtitle))
                         .font(.caption)
                         .fontWeight(.semibold)
                         .foregroundColor(.white)
@@ -1196,7 +1208,7 @@ struct ContentView: View {
                 .cornerRadius(12)
 
             case .warning:
-                Text("Признаки усталости водителя")
+                Text(t(.dmsAlertWarning))
                     .font(.caption)
                     .fontWeight(.semibold)
                     .foregroundColor(.black)
@@ -1206,7 +1218,7 @@ struct ContentView: View {
                     .cornerRadius(10)
 
             case .drowsy:
-                Text("Голова опущена")
+                Text(t(.dmsAlertDrowsy))
                     .font(.caption)
                     .fontWeight(.semibold)
                     .foregroundColor(.white)
@@ -1216,7 +1228,7 @@ struct ContentView: View {
                     .cornerRadius(10)
 
             case .distracted:
-                Text("Смотрите на дорогу")
+                Text(t(.dmsAlertDistracted))
                     .font(.caption)
                     .fontWeight(.semibold)
                     .foregroundColor(.white)
@@ -1308,35 +1320,35 @@ struct ContentView: View {
                     .padding(.vertical, 2)
 
                 // Rows
-                statsGridRow("Торможения",
+                statsGridRow(t(.statsBraking),
                              count: sensorManager.brakeCount,
                              sumG: sensorManager.brakeSumIntensity,
                              maxG: sensorManager.brakeMaxIntensity,
                              safeKm: safeKm,
                              eventW: eventW, numericW: numericW)
 
-                statsGridRow("Разгоны",
+                statsGridRow(t(.statsAcceleration),
                              count: sensorManager.accelCount,
                              sumG: sensorManager.accelSumIntensity,
                              maxG: sensorManager.accelMaxIntensity,
                              safeKm: safeKm,
                              eventW: eventW, numericW: numericW)
 
-                statsGridRow("Неровности",
+                statsGridRow(t(.statsRoadAnomalies),
                              count: sensorManager.roadCount,
                              sumG: sensorManager.roadSumIntensity,
                              maxG: sensorManager.roadMaxIntensity,
                              safeKm: safeKm,
                              eventW: eventW, numericW: numericW)
 
-                statsGridRow("Повороты",
+                statsGridRow(t(.statsTurns),
                              count: sensorManager.turnCount,
                              sumG: sensorManager.turnSumIntensity,
                              maxG: sensorManager.turnMaxIntensity,
                              safeKm: safeKm,
                              eventW: eventW, numericW: numericW)
 
-                statsGridRow("Занос",
+                statsGridRow(t(.statsSkid),
                              count: skidCount,
                              sumG: skidSum,
                              maxG: skidMax,

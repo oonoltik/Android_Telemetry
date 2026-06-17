@@ -182,11 +182,11 @@ enum TripConfigOverridesStorage {
         let date = Date(timeIntervalSince1970: ts)
 
         let df = DateFormatter()
-        df.locale = Locale(identifier: "ru_RU")
+        df.locale = LocalizationCatalog.currentLocale
         df.dateStyle = .medium
         df.timeStyle = .short
 
-        return "Сохранено: \(df.string(from: date)) · Override включено: \(enabledCount)"
+        return String(format: LocalizationCatalog.text(.tripConfigSavedStatusFormat), df.string(from: date), enabledCount)
     }
 
     private static func countEnabledOverrides(_ obj: TripConfigOverrides) -> Int {

@@ -66,6 +66,8 @@
 		F597ADF62F5AD4DC00A9DEDC /* NumericSanitizer.swift in Sources */ = {isa = PBXBuildFile; fileRef = F597ADF52F5AD4D900A9DEDC /* NumericSanitizer.swift */; };
 		F5A3AB482F1FD8CB00BBB788 /* TripsArchiveView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F5A3AB472F1FD8C500BBB788 /* TripsArchiveView.swift */; };
 		F5A3AB4A2F1FD91A00BBB788 /* TripSummary.swift in Sources */ = {isa = PBXBuildFile; fileRef = F5A3AB492F1FD90700BBB788 /* TripSummary.swift */; };
+		F5A9429C2FAE604B00FE057E /* GoldenMotionExporter.swift in Sources */ = {isa = PBXBuildFile; fileRef = F5A9429B2FAE603C00FE057E /* GoldenMotionExporter.swift */; };
+		F5A9429E2FAE656E00FE057E /* GoldenMotionProjection.swift in Sources */ = {isa = PBXBuildFile; fileRef = F5A9429D2FAE656B00FE057E /* GoldenMotionProjection.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -151,6 +153,8 @@
 		F597ADF52F5AD4D900A9DEDC /* NumericSanitizer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NumericSanitizer.swift; sourceTree = "<group>"; };
 		F5A3AB472F1FD8C500BBB788 /* TripsArchiveView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TripsArchiveView.swift; sourceTree = "<group>"; };
 		F5A3AB492F1FD90700BBB788 /* TripSummary.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TripSummary.swift; sourceTree = "<group>"; };
+		F5A9429B2FAE603C00FE057E /* GoldenMotionExporter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GoldenMotionExporter.swift; sourceTree = "<group>"; };
+		F5A9429D2FAE656B00FE057E /* GoldenMotionProjection.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GoldenMotionProjection.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
@@ -305,6 +309,8 @@
 				F552E9CE2F851D5100CBC4D3 /* Dashcam */,
 				F507E2DC2F224D5E00F8D50E /* DayMonitoringManager.swift */,
 				F57FB9192EEADC66002BC621 /* SensorManager.swift */,
+				F5A9429D2FAE656B00FE057E /* GoldenMotionProjection.swift */,
+				F5A9429B2FAE603C00FE057E /* GoldenMotionExporter.swift */,
 			);
 			path = Managers;
 			sourceTree = "<group>";
@@ -512,7 +518,9 @@
 				F532A1952F6ADD960083C8BF /* FeatureFlags.swift in Sources */,
 				F51BB5312F9F4EB20057C496 /* DriverMonitoringService.swift in Sources */,
 				F57FB9202EEAEC09002BC621 /* models.swift in Sources */,
+				F5A9429E2FAE656E00FE057E /* GoldenMotionProjection.swift in Sources */,
 				F552EA0A2F8524C000CBC4D3 /* VideoArchiveStore.swift in Sources */,
+				F5A9429C2FAE604B00FE057E /* GoldenMotionExporter.swift in Sources */,
 				F552E9BF2F851BE000CBC4D3 /* DashcamModels.swift in Sources */,
 				F552E9C02F851BE000CBC4D3 /* models+Dashcam.swift in Sources */,
 				F507E2DD2F224D6100F8D50E /* DayMonitoringManager.swift in Sources */,
@@ -748,7 +756,7 @@
 				INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = "We use your location to record trips, calculate distance and speed, and provide trip summaries and driving insights.";
 				INFOPLIST_KEY_NSMicrophoneUsageDescription = "The application can record audio along with video upon your request.";
 				INFOPLIST_KEY_NSMotionUsageDescription = "We use motion data to detect driving activity and identify events such as acceleration, braking, and turns to improve trip accuracy.";
-				INFOPLIST_KEY_NSPhotoLibraryAddUsageDescription = "The application saves videos to the device's memory.";
+				INFOPLIST_KEY_NSPhotoLibraryAddUsageDescription = "The application saves selected dashcam videos to your photo library.";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
@@ -759,7 +767,7 @@
 					"@executable_path/Frameworks",
 				);
 				MARKETING_VERSION = 1.0.3;
-				PRODUCT_BUNDLE_IDENTIFIER = com.alexey.TelemetryApp;
+				PRODUCT_BUNDLE_IDENTIFIER = com.alexey.TelemetryApp.dev;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				STRING_CATALOG_GENERATE_SYMBOLS = YES;
 				SWIFT_APPROACHABLE_CONCURRENCY = YES;
@@ -790,7 +798,7 @@
 				INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = "We use your location to record trips, calculate distance and speed, and provide trip summaries and driving insights.";
 				INFOPLIST_KEY_NSMicrophoneUsageDescription = "The application can record audio along with video upon your request.";
 				INFOPLIST_KEY_NSMotionUsageDescription = "We use motion data to detect driving activity and identify events such as acceleration, braking, and turns to improve trip accuracy.";
-				INFOPLIST_KEY_NSPhotoLibraryAddUsageDescription = "The application saves videos to the device's memory.";
+				INFOPLIST_KEY_NSPhotoLibraryAddUsageDescription = "The application saves selected dashcam videos to your photo library.";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
@@ -801,7 +809,7 @@
 					"@executable_path/Frameworks",
 				);
 				MARKETING_VERSION = 1.0.3;
-				PRODUCT_BUNDLE_IDENTIFIER = com.alexey.TelemetryApp;
+				PRODUCT_BUNDLE_IDENTIFIER = com.alexey.TelemetryApp.dev;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				STRING_CATALOG_GENERATE_SYMBOLS = YES;
 				SWIFT_APPROACHABLE_CONCURRENCY = YES;

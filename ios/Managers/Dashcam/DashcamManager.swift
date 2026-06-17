@@ -306,7 +306,7 @@ final class DashcamManager: NSObject, ObservableObject {
     private func startStopProgressUI() {
         stopStopProgressUI()
 
-        stopProgressText = "Идет сохранение записи"
+        stopProgressText = LocalizationCatalog.text(.videoSavingInProgress)
         stopProgressValue = 0.05
 
         stopProgressTimer = Timer.scheduledTimer(withTimeInterval: 0.12, repeats: true) { [weak self] _ in
@@ -383,7 +383,7 @@ final class DashcamManager: NSObject, ObservableObject {
                 if self.state == .stopping || self.state == .recording || self.state == .preparing {
                     await self.finalizeStoppedSessionWithFallback(
                         trigger: self.pendingStopTrigger ?? .appBackground,
-                        fallbackMessage: "Не удалось корректно завершить видеозапись в фоне"
+                        fallbackMessage: LocalizationCatalog.text(.dashcamBackgroundFinishFailed)
                     )
                 } else {
                     self.forceResetAfterInterruptedStop()
@@ -493,7 +493,7 @@ final class DashcamManager: NSObject, ObservableObject {
         } catch {
             print("[DashcamCapture] forced resume failed: \(error)")
             Self.__dbg("[DashcamCapture] forced resume failed: \(error)")
-            lastError = .unknown("Не удалось возобновить запись после interruption: \(error.localizedDescription)")
+            lastError = .unknown(String(format: LocalizationCatalog.text(.dashcamResumeAfterInterruptionFailedFormat), error.localizedDescription))
             await finalizeStoppedSession(trigger: .fatalError)
         }
     }
@@ -552,7 +552,7 @@ final class DashcamManager: NSObject, ObservableObject {
 
     @objc private func handleCaptureSessionRuntimeError(_ notification: Notification) {
         let nsError = notification.userInfo?[AVCaptureSessionErrorKey] as? NSError
-        let text = nsError?.localizedDescription ?? "Неизвестная ошибка камеры"
+        let text = nsError?.localizedDescription ?? LocalizationCatalog.text(.dashcamUnknownCameraError)
 
         print("[DashcamCapture] runtime error: \(text)")
         Self.__dbg("[DashcamCapture] runtime error: \(text)")
@@ -568,7 +568,7 @@ final class DashcamManager: NSObject, ObservableObject {
         if let lastAttempt = lastRuntimeRecoveryAttemptAt,
            now.timeIntervalSince(lastAttempt) < 5 {
             print("[DashcamCapture] runtime error repeated too soon, stopping session")
-            lastError = .unknown("Ошибка камеры: \(text)")
+            lastError = .unknown(String(format: LocalizationCatalog.text(.dashcamCameraErrorFormat), text))
 
             Task { @MainActor in
                 let trigger = self.pendingStopTrigger ?? .fatalError
@@ -616,7 +616,7 @@ final class DashcamManager: NSObject, ObservableObject {
                 print("[DashcamCapture] soft recovery succeeded")
                 Self.__dbg("[DashcamCapture] soft recovery succeeded")
             } catch {
-                self.lastError = .unknown("Ошибка камеры: \(text). Восстановление не удалось: \(error.localizedDescription)")
+                self.lastError = .unknown(String(format: LocalizationCatalog.text(.dashcamCameraRecoveryFailedFormat), text, error.localizedDescription))
                 let trigger = self.pendingStopTrigger ?? .fatalError
                 await self.finalizeStoppedSession(trigger: trigger)
             }
@@ -734,7 +734,7 @@ final class DashcamManager: NSObject, ObservableObject {
         } catch {
             print("[DASHCAM][START] FAILED error=\(error)")
             Self.__dbg("[DASHCAM][START] FAILED error=\(error)")
-            lastError = (error as? DashcamError) ?? .unknown("Не удалось начать видеозапись: \(error.localizedDescription)")
+            lastError = (error as? DashcamError) ?? .unknown(String(format: LocalizationCatalog.text(.dashcamBeginRecordingFailedFormat), error.localizedDescription))
             sensorManager.suppressAutoFinishWhileDashcamActive = false
             UIApplication.shared.isIdleTimerDisabled = false
             state = .idle
@@ -875,13 +875,13 @@ final class DashcamManager: NSObject, ObservableObject {
         }
 
         if state == .recording && !movieOutput.isRecording {
-            lastError = .unknown("Видеозапись была завершена при уходе приложения в фон")
+            lastError = .unknown(LocalizationCatalog.text(.dashcamRecordingStoppedInBackground))
             forceResetAfterInterruptedStop()
             return
         }
 
         if state == .preparing && !movieOutput.isRecording {
-            lastError = .unknown("Не удалось продолжить видеозапись после возврата в приложение")
+            lastError = .unknown(LocalizationCatalog.text(.dashcamRecordingCouldNotContinueAfterForeground))
             forceResetAfterInterruptedStop()
             return
         }
@@ -1090,7 +1090,7 @@ final class DashcamManager: NSObject, ObservableObject {
         if isSegmentFinishing, let finishRequestedAt = lastSegmentFinishRequestedAt {
             if now.timeIntervalSince(finishRequestedAt) > 10 {
                 print("[DashcamWatchdog] segment finish stalled, stopping video with fatal error")
-                lastError = .unknown("Сегмент не завершился вовремя")
+                lastError = .unknown(LocalizationCatalog.text(.dashcamSegmentTimeout))
                 Task { @MainActor in
                     await stopVideoMode(trigger: .fatalError)
                 }
@@ -1465,7 +1465,7 @@ extension DashcamManager: AVCaptureFileOutputRecordingDelegate {
                         try? fm.removeItem(at: actualURL)
                     }
 
-                    lastError = .unknown("Запись была прервана системой: \(error.localizedDescription)")
+                    lastError = .unknown(String(format: LocalizationCatalog.text(.dashcamSystemInterruptedFormat), error.localizedDescription))
 
                     if shouldResumeAfterInterruption || sessionInterrupted {
                         print("[Dashcam] segment interrupted, waiting for automatic resume after interruption end")
@@ -1517,7 +1517,7 @@ extension DashcamManager: AVCaptureFileOutputRecordingDelegate {
                         } catch {
                             print("[Dashcam] failed to restart segment after didFinish error: \(error.localizedDescription)")
                             Self.__dbg("[Dashcam] failed to restart segment after didFinish error: \(error.localizedDescription)")
-                            lastError = .unknown("Не удалось перезапустить запись после ошибки сегмента: \(error.localizedDescription)")
+                            lastError = .unknown(String(format: LocalizationCatalog.text(.dashcamSegmentRestartFailedFormat), error.localizedDescription))
                         }
                     }
 
@@ -1594,7 +1594,7 @@ extension DashcamManager: AVCaptureFileOutputRecordingDelegate {
             } catch {
                 print("❌ archiveStore.addCompletedSegment failed: \(error)")
                 Self.__dbg("❌ archiveStore.addCompletedSegment failed: \(error)")
-                lastError = .unknown("Не удалось сохранить сегмент видео: \(error.localizedDescription)")
+                lastError = .unknown(String(format: LocalizationCatalog.text(.dashcamSegmentSaveFailedFormat), error.localizedDescription))
                 let trigger = pendingStopTrigger ?? .fatalError
                 await finalizeStoppedSession(trigger: trigger)
                 return
@@ -1623,7 +1623,7 @@ extension DashcamManager: AVCaptureFileOutputRecordingDelegate {
             do {
                 try startNextSegment()
             } catch {
-                lastError = .unknown("Не удалось начать следующий сегмент: \(error.localizedDescription)")
+                lastError = .unknown(String(format: LocalizationCatalog.text(.dashcamNextSegmentStartFailedFormat), error.localizedDescription))
                 let trigger = pendingStopTrigger ?? .fatalError
                 await finalizeStoppedSession(trigger: trigger)
                 return

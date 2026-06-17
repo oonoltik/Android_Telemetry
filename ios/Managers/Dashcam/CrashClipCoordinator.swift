@@ -164,8 +164,8 @@ final class CrashClipCoordinator {
         self.requestSegmentFinishForCrash = requestSegmentFinishForCrash
         
 //#if DEBUG
-//    clearAllCrashPersistence()
-//#endif
+    clearAllCrashPersistence()
+////#endif
 
     restorePendingCrashMetadataQueue()
     restorePendingCrashVideoUploadQueue()
@@ -349,11 +349,19 @@ final class CrashClipCoordinator {
             return
         }
 
+        let stopDate = pendingCrashClips[index].crashDate.addingTimeInterval(
+            TimeInterval(pendingCrashClips[index].requestedPostSeconds)
+        )
+
+        pendingCrashClips[index].stopDateOverride = stopDate
         pendingCrashClips[index].isReadyByTimer = true
         pendingCrashClips[index].stage = .waitingPostWindow
         pendingCrashClips[index].nextFinalizeAttemptAt = Date().addingTimeInterval(2.0)
 
-        log("Post-window completed, crash is ready for finalization after short grace", crashId: crashId)
+        log(
+            "Post-window completed, stopDateOverride=\(stopDate.iso8601WithFractionalSeconds), crash is ready for finalization after short grace",
+            crashId: crashId
+        )
     }
     
     private func applyInterruptionAwareExtensionIfNeeded(
@@ -397,7 +405,11 @@ final class CrashClipCoordinator {
         log("Processing timer-ready crash clips count = \(readyIds.count)")
 
         for crashId in readyIds {
-            await finalizeCrashJob(crashId: crashId, stopDate: nil)
+            let stopDate = pendingCrashClips
+                .first(where: { $0.id == crashId })?
+                .stopDateOverride
+
+            await finalizeCrashJob(crashId: crashId, stopDate: stopDate)
         }
 
         pruneCompletedCrashJobs()
@@ -771,12 +783,32 @@ final class CrashClipCoordinator {
             log("Segments for final clip: \(protectedSegments.count)", crashId: crashId)
 
             guard !protectedSegments.isEmpty else {
-                log("No segments found -> scheduling retry", crashId: crashId)
-
                 if let idx = pendingCrashClips.firstIndex(where: { $0.id == crashId }) {
                     pendingCrashClips[idx].finalizeAttemptCount += 1
-                    pendingCrashClips[idx].nextFinalizeAttemptAt = Date().addingTimeInterval(3.0)
+
+                    let attempt = pendingCrashClips[idx].finalizeAttemptCount
+                    let maxAttempts = 20
+
+                    if attempt >= maxAttempts {
+                        pendingCrashClips[idx].isCompleted = true
+                        pendingCrashClips[idx].stage = .failed
+                        pendingCrashClips[idx].nextFinalizeAttemptAt = nil
+
+                        log(
+                            "Crash job marked FAILED after \(attempt) attempts: no segments found",
+                            crashId: crashId
+                        )
+                    } else {
+                        let delay = min(Double(3 * attempt), 15.0)
+                        pendingCrashClips[idx].nextFinalizeAttemptAt = Date().addingTimeInterval(delay)
+
+                        log(
+                            "No segments found -> retry \(attempt)/\(maxAttempts) in \(delay)s",
+                            crashId: crashId
+                        )
+                    }
                 }
+
                 return
             }
 

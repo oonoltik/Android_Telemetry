@@ -18,260 +18,256 @@ enum ParamKey: String, Identifiable {
 }
 
 struct ParamHelp {
-    let title: String
-    let body: String
-    let more: String
-    let less: String
+    let titleKey: LocalizationKey
+    let bodyKey: LocalizationKey
+    let moreKey: LocalizationKey
+    let lessKey: LocalizationKey
+
+    var title: String { LocalizationCatalog.text(titleKey) }
+    var body: String { LocalizationCatalog.text(bodyKey) }
+    var more: String { LocalizationCatalog.text(moreKey) }
+    var less: String { LocalizationCatalog.text(lessKey) }
 }
 
 let PARAM_HELP: [ParamKey: ParamHelp] = [
-    // MARK: Speed gates
     .speed_gate_accel_brake_ms: .init(
-        title: "Гейт скорости для accel/brake",
-        body: "Минимальная скорость (м/с), ниже которой ускорения и торможения не фиксируются.",
-        more: "Больше → меньше событий на малых скоростях (пробка/парковка), но можно пропустить резкий манёвр на малой скорости.",
-        less: "Меньше → больше событий на малых скоростях, выше шум/ложные срабатывания."
+        titleKey: .tripConfigHelpSpeedGateAccelBrakeMsTitle,
+        bodyKey: .tripConfigHelpSpeedGateAccelBrakeMsBody,
+        moreKey: .tripConfigHelpSpeedGateAccelBrakeMsMore,
+        lessKey: .tripConfigHelpSpeedGateAccelBrakeMsLess
     ),
     .speed_gate_turn_ms: .init(
-        title: "Гейт скорости для поворотов",
-        body: "Минимальная скорость (м/с), ниже которой события поворота (turn) не фиксируются.",
-        more: "Больше → меньше поворотов на малой скорости (двор/парковка), ниже шум, но можно пропустить манёвр на 10–15 км/ч.",
-        less: "Меньше → больше поворотов на малой скорости, выше вероятность ложных срабатываний."
+        titleKey: .tripConfigHelpSpeedGateTurnMsTitle,
+        bodyKey: .tripConfigHelpSpeedGateTurnMsBody,
+        moreKey: .tripConfigHelpSpeedGateTurnMsMore,
+        lessKey: .tripConfigHelpSpeedGateTurnMsLess
     ),
     .speed_gate_combined_ms: .init(
-        title: "Гейт скорости для combined (в повороте)",
-        body: "Минимальная скорость (м/с), ниже которой комбинированные события accel_in_turn / brake_in_turn не фиксируются.",
-        more: "Больше → меньше combined на малых скоростях, ниже шум.",
-        less: "Меньше → больше combined на малых скоростях, выше риск шума."
+        titleKey: .tripConfigHelpSpeedGateCombinedMsTitle,
+        bodyKey: .tripConfigHelpSpeedGateCombinedMsBody,
+        moreKey: .tripConfigHelpSpeedGateCombinedMsMore,
+        lessKey: .tripConfigHelpSpeedGateCombinedMsLess
     ),
-
-    // MARK: Cooldowns
     .cooldown_accel_brake_s: .init(
-        title: "Cooldown accel/brake",
-        body: "Минимальный интервал (сек) между двумя событиями accel или brake.",
-        more: "Больше → меньше повторов событий (сильнее анти-спам), но можно недосчитать серию манёвров.",
-        less: "Меньше → больше событий при длительном ускорении/торможении, но выше риск дублей."
+        titleKey: .tripConfigHelpCooldownAccelBrakeSTitle,
+        bodyKey: .tripConfigHelpCooldownAccelBrakeSBody,
+        moreKey: .tripConfigHelpCooldownAccelBrakeSMore,
+        lessKey: .tripConfigHelpCooldownAccelBrakeSLess
     ),
     .cooldown_turn_s: .init(
-        title: "Cooldown turn",
-        body: "Минимальный интервал (сек) между событиями turn.",
-        more: "Больше → меньше повторов поворотов на длинных дугах, ниже шум.",
-        less: "Меньше → больше событий на одном манёвре (длинный поворот может дать несколько turn)."
+        titleKey: .tripConfigHelpCooldownTurnSTitle,
+        bodyKey: .tripConfigHelpCooldownTurnSBody,
+        moreKey: .tripConfigHelpCooldownTurnSMore,
+        lessKey: .tripConfigHelpCooldownTurnSLess
     ),
     .cooldown_combined_s: .init(
-        title: "Cooldown combined",
-        body: "Минимальный интервал (сек) между событиями accel_in_turn / brake_in_turn.",
-        more: "Больше → меньше combined событий, сильнее анти-спам.",
-        less: "Меньше → чаще будут фиксироваться repeated combined в одном длительном манёвре."
+        titleKey: .tripConfigHelpCooldownCombinedSTitle,
+        bodyKey: .tripConfigHelpCooldownCombinedSBody,
+        moreKey: .tripConfigHelpCooldownCombinedSMore,
+        lessKey: .tripConfigHelpCooldownCombinedSLess
     ),
     .cooldown_road_s: .init(
-        title: "Cooldown road_anomaly",
-        body: "Минимальный интервал (сек) между событиями road_anomaly.",
-        more: "Больше → меньше повторов на серии неровностей (один “кластер” → одно событие).",
-        less: "Меньше → больше событий на гребёнке/брусчатке."
+        titleKey: .tripConfigHelpCooldownRoadSTitle,
+        bodyKey: .tripConfigHelpCooldownRoadSBody,
+        moreKey: .tripConfigHelpCooldownRoadSMore,
+        lessKey: .tripConfigHelpCooldownRoadSLess
     ),
-
-    // MARK: Accel/Brake thresholds
     .accel_sharp_g: .init(
-        title: "Порог accel (sharp)",
-        body: "Продольное ускорение (g), начиная с которого фиксируется accel класса sharp.",
-        more: "Больше → реже accel_sharp, только более агрессивные ускорения.",
-        less: "Меньше → чаще accel_sharp, выше чувствительность."
+        titleKey: .tripConfigHelpAccelSharpGTitle,
+        bodyKey: .tripConfigHelpAccelSharpGBody,
+        moreKey: .tripConfigHelpAccelSharpGMore,
+        lessKey: .tripConfigHelpAccelSharpGLess
     ),
     .accel_emergency_g: .init(
-        title: "Порог accel (emergency)",
-        body: "Продольное ускорение (g), начиная с которого фиксируется accel класса emergency.",
-        more: "Больше → emergency почти не будет, только экстремальные ускорения.",
-        less: "Меньше → emergency будет чаще, жёстче штрафы."
+        titleKey: .tripConfigHelpAccelEmergencyGTitle,
+        bodyKey: .tripConfigHelpAccelEmergencyGBody,
+        moreKey: .tripConfigHelpAccelEmergencyGMore,
+        lessKey: .tripConfigHelpAccelEmergencyGLess
     ),
     .brake_sharp_g: .init(
-        title: "Порог brake (sharp)",
-        body: "Продольное замедление (g) по модулю, начиная с которого фиксируется brake класса sharp.",
-        more: "Больше → реже brake_sharp, меньше событий.",
-        less: "Меньше → чаще brake_sharp, выше чувствительность."
+        titleKey: .tripConfigHelpBrakeSharpGTitle,
+        bodyKey: .tripConfigHelpBrakeSharpGBody,
+        moreKey: .tripConfigHelpBrakeSharpGMore,
+        lessKey: .tripConfigHelpBrakeSharpGLess
     ),
     .brake_emergency_g: .init(
-        title: "Порог brake (emergency)",
-        body: "Продольное замедление (g) по модулю, начиная с которого фиксируется brake класса emergency.",
-        more: "Больше → emergency почти не будет.",
-        less: "Меньше → emergency будет чаще, итоговый score падает сильнее."
+        titleKey: .tripConfigHelpBrakeEmergencyGTitle,
+        bodyKey: .tripConfigHelpBrakeEmergencyGBody,
+        moreKey: .tripConfigHelpBrakeEmergencyGMore,
+        lessKey: .tripConfigHelpBrakeEmergencyGLess
     ),
-
-    // MARK: Turn thresholds
     .turn_sharp_lat_g: .init(
-        title: "Порог turn (sharp)",
-        body: "Боковое ускорение |a_lat| (g), начиная с которого фиксируется поворот sharp.",
-        more: "Больше → реже turn_sharp.",
-        less: "Меньше → чаще turn_sharp."
+        titleKey: .tripConfigHelpTurnSharpLatGTitle,
+        bodyKey: .tripConfigHelpTurnSharpLatGBody,
+        moreKey: .tripConfigHelpTurnSharpLatGMore,
+        lessKey: .tripConfigHelpTurnSharpLatGLess
     ),
     .turn_emergency_lat_g: .init(
-        title: "Порог turn (emergency)",
-        body: "Боковое ускорение |a_lat| (g), начиная с которого фиксируется поворот emergency.",
-        more: "Больше → emergency почти не будет.",
-        less: "Меньше → emergency будет чаще, штрафы выше."
+        titleKey: .tripConfigHelpTurnEmergencyLatGTitle,
+        bodyKey: .tripConfigHelpTurnEmergencyLatGBody,
+        moreKey: .tripConfigHelpTurnEmergencyLatGMore,
+        lessKey: .tripConfigHelpTurnEmergencyLatGLess
     ),
-
-    // MARK: Combined thresholds
     .combined_lat_min_g: .init(
-        title: "Минимальный |a_lat| для combined",
-        body: "Комбинированные события фиксируются только если |a_lat| ≥ этого порога.",
-        more: "Больше → fewer combined (строже), меньше подавления plain событий рядом.",
-        less: "Меньше → more combined, чаще будет suppression plain событий."
+        titleKey: .tripConfigHelpCombinedLatMinGTitle,
+        bodyKey: .tripConfigHelpCombinedLatMinGBody,
+        moreKey: .tripConfigHelpCombinedLatMinGMore,
+        lessKey: .tripConfigHelpCombinedLatMinGLess
     ),
     .accel_in_turn_sharp_g: .init(
-        title: "Порог accel_in_turn (sharp)",
-        body: "Продольное ускорение (g) для accel_in_turn sharp при достаточном боковом ускорении.",
-        more: "Больше → реже accel_in_turn_sharp.",
-        less: "Меньше → чаще accel_in_turn_sharp."
+        titleKey: .tripConfigHelpAccelInTurnSharpGTitle,
+        bodyKey: .tripConfigHelpAccelInTurnSharpGBody,
+        moreKey: .tripConfigHelpAccelInTurnSharpGMore,
+        lessKey: .tripConfigHelpAccelInTurnSharpGLess
     ),
     .accel_in_turn_emergency_g: .init(
-        title: "Порог accel_in_turn (emergency)",
-        body: "Продольное ускорение (g) для accel_in_turn emergency.",
-        more: "Больше → emergency почти не будет.",
-        less: "Меньше → emergency будет чаще."
+        titleKey: .tripConfigHelpAccelInTurnEmergencyGTitle,
+        bodyKey: .tripConfigHelpAccelInTurnEmergencyGBody,
+        moreKey: .tripConfigHelpAccelInTurnEmergencyGMore,
+        lessKey: .tripConfigHelpAccelInTurnEmergencyGLess
     ),
     .brake_in_turn_sharp_g: .init(
-        title: "Порог brake_in_turn (sharp)",
-        body: "Продольное замедление (g) по модулю для brake_in_turn sharp.",
-        more: "Больше → реже brake_in_turn_sharp.",
-        less: "Меньше → чаще brake_in_turn_sharp."
+        titleKey: .tripConfigHelpBrakeInTurnSharpGTitle,
+        bodyKey: .tripConfigHelpBrakeInTurnSharpGBody,
+        moreKey: .tripConfigHelpBrakeInTurnSharpGMore,
+        lessKey: .tripConfigHelpBrakeInTurnSharpGLess
     ),
     .brake_in_turn_emergency_g: .init(
-        title: "Порог brake_in_turn (emergency)",
-        body: "Продольное замедление (g) по модулю для brake_in_turn emergency.",
-        more: "Больше → emergency почти не будет.",
-        less: "Меньше → emergency будет чаще."
+        titleKey: .tripConfigHelpBrakeInTurnEmergencyGTitle,
+        bodyKey: .tripConfigHelpBrakeInTurnEmergencyGBody,
+        moreKey: .tripConfigHelpBrakeInTurnEmergencyGMore,
+        lessKey: .tripConfigHelpBrakeInTurnEmergencyGLess
     ),
-
-    // MARK: Road anomaly thresholds
     .road_window_s: .init(
-        title: "Окно анализа road_anomaly",
-        body: "Длительность окна (сек), по которому считаются peak-to-peak и max_abs по вертикали.",
-        more: "Больше → сглаживание, можно склеить несколько ударов в один, ниже чувствительность к коротким ударам.",
-        less: "Меньше → выше чувствительность к коротким ударам, но выше шум."
+        titleKey: .tripConfigHelpRoadWindowSTitle,
+        bodyKey: .tripConfigHelpRoadWindowSBody,
+        moreKey: .tripConfigHelpRoadWindowSMore,
+        lessKey: .tripConfigHelpRoadWindowSLess
     ),
     .road_low_p2p_g: .init(
-        title: "road_anomaly low: порог peak-to-peak",
-        body: "Порог p2p по вертикали (g) для road_anomaly severity=low.",
-        more: "Больше → реже low события.",
-        less: "Меньше → чаще low события."
+        titleKey: .tripConfigHelpRoadLowP2pGTitle,
+        bodyKey: .tripConfigHelpRoadLowP2pGBody,
+        moreKey: .tripConfigHelpRoadLowP2pGMore,
+        lessKey: .tripConfigHelpRoadLowP2pGLess
     ),
     .road_high_p2p_g: .init(
-        title: "road_anomaly high: порог peak-to-peak",
-        body: "Порог p2p по вертикали (g) для road_anomaly severity=high.",
-        more: "Больше → реже high события.",
-        less: "Меньше → чаще high события."
+        titleKey: .tripConfigHelpRoadHighP2pGTitle,
+        bodyKey: .tripConfigHelpRoadHighP2pGBody,
+        moreKey: .tripConfigHelpRoadHighP2pGMore,
+        lessKey: .tripConfigHelpRoadHighP2pGLess
     ),
     .road_low_abs_g: .init(
-        title: "road_anomaly low: порог max_abs",
-        body: "Порог max(|a_vert|) (g) для road_anomaly low.",
-        more: "Больше → реже low события.",
-        less: "Меньше → чаще low события."
+        titleKey: .tripConfigHelpRoadLowAbsGTitle,
+        bodyKey: .tripConfigHelpRoadLowAbsGBody,
+        moreKey: .tripConfigHelpRoadLowAbsGMore,
+        lessKey: .tripConfigHelpRoadLowAbsGLess
     ),
     .road_high_abs_g: .init(
-        title: "road_anomaly high: порог max_abs",
-        body: "Порог max(|a_vert|) (g) для road_anomaly high.",
-        more: "Больше → реже high события.",
-        less: "Меньше → чаще high события."
+        titleKey: .tripConfigHelpRoadHighAbsGTitle,
+        bodyKey: .tripConfigHelpRoadHighAbsGBody,
+        moreKey: .tripConfigHelpRoadHighAbsGMore,
+        lessKey: .tripConfigHelpRoadHighAbsGLess
     ),
-
-    // MARK: Scoring core
     .double_count_window_s: .init(
-        title: "Окно подавления double-counting",
-        body: "Если рядом есть combined (accel_in_turn/brake_in_turn), то plain accel/brake/turn в окне ±Δt подавляются, чтобы не штрафовать несколько раз.",
-        more: "Больше → сильнее подавление plain событий рядом с combined → итоговый штраф меньше.",
-        less: "Меньше → чаще будут считаться и combined, и plain вместе → итоговый штраф больше."
+        titleKey: .tripConfigHelpDoubleCountWindowSTitle,
+        bodyKey: .tripConfigHelpDoubleCountWindowSBody,
+        moreKey: .tripConfigHelpDoubleCountWindowSMore,
+        lessKey: .tripConfigHelpDoubleCountWindowSLess
     ),
     .speed_breakpoints_ms: .init(
-        title: "speed_factor: breakpoints_ms",
-        body: "Скоростные точки (м/с), по которым интерполируется коэффициент speedFactor.",
-        more: "Больше значения/разнос → можно сделать рост штрафа более резким на высоких скоростях.",
-        less: "Меньше значения/сжатие → рост штрафа с скоростью будет мягче."
+        titleKey: .tripConfigHelpSpeedBreakpointsMsTitle,
+        bodyKey: .tripConfigHelpSpeedBreakpointsMsBody,
+        moreKey: .tripConfigHelpSpeedBreakpointsMsMore,
+        lessKey: .tripConfigHelpSpeedBreakpointsMsLess
     ),
     .speed_factors: .init(
-        title: "speed_factor: factors",
-        body: "Коэффициенты speedFactor для соответствующих breakpoints_ms. Должны быть той же длины.",
-        more: "Больше → события на этих скоростях штрафуются сильнее.",
-        less: "Меньше → события на этих скоростях штрафуются слабее."
+        titleKey: .tripConfigHelpSpeedFactorsTitle,
+        bodyKey: .tripConfigHelpSpeedFactorsBody,
+        moreKey: .tripConfigHelpSpeedFactorsMore,
+        lessKey: .tripConfigHelpSpeedFactorsLess
     ),
-
-    // MARK: Penalties
     .penalty_accel_sharp: .init(
-        title: "Penalty: accel sharp",
-        body: "Базовый штраф за accel класса sharp (до умножения на speedFactor).",
-        more: "Больше → accel_sharp сильнее снижает score.",
-        less: "Меньше → accel_sharp слабее влияет."
+        titleKey: .tripConfigHelpPenaltyAccelSharpTitle,
+        bodyKey: .tripConfigHelpPenaltyAccelSharpBody,
+        moreKey: .tripConfigHelpPenaltyAccelSharpMore,
+        lessKey: .tripConfigHelpPenaltyAccelSharpLess
     ),
     .penalty_accel_emergency: .init(
-        title: "Penalty: accel emergency",
-        body: "Базовый штраф за accel emergency.",
-        more: "Больше → emergency ускорения сильнее наказываются.",
-        less: "Меньше → emergency ускорения слабее наказываются."
+        titleKey: .tripConfigHelpPenaltyAccelEmergencyTitle,
+        bodyKey: .tripConfigHelpPenaltyAccelEmergencyBody,
+        moreKey: .tripConfigHelpPenaltyAccelEmergencyMore,
+        lessKey: .tripConfigHelpPenaltyAccelEmergencyLess
     ),
     .penalty_brake_sharp: .init(
-        title: "Penalty: brake sharp",
-        body: "Базовый штраф за brake sharp.",
-        more: "Больше → резкие торможения сильнее снижают score.",
-        less: "Меньше → слабее снижают score."
+        titleKey: .tripConfigHelpPenaltyBrakeSharpTitle,
+        bodyKey: .tripConfigHelpPenaltyBrakeSharpBody,
+        moreKey: .tripConfigHelpPenaltyBrakeSharpMore,
+        lessKey: .tripConfigHelpPenaltyBrakeSharpLess
     ),
     .penalty_brake_emergency: .init(
-        title: "Penalty: brake emergency",
-        body: "Базовый штраф за brake emergency.",
-        more: "Больше → аварийные торможения сильнее наказываются.",
-        less: "Меньше → аварийные торможения слабее наказываются."
+        titleKey: .tripConfigHelpPenaltyBrakeEmergencyTitle,
+        bodyKey: .tripConfigHelpPenaltyBrakeEmergencyBody,
+        moreKey: .tripConfigHelpPenaltyBrakeEmergencyMore,
+        lessKey: .tripConfigHelpPenaltyBrakeEmergencyLess
     ),
     .penalty_turn_sharp: .init(
-        title: "Penalty: turn sharp",
-        body: "Базовый штраф за turn sharp.",
-        more: "Больше → резкие повороты сильнее снижают score.",
-        less: "Меньше → слабее снижают score."
+        titleKey: .tripConfigHelpPenaltyTurnSharpTitle,
+        bodyKey: .tripConfigHelpPenaltyTurnSharpBody,
+        moreKey: .tripConfigHelpPenaltyTurnSharpMore,
+        lessKey: .tripConfigHelpPenaltyTurnSharpLess
     ),
     .penalty_turn_emergency: .init(
-        title: "Penalty: turn emergency",
-        body: "Базовый штраф за turn emergency.",
-        more: "Больше → аварийные повороты сильнее наказываются.",
-        less: "Меньше → аварийные повороты слабее наказываются."
+        titleKey: .tripConfigHelpPenaltyTurnEmergencyTitle,
+        bodyKey: .tripConfigHelpPenaltyTurnEmergencyBody,
+        moreKey: .tripConfigHelpPenaltyTurnEmergencyMore,
+        lessKey: .tripConfigHelpPenaltyTurnEmergencyLess
     ),
     .penalty_accel_in_turn_sharp: .init(
-        title: "Penalty: accel_in_turn sharp",
-        body: "Базовый штраф за accel_in_turn sharp.",
-        more: "Больше → combined accel в повороте сильнее снижает score.",
-        less: "Меньше → слабее влияет."
+        titleKey: .tripConfigHelpPenaltyAccelInTurnSharpTitle,
+        bodyKey: .tripConfigHelpPenaltyAccelInTurnSharpBody,
+        moreKey: .tripConfigHelpPenaltyAccelInTurnSharpMore,
+        lessKey: .tripConfigHelpPenaltyAccelInTurnSharpLess
     ),
     .penalty_accel_in_turn_emergency: .init(
-        title: "Penalty: accel_in_turn emergency",
-        body: "Базовый штраф за accel_in_turn emergency.",
-        more: "Больше → аварийные combined accel сильнее наказываются.",
-        less: "Меньше → слабее наказываются."
+        titleKey: .tripConfigHelpPenaltyAccelInTurnEmergencyTitle,
+        bodyKey: .tripConfigHelpPenaltyAccelInTurnEmergencyBody,
+        moreKey: .tripConfigHelpPenaltyAccelInTurnEmergencyMore,
+        lessKey: .tripConfigHelpPenaltyAccelInTurnEmergencyLess
     ),
     .penalty_brake_in_turn_sharp: .init(
-        title: "Penalty: brake_in_turn sharp",
-        body: "Базовый штраф за brake_in_turn sharp.",
-        more: "Больше → combined brake в повороте сильнее снижает score.",
-        less: "Меньше → слабее влияет."
+        titleKey: .tripConfigHelpPenaltyBrakeInTurnSharpTitle,
+        bodyKey: .tripConfigHelpPenaltyBrakeInTurnSharpBody,
+        moreKey: .tripConfigHelpPenaltyBrakeInTurnSharpMore,
+        lessKey: .tripConfigHelpPenaltyBrakeInTurnSharpLess
     ),
     .penalty_brake_in_turn_emergency: .init(
-        title: "Penalty: brake_in_turn emergency",
-        body: "Базовый штраф за brake_in_turn emergency.",
-        more: "Больше → аварийные combined brake сильнее наказываются.",
-        less: "Меньше → слабее наказываются."
+        titleKey: .tripConfigHelpPenaltyBrakeInTurnEmergencyTitle,
+        bodyKey: .tripConfigHelpPenaltyBrakeInTurnEmergencyBody,
+        moreKey: .tripConfigHelpPenaltyBrakeInTurnEmergencyMore,
+        lessKey: .tripConfigHelpPenaltyBrakeInTurnEmergencyLess
     ),
     .penalty_road_low: .init(
-        title: "Penalty: road_anomaly low",
-        body: "Базовый штраф за road_anomaly severity=low.",
-        more: "Больше → неровности low сильнее снижают score.",
-        less: "Меньше → low неровности почти не влияют."
+        titleKey: .tripConfigHelpPenaltyRoadLowTitle,
+        bodyKey: .tripConfigHelpPenaltyRoadLowBody,
+        moreKey: .tripConfigHelpPenaltyRoadLowMore,
+        lessKey: .tripConfigHelpPenaltyRoadLowLess
     ),
     .penalty_road_high: .init(
-        title: "Penalty: road_anomaly high",
-        body: "Базовый штраф за road_anomaly severity=high.",
-        more: "Больше → сильные неровности сильнее снижают score.",
-        less: "Меньше → high неровности слабее влияют."
+        titleKey: .tripConfigHelpPenaltyRoadHighTitle,
+        bodyKey: .tripConfigHelpPenaltyRoadHighBody,
+        moreKey: .tripConfigHelpPenaltyRoadHighMore,
+        lessKey: .tripConfigHelpPenaltyRoadHighLess
     ),
 ]
 
 
 struct TripConfigView: View {
+    @EnvironmentObject private var languageManager: LanguageManager
+
+    private func t(_ key: LocalizationKey) -> String {
+        languageManager.text(key)
+    }
+
     @State private var overrides: TripConfigOverrides = TripConfigOverridesStorage.load()
     
     @State private var helpKey: ParamKey?
@@ -282,7 +278,7 @@ struct TripConfigView: View {
 
     var body: some View {
         Form {
-            Section("V2: гейты/кулдауны") {
+            Section(t(.tripConfigSectionGatesCooldowns)) {
                 ParamRowDouble("speed_gate_accel_brake_ms", key: .speed_gate_accel_brake_ms, ov: $overrides.speed_gate_accel_brake_ms, helpKey: $helpKey)
                 ParamRowDouble("speed_gate_turn_ms", key: .speed_gate_turn_ms, ov: $overrides.speed_gate_turn_ms, helpKey: $helpKey)
                 ParamRowDouble("speed_gate_combined_ms", key: .speed_gate_combined_ms, ov: $overrides.speed_gate_combined_ms, helpKey: $helpKey)
@@ -293,7 +289,7 @@ struct TripConfigView: View {
                 ParamRowDouble("cooldown_road_s", key: .cooldown_road_s, ov: $overrides.cooldown_road_s, helpKey: $helpKey)
             }
 
-            Section("V2: пороги") {
+            Section(t(.tripConfigSectionThresholds)) {
                 ParamRowDouble("accel_sharp_g", key: .accel_sharp_g, ov: $overrides.accel_sharp_g, helpKey: $helpKey)
                 ParamRowDouble("accel_emergency_g", key: .accel_emergency_g, ov: $overrides.accel_emergency_g, helpKey: $helpKey)
                 ParamRowDouble("brake_sharp_g", key: .brake_sharp_g, ov: $overrides.brake_sharp_g, helpKey: $helpKey)
@@ -303,13 +299,13 @@ struct TripConfigView: View {
                 ParamRowDouble("turn_emergency_lat_g", key: .turn_emergency_lat_g, ov: $overrides.turn_emergency_lat_g, helpKey: $helpKey)
             }
 
-            Section("Scoring") {
+            Section(t(.tripConfigSectionScoring)) {
                 ParamRowDouble("double_count_window_s", key: .double_count_window_s, ov: $overrides.double_count_window_s, helpKey: $helpKey)
                 ParamRowArray("speed_factor.breakpoints_ms", key: .speed_breakpoints_ms, ov: $overrides.speed_breakpoints_ms, helpKey: $helpKey)
                 ParamRowArray("speed_factor.factors", key: .speed_factors, ov: $overrides.speed_factors, helpKey: $helpKey)
             }
 
-            Section("Scoring: penalty") {
+            Section(t(.tripConfigSectionScoringPenalty)) {
                 ParamRowDouble("penalty.accel.sharp", key: .penalty_accel_sharp, ov: $overrides.penalty_accel_sharp, helpKey: $helpKey)
                 ParamRowDouble("penalty.accel.emergency", key: .penalty_accel_emergency, ov: $overrides.penalty_accel_emergency, helpKey: $helpKey)
                 ParamRowDouble("penalty.brake.sharp", key: .penalty_brake_sharp, ov: $overrides.penalty_brake_sharp, helpKey: $helpKey)
@@ -325,11 +321,11 @@ struct TripConfigView: View {
             }
 
             Section {
-                Button("Сбросить (override = Нет)") {
+                Button(t(.tripConfigResetOverrides)) {
                     overrides = TripConfigOverrides.default()
                     TripConfigOverridesStorage.save(overrides)
                 }
-                Button("Сохранить (для следующей поездки)") {
+                Button(t(.tripConfigSaveForNextTrip)) {
                     TripConfigOverridesStorage.save(overrides)
                     TripConfigOverridesStorage.markSavedNow(overrides)
                     lastSavedText = TripConfigOverridesStorage.lastSavedLabel()
@@ -337,23 +333,23 @@ struct TripConfigView: View {
                 }
 
             }
-            Section("Статус") {
+            Section(t(.tripConfigStatusSection)) {
                 if let lastSavedText {
                     Text(lastSavedText).foregroundColor(.secondary)
                 } else {
-                    Text("Ещё не сохранялось").foregroundColor(.secondary)
+                    Text(t(.tripConfigNeverSaved)).foregroundColor(.secondary)
                 }
             }
 
         }
-        .navigationTitle("Пороги/скоринг")
+        .navigationTitle(t(.tripConfigNavigationTitle))
         .sheet(item: $helpKey) { k in
             HelpSheet(key: k)
         }
-        .alert("Сохранено", isPresented: $showSavedAlert) {
-            Button("OK", role: .cancel) {}
+        .alert(t(.tripConfigSavedAlertTitle), isPresented: $showSavedAlert) {
+            Button(t(.ok), role: .cancel) {}
         } message: {
-            Text(lastSavedText ?? "Настройки сохранены для следующей поездки.")
+            Text(lastSavedText ?? t(.tripConfigSavedForNextTrip))
         }
         
 
@@ -390,13 +386,13 @@ struct ParamRowDouble: View {
                 .buttonStyle(.borderless)
                 .contentShape(Rectangle())
 
-                Toggle("Вручную", isOn: $ov.enabled).labelsHidden()
+                Toggle(LocalizationCatalog.text(.tripConfigManualOverride), isOn: $ov.enabled).labelsHidden()
             }
             if ov.enabled {
-                TextField("Value", value: $ov.value, format: .number)
+                TextField(LocalizationCatalog.text(.tripConfigValuePlaceholder), value: $ov.value, format: .number)
                     .keyboardType(.decimalPad)
             } else {
-                Text("По умолчанию").foregroundColor(.secondary).font(.footnote)
+                Text(LocalizationCatalog.text(.tripConfigDefaultValue)).foregroundColor(.secondary).font(.footnote)
             }
         }
         .padding(.vertical, 4)
@@ -434,10 +430,10 @@ struct ParamRowArray: View {
                 .buttonStyle(.borderless)
                 .contentShape(Rectangle())
 
-                Toggle("Вручную", isOn: $ov.enabled).labelsHidden()
+                Toggle(LocalizationCatalog.text(.tripConfigManualOverride), isOn: $ov.enabled).labelsHidden()
             }
             if ov.enabled {
-                TextField("CSV: 0.0, 5.0, 13.9", text: $csv)
+                TextField(LocalizationCatalog.text(.tripConfigCsvPlaceholder), text: $csv)
                     .textInputAutocapitalization(.never)
                     .autocorrectionDisabled(true)
                     .onChange(of: csv) { nv in
@@ -446,7 +442,7 @@ struct ParamRowArray: View {
                         if !nums.isEmpty { ov.value = nums }
                     }
             } else {
-                Text("По умолчанию").foregroundColor(.secondary).font(.footnote)
+                Text(LocalizationCatalog.text(.tripConfigDefaultValue)).foregroundColor(.secondary).font(.footnote)
             }
         }
         .padding(.vertical, 4)
@@ -463,18 +459,18 @@ struct HelpSheet: View {
                     Text(h.title).font(.headline)
                     Text(h.body)
                     Divider()
-                    Text("Если больше:").font(.subheadline).bold()
+                    Text(LocalizationCatalog.text(.tripConfigIfHigher)).font(.subheadline).bold()
                     Text(h.more)
                     Divider()
-                    Text("Если меньше:").font(.subheadline).bold()
+                    Text(LocalizationCatalog.text(.tripConfigIfLower)).font(.subheadline).bold()
                     Text(h.less)
                 } else {
-                    Text("Описание для этого параметра пока не добавлено.")
+                    Text(LocalizationCatalog.text(.tripConfigMissingHelp))
                 }
                 Spacer()
             }
             .padding()
-            .navigationTitle("Коммент")
+            .navigationTitle(LocalizationCatalog.text(.tripConfigHelpTitle))
         }
     }
 }

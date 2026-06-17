@@ -263,7 +263,7 @@ struct WaterGlassView: View {
     // Spill dynamics
     private let spillCooldown: TimeInterval = 0.10
     private let spillThresholdPx: CGFloat = 0.3          // перелив считаем, когда превысили кромку на 0.5px
-    private let maxSpillPerEvent: CGFloat = 0.030        // максимум потери уровня за один "сплеск"
+    private let maxSpillPerEvent: CGFloat = 0.030        // max level loss per one spill event
     private let spillGain: CGFloat = 4.4                // множитель силы spill относительно overflow/height
     // Sensor-based spill tuning
     private let severityThreshold: Double = 0.05     // lower -> spills easier on bumps

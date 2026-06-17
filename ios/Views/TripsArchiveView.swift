@@ -133,7 +133,7 @@ struct TripsArchiveView: View {
                         
                         VStack(alignment: .leading, spacing: 4) {
                             if FeatureFlags.isDeveloperBuild {
-                                Text("Поездка: \(trip.session_id)")
+                                Text(String(format: t(.tripIdFormat), trip.session_id))
                                     .font(.footnote)
                                     .lineLimit(1)
                             }

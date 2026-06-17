@@ -142,7 +142,7 @@ final class JSONVideoArchiveStore: VideoArchiveStore {
         }
 
         guard let result else {
-            throw DashcamError.unknown("Не удалось добавить завершённый сегмент в архив")
+            throw DashcamError.unknown(LocalizationCatalog.text(.dashcamAddCompletedSegmentFailed))
         }
 
         return result

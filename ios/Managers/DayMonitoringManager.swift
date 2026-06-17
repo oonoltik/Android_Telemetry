@@ -103,7 +103,7 @@ final class DayMonitoringManager: ObservableObject {
 
     private func startMotionActivity() {
         guard CMMotionActivityManager.isActivityAvailable() else {
-            lastActivityText = "Activity недоступен"
+            lastActivityText = LocalizationCatalog.text(.activityUnavailable)
             return
         }
 
